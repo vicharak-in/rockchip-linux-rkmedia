@@ -4,8 +4,10 @@
 
 #include <algorithm>
 #include <condition_variable>
+#include <fcntl.h>
 #include <mutex>
 #include <string>
+#include <unistd.h>
 
 #include "encoder.h"
 #include "image.h"
@@ -82,6 +84,7 @@ typedef struct _RkmediaChannel {
   std::mutex buffer_mtx;
   std::condition_variable buffer_cond;
   bool buffer_cond_quit;
+  int wake_fd[2];
   std::list<MEDIA_BUFFER> buffer_list;
 
   // used for venc osd.
@@ -130,6 +133,21 @@ std::mutex g_adec_mtx;
 RkmediaChannel g_vo_chns[RGA_MAX_CHN_NUM];
 std::mutex g_vo_mtx;
 
+static inline void RkmediaPushPipFd(int fd) {
+  int i = 0;
+  ssize_t count = write(fd, &i, sizeof(i));
+  if (count < 0)
+    LOG("ERROR: %s: write(%d) failed: %s\n", __func__, fd, strerror(errno));
+}
+
+static inline void RkmediaPopPipFd(int fd) {
+  int i = 0;
+  ssize_t read_size = (ssize_t)sizeof(i);
+  ssize_t ret = read(fd, &i, sizeof(i));
+  if (ret != read_size)
+    LOG("ERROR: %s: Read(%d) failed: %s\n", __func__, fd, strerror(errno));
+}
+
 static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
   if (!ptrChn || !buffer)
     return -1;
@@ -143,17 +161,25 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
     MEDIA_BUFFER mb = ptrChn->buffer_list.front();
     ptrChn->buffer_list.pop_front();
     RK_MPI_MB_ReleaseBuffer(mb);
+    if (ptrChn->wake_fd[0] > 0)
+      RkmediaPopPipFd(ptrChn->wake_fd[0]);
   } else if (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_LIMIT) {
     LOG("WARN: Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
         ptrChn->mode_id, ptrChn->chn_id);
     MEDIA_BUFFER mb = ptrChn->buffer_list.front();
     ptrChn->buffer_list.pop_front();
     RK_MPI_MB_ReleaseBuffer(mb);
+    if (ptrChn->wake_fd[0] > 0)
+      RkmediaPopPipFd(ptrChn->wake_fd[0]);
   }
-  if (!ptrChn->buffer_cond_quit)
+  if (!ptrChn->buffer_cond_quit) {
     ptrChn->buffer_list.push_back(buffer);
-  else
+    if (ptrChn->wake_fd[1] > 0)
+      RkmediaPushPipFd(ptrChn->wake_fd[1]);
+  } else {
     RK_MPI_MB_ReleaseBuffer(buffer);
+  }
+
   ptrChn->buffer_cond.notify_all();
   ptrChn->buffer_mtx.unlock();
   pthread_yield();
@@ -185,6 +211,8 @@ static MEDIA_BUFFER RkmediaChnPopBuffer(RkmediaChannel *ptrChn,
 
   MEDIA_BUFFER mb = NULL;
   if (!ptrChn->buffer_list.empty()) {
+    if (ptrChn->wake_fd[0] > 0)
+      RkmediaPopPipFd(ptrChn->wake_fd[0]);
     mb = ptrChn->buffer_list.front();
     ptrChn->buffer_list.pop_front();
   }
@@ -1485,7 +1513,11 @@ static RK_S32 RkmediaCreateJpegSnapPipeline(RkmediaChannel *VenChn) {
   if (bEnableRga)
     VenChn->rkmedia_flow_list.push_back(video_rga_flow);
   VenChn->rkmedia_flow_list.push_back(video_jpeg_flow);
-
+  if (pipe2(VenChn->wake_fd, O_CLOEXEC) == -1) {
+    VenChn->wake_fd[0] = 0;
+    VenChn->wake_fd[1] = 0;
+    LOG("WARN: %s Create pipe failed!\n");
+  }
   VenChn->status = CHN_STATUS_OPEN;
 
   return RK_ERR_SYS_OK;
@@ -1731,6 +1763,11 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, VENC_CHN_ATTR_S *stVencChnAttr) {
   RkmediaChnInitBuffer(&g_venc_chns[VeChn]);
   g_venc_chns[VeChn].rkmedia_flow->SetOutputCallBack(&g_venc_chns[VeChn],
                                                      FlowOutputCallback);
+  if (pipe2(g_venc_chns[VeChn].wake_fd, O_CLOEXEC) == -1) {
+    g_venc_chns[VeChn].wake_fd[0] = 0;
+    g_venc_chns[VeChn].wake_fd[1] = 0;
+    LOG("WARN: %s Create pipe failed!\n");
+  }
   g_venc_chns[VeChn].status = CHN_STATUS_OPEN;
   g_venc_mtx.unlock();
   LOG("\n%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG, __func__, VeChn,
@@ -1880,7 +1917,11 @@ RK_S32 RK_MPI_VENC_CreateJpegLightChn(VENC_CHN VeChn,
 
   g_venc_chns[VeChn].rkmedia_flow = video_jpeg_flow;
   g_venc_chns[VeChn].rkmedia_flow_list.push_back(video_jpeg_flow);
-
+  if (pipe2(g_venc_chns[VeChn].wake_fd, O_CLOEXEC) == -1) {
+    g_venc_chns[VeChn].wake_fd[0] = 0;
+    g_venc_chns[VeChn].wake_fd[1] = 0;
+    LOG("WARN: %s Create pipe failed!\n");
+  }
   g_venc_chns[VeChn].status = CHN_STATUS_OPEN;
   g_venc_mtx.unlock();
 
@@ -2226,10 +2267,34 @@ RK_S32 RK_MPI_VENC_DestroyChn(VENC_CHN VeChn) {
   }
   RkmediaChnClearBuffer(&g_venc_chns[VeChn]);
   g_venc_chns[VeChn].status = CHN_STATUS_CLOSED;
+  if (g_venc_chns[VeChn].wake_fd[0] > 0) {
+    close(g_venc_chns[VeChn].wake_fd[0]);
+    g_venc_chns[VeChn].wake_fd[0] = 0;
+  }
+  if (g_venc_chns[VeChn].wake_fd[1] > 0) {
+    close(g_venc_chns[VeChn].wake_fd[1]);
+    g_venc_chns[VeChn].wake_fd[1] = 0;
+  }
   g_venc_mtx.unlock();
   LOG("\n%s %s: Disable VENC[%d] End...\n", LOG_TAG, __func__, VeChn);
 
   return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_VENC_GetFd(VENC_CHN VeChn) {
+  if ((VeChn < 0) || (VeChn >= VENC_MAX_CHN_NUM))
+    return -RK_ERR_VENC_INVALID_CHNID;
+
+  int rcv_fd = 0;
+  g_venc_mtx.lock();
+  if (g_venc_chns[VeChn].status < CHN_STATUS_OPEN) {
+    g_venc_mtx.unlock();
+    return -RK_ERR_VENC_NOTREADY;
+  }
+  rcv_fd = g_venc_chns[VeChn].wake_fd[0];
+  g_venc_mtx.unlock();
+
+  return rcv_fd;
 }
 
 RK_S32 RK_MPI_VENC_SetGopMode(VENC_CHN VeChn, VENC_GOP_ATTR_S *pstGopModeAttr) {
