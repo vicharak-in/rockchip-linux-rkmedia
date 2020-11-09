@@ -53,6 +53,8 @@ typedef struct _RkmediaAENCAttr { AENC_CHN_ATTR_S attr; } RkmediaAENCAttr;
 
 typedef struct _RkmediaADECAttr { ADEC_CHN_ATTR_S attr; } RkmediaADECAttr;
 
+typedef struct _RkmediaVDECAttr { VDEC_CHN_ATTR_S attr; } RkmediaVDECAttr;
+
 typedef ALGO_MD_ATTR_S RkmediaMDAttr;
 typedef ALGO_OD_ATTR_S RkmediaODAttr;
 typedef VO_CHN_ATTR_S RkmediaVOAttr;
@@ -85,6 +87,7 @@ typedef struct _RkmediaChannel {
     RkmediaODAttr od_attr;
     RkmediaADECAttr adec_attr;
     RkmediaVOAttr vo_attr;
+    RkmediaVDECAttr vdec_attr;
   };
   RK_U16 bind_ref;
   std::mutex buffer_mtx;
@@ -136,8 +139,11 @@ std::mutex g_rga_mtx;
 RkmediaChannel g_adec_chns[ADEC_MAX_CHN_NUM];
 std::mutex g_adec_mtx;
 
-RkmediaChannel g_vo_chns[RGA_MAX_CHN_NUM];
+RkmediaChannel g_vo_chns[VO_MAX_CHN_NUM];
 std::mutex g_vo_mtx;
+
+RkmediaChannel g_vdec_chns[VDEC_MAX_CHN_NUM];
+std::mutex g_vdec_mtx;
 
 static inline void RkmediaPushPipFd(int fd) {
   int i = 0;
@@ -285,7 +291,7 @@ RK_S32 RK_MPI_SYS_Init() {
   Reset_Channel_Table(g_rga_chns, RGA_MAX_CHN_NUM, RK_ID_RGA);
   Reset_Channel_Table(g_adec_chns, ADEC_MAX_CHN_NUM, RK_ID_ADEC);
   Reset_Channel_Table(g_vo_chns, VO_MAX_CHN_NUM, RK_ID_VO);
-
+  Reset_Channel_Table(g_vdec_chns, VDEC_MAX_CHN_NUM, RK_ID_VDEC);
   return RK_ERR_SYS_OK;
 }
 
@@ -354,6 +360,10 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
     src = g_adec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_adec_chns[pstSrcChn->s32ChnId];
     break;
+  case RK_ID_VDEC:
+    src = g_vdec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
+    src_chn = &g_vdec_chns[pstSrcChn->s32ChnId];
+    break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
   }
@@ -396,6 +406,10 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   case RK_ID_VO:
     sink = g_vo_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vo_chns[pstDestChn->s32ChnId];
+    break;
+  case RK_ID_VDEC:
+    sink = g_vdec_chns[pstDestChn->s32ChnId].rkmedia_flow;
+    dst_chn = &g_vdec_chns[pstDestChn->s32ChnId];
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -465,6 +479,10 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
     src = g_adec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_adec_chns[pstSrcChn->s32ChnId];
     break;
+  case RK_ID_VDEC:
+    src = g_vdec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
+    src_chn = &g_vdec_chns[pstSrcChn->s32ChnId];
+    break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
   }
@@ -519,6 +537,10 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
   case RK_ID_VO:
     sink = g_vo_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vo_chns[pstDestChn->s32ChnId];
+    break;
+  case RK_ID_VDEC:
+    sink = g_vdec_chns[pstDestChn->s32ChnId].rkmedia_flow;
+    dst_chn = &g_vdec_chns[pstDestChn->s32ChnId];
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -688,6 +710,9 @@ RK_S32 RK_MPI_SYS_RegisterOutCb(const MPP_CHN_S *pstChn, OutCbFunc cb) {
   case RK_ID_VO:
     target_chn = &g_vo_chns[pstChn->s32ChnId];
     break;
+  case RK_ID_VDEC:
+    target_chn = &g_vdec_chns[pstChn->s32ChnId];
+    break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
   }
@@ -855,6 +880,13 @@ MEDIA_BUFFER RK_MPI_SYS_GetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
     }
     target_chn = &g_adec_chns[s32ChnID];
     break;
+  case RK_ID_VDEC:
+    if (s32ChnID < 0 || s32ChnID > VDEC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return NULL;
+    }
+    target_chn = &g_vdec_chns[s32ChnID];
+    break;
   default:
     LOG("ERROR: %s invalid modeID[%d]\n", __func__, enModID);
     return NULL;
@@ -923,6 +955,12 @@ RK_S32 RK_MPI_SYS_SendMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
       return -RK_ERR_SYS_ILLEGAL_PARAM;
     target_chn = &g_vo_chns[s32ChnID];
     target_mutex = &g_vo_mtx;
+    break;
+  case RK_ID_VDEC:
+    if (s32ChnID < 0 || s32ChnID > VDEC_MAX_CHN_NUM)
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    target_chn = &g_vdec_chns[s32ChnID];
+    target_mutex = &g_vdec_mtx;
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -4461,6 +4499,108 @@ RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn) {
   g_vo_chns[VoChn].rkmedia_flow.reset();
   g_vo_chns[VoChn].status = CHN_STATUS_CLOSED;
   g_vo_mtx.unlock();
+
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
+  if ((VdChn < 0) || (VdChn >= VDEC_MAX_CHN_NUM))
+    return -RK_ERR_VDEC_INVALID_DEVID;
+
+  if (!pstAttr)
+    return -RK_ERR_VDEC_ILLEGAL_PARAM;
+
+  g_vdec_mtx.lock();
+  if (g_vdec_chns[VdChn].status != CHN_STATUS_CLOSED) {
+    g_vdec_mtx.unlock();
+    return -RK_ERR_VDEC_EXIST;
+  }
+
+  LOG("\n%s %s: Enable VDEC[%d] Start...\n", LOG_TAG, __func__, VdChn);
+  std::string flow_name;
+  std::string flow_param;
+  std::shared_ptr<easymedia::Flow> video_decoder_flow;
+
+  memcpy(&g_vdec_chns[VdChn].vdec_attr.attr, pstAttr, sizeof(VDEC_CHN_ATTR_S));
+
+  int split = 0;
+  int timeout = -1;
+  flow_name = "video_dec";
+  flow_param = "";
+  if (pstAttr->enDecodecMode == VIDEO_DECODEC_HADRWARE) {
+    PARAM_STRING_APPEND(flow_param, KEY_NAME, "rkmpp");
+    if (pstAttr->enCodecType == RK_CODEC_TYPE_H264) {
+      // if timeout is MPP_POLL_BLOCK, some codec need a whole key frame with
+      // extradata, such as, h264 need spspps+I frame as once input
+      timeout = 0;
+    }
+  } else if (pstAttr->enDecodecMode == VIDEO_DECODEC_SOFTWARE) {
+    PARAM_STRING_APPEND(flow_param, KEY_NAME, "ffmpeg_vid");
+    PARAM_STRING_APPEND(flow_param, KEK_THREAD_SYNC_MODEL, KEY_SYNC);
+  }
+
+  PARAM_STRING_APPEND(flow_param, KEY_INPUTDATATYPE,
+                      CodecToString(pstAttr->enCodecType));
+  PARAM_STRING_APPEND(flow_param, KEY_OUTPUTDATATYPE,
+                      ImageTypeToString(pstAttr->enImageType));
+  std::string dec_param = "";
+  PARAM_STRING_APPEND(dec_param, KEY_INPUTDATATYPE,
+                      CodecToString(pstAttr->enCodecType));
+
+  switch (pstAttr->enMode) {
+  case VIDEO_MODE_STREAM:
+    if (pstAttr->enCodecType == RK_CODEC_TYPE_MJPEG) {
+      split = 0;
+    } else {
+      split = 1;
+    }
+    break;
+  case VIDEO_MODE_FRAME:
+    split = 0;
+    break;
+  case VIDEO_MODE_COMPAT:
+    LOG("VIDEO_MODE_COMPAT not support now.\n");
+    break;
+  default:
+    break;
+  }
+
+  PARAM_STRING_APPEND_TO(dec_param, KEY_MPP_SPLIT_MODE, split);
+  PARAM_STRING_APPEND_TO(dec_param, KEY_OUTPUT_TIMEOUT, timeout);
+
+  flow_param = easymedia::JoinFlowParam(flow_param, 1, dec_param);
+  LOG("\n#VDEC: flow param:\n%s\n", flow_param.c_str());
+  video_decoder_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
+      flow_name.c_str(), flow_param.c_str());
+  if (!video_decoder_flow) {
+    LOG("ERROR: [%s]: Create flow %s failed\n", __func__, flow_name.c_str());
+    g_vdec_mtx.unlock();
+    g_vdec_chns[VdChn].status = CHN_STATUS_CLOSED;
+    return -RK_ERR_VDEC_ILLEGAL_PARAM;
+  }
+  g_vdec_chns[VdChn].rkmedia_flow = video_decoder_flow;
+  RkmediaChnInitBuffer(&g_vdec_chns[VdChn]);
+  g_vdec_chns[VdChn].status = CHN_STATUS_OPEN;
+  g_vdec_chns[VdChn].rkmedia_flow->SetOutputCallBack(&g_vdec_chns[VdChn],
+                                                     FlowOutputCallback);
+  g_vdec_mtx.unlock();
+  LOG("\n%s %s: Enable VDEC[%d] End!\n", LOG_TAG, __func__, VdChn);
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_VDEC_DestroyChn(VDEC_CHN VdChn) {
+  if ((VdChn < 0) || (VdChn >= VO_MAX_CHN_NUM))
+    return -RK_ERR_VDEC_INVALID_DEVID;
+
+  g_vdec_mtx.lock();
+  if (g_vdec_chns[VdChn].status == CHN_STATUS_BIND) {
+    g_vdec_mtx.unlock();
+    return -RK_ERR_VDEC_BUSY;
+  }
+
+  g_vdec_chns[VdChn].rkmedia_flow.reset();
+  g_vdec_chns[VdChn].status = CHN_STATUS_CLOSED;
+  g_vdec_mtx.unlock();
 
   return RK_ERR_SYS_OK;
 }

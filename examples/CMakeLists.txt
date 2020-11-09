@@ -365,6 +365,15 @@ target_include_directories(rkmedia_rga_crop_venc_test PRIVATE ${CMAKE_SOURCE_DIR
 install(TARGETS rkmedia_rga_crop_venc_test RUNTIME DESTINATION "bin")
 endif()
 
+#--------------------------
+#  rkmedia_vdec_test
+#--------------------------
+add_executable(rkmedia_vdec_test rkmedia_vdec_test.c ${COMMON_SRC})
+add_dependencies(rkmedia_vdec_test easymedia)
+target_link_libraries(rkmedia_vdec_test easymedia)
+target_include_directories(rkmedia_vdec_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+install(TARGETS rkmedia_vdec_test RUNTIME DESTINATION "bin")
+
 option(COMPILES_UINT_TEST "Enable unit tests" OFF)
 if(COMPILES_UINT_TEST)
   add_subdirectory(uintTest)

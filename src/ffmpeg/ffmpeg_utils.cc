@@ -31,6 +31,31 @@ enum AVPixelFormat PixFmtToAVPixFmt(PixelFormat fmt) {
   return AV_PIX_FMT_NONE;
 }
 
+PixelFormat AVPixFmtToPixFmt(enum AVPixelFormat av_fmt) {
+  static const struct AVPFPixFmtEntry {
+    enum AVPixelFormat av_fmt;
+    PixelFormat fmt;
+  } av_pixfmt_pix_fmt_map[] = {
+      {AV_PIX_FMT_YUV420P, PIX_FMT_YUV420P},
+      {AV_PIX_FMT_NV12, PIX_FMT_NV12},
+      {AV_PIX_FMT_NV21, PIX_FMT_NV21},
+      {AV_PIX_FMT_YUV422P16LE, PIX_FMT_YUV422P},
+      {AV_PIX_FMT_NV16, PIX_FMT_NV16},
+      {AV_PIX_FMT_NONE, PIX_FMT_NV61},
+      {AV_PIX_FMT_YUYV422, PIX_FMT_YUYV422},
+      {AV_PIX_FMT_UYVY422, PIX_FMT_UYVY422},
+      {AV_PIX_FMT_RGB8, PIX_FMT_RGB332},
+      {AV_PIX_FMT_RGB565LE, PIX_FMT_RGB565},
+      {AV_PIX_FMT_BGR565LE, PIX_FMT_BGR565},
+      {AV_PIX_FMT_BGR24, PIX_FMT_RGB888},
+      {AV_PIX_FMT_RGB24, PIX_FMT_BGR888},
+      {AV_PIX_FMT_BGRA, PIX_FMT_ARGB8888},
+      {AV_PIX_FMT_RGBA, PIX_FMT_ABGR8888},
+  };
+  FIND_ENTRY_TARGET(av_fmt, av_pixfmt_pix_fmt_map, av_fmt, fmt)
+  return PIX_FMT_NB;
+}
+
 enum AVCodecID SampleFmtToAVCodecID(SampleFormat fmt) {
   static const struct SampleFmtAVCodecIDEntry {
     SampleFormat fmt;
@@ -57,6 +82,7 @@ enum AVCodecID CodecTypeToAVCodecID(CodecType type) {
       {CODEC_TYPE_G726, AV_CODEC_ID_ADPCM_G726},
       {CODEC_TYPE_H264, AV_CODEC_ID_H264},
       {CODEC_TYPE_H265, AV_CODEC_ID_H265},
+      {CODEC_TYPE_JPEG, AV_CODEC_ID_MJPEG},
   };
   FIND_ENTRY_TARGET(type, codec_type_av_codecid_map, type, av_codecid)
   return AV_CODEC_ID_NONE;

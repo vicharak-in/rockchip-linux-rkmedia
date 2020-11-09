@@ -54,7 +54,7 @@ typedef enum {
 #define RK_SUCCESS 0
 #define RK_FAILURE (-1)
 
-#define MAX_FILE_PATH_LEN    256
+#define MAX_FILE_PATH_LEN 256
 
 typedef enum rk_IMAGE_TYPE_E {
   IMAGE_TYPE_UNKNOW = 0,
@@ -278,6 +278,18 @@ enum {
   RK_ERR_VO_BUF_EMPTY,
   RK_ERR_VO_ILLEGAL_PARAM,
   RK_ERR_VO_NOTREADY,
+
+  /***********************************
+   * VDEC::Video Output error types
+   **********************************/
+  RK_ERR_VDEC_INVALID_DEVID = 120,
+  RK_ERR_VDEC_BUSY,
+  RK_ERR_VDEC_EXIST,
+  RK_ERR_VDEC_NOT_CONFIG,
+  RK_ERR_VDEC_TIMEOUT,
+  RK_ERR_VDEC_BUF_EMPTY,
+  RK_ERR_VDEC_ILLEGAL_PARAM,
+  RK_ERR_VDEC_NOTREADY,
 
   RK_ERR_BUIT,
 };

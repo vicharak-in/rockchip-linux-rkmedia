@@ -17,6 +17,7 @@ extern "C" {
 #include "rkmedia_move_detection.h"
 #include "rkmedia_occlusion_detection.h"
 #include "rkmedia_rga.h"
+#include "rkmedia_vdec.h"
 #include "rkmedia_venc.h"
 #include "rkmedia_vi.h"
 #include "rkmedia_vo.h"
@@ -32,10 +33,12 @@ extern "C" {
 #define ALGO_OD_MAX_CHN_NUM VI_MAX_CHN_NUM
 #define RGA_MAX_CHN_NUM 16
 #define VO_MAX_CHN_NUM 2
+#define VDEC_MAX_CHN_NUM 16
 
 typedef RK_S32 VI_PIPE;
 typedef RK_S32 VI_CHN;
 typedef RK_S32 VENC_CHN;
+typedef RK_S32 VDEC_CHN;
 typedef RK_S32 AI_CHN;
 typedef RK_S32 AO_CHN;
 typedef RK_S32 AENC_CHN;
@@ -221,6 +224,12 @@ _CAPI RK_S32 RK_MPI_VO_GetChnAttr(VO_CHN VoChn, VO_CHN_ATTR_S *pstAttr);
 _CAPI RK_S32 RK_MPI_VO_SetChnAttr(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr);
 _CAPI RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn);
 
+/********************************************************************
+ * VDEC api
+ ********************************************************************/
+_CAPI RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn,
+                                   const VDEC_CHN_ATTR_S *pstAttr);
+_CAPI RK_S32 RK_MPI_VDEC_DestroyChn(VDEC_CHN VdChn);
 #ifdef __cplusplus
 }
 #endif
