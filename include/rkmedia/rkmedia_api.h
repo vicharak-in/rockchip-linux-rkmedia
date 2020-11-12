@@ -75,8 +75,8 @@ _CAPI MEDIA_BUFFER RK_MPI_SYS_GetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
  ********************************************************************/
 _CAPI RK_S32 RK_MPI_VI_SetChnAttr(VI_PIPE ViPipe, VI_CHN ViChn,
                                   const VI_CHN_ATTR_S *pstChnAttr);
-_CAPI RK_S32 RK_MPI_VI_DisableChn(VI_PIPE ViPipe, VI_CHN ViChn);
 _CAPI RK_S32 RK_MPI_VI_EnableChn(VI_PIPE ViPipe, VI_CHN ViChn);
+_CAPI RK_S32 RK_MPI_VI_DisableChn(VI_PIPE ViPipe, VI_CHN ViChn);
 _CAPI RK_S32 RK_MPI_VI_StartRegionLuma(VI_CHN ViChn);
 _CAPI RK_S32 RK_MPI_VI_StopRegionLuma(VI_CHN ViChn);
 _CAPI RK_S32 RK_MPI_VI_GetChnRegionLuma(

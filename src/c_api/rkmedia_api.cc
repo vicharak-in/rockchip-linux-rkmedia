@@ -990,8 +990,13 @@ RK_S32 RK_MPI_VI_EnableChn(VI_PIPE ViPipe, VI_CHN ViChn) {
                       g_vi_chns[ViChn].vi_attr.attr.pcVideoNode);
   PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
                       KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
-                      KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+  if (g_vi_chns[ViChn].vi_attr.attr.enBufType == VI_CHN_BUF_TYPE_MMAP) {
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                        KEY_V4L2_M_TYPE(MEMORY_MMAP));
+  } else {
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                        KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+  }
   PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
                          g_vi_chns[ViChn].vi_attr.attr.u32BufCnt);
   PARAM_STRING_APPEND(
