@@ -2832,6 +2832,36 @@ RK_S32 RK_MPI_VENC_GetFd(VENC_CHN VeChn) {
   return rcv_fd;
 }
 
+RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VeChn, VENC_CHN_STATUS_S *pstStatus) {
+  if ((VeChn < 0) || (VeChn > VENC_MAX_CHN_NUM))
+    return -RK_ERR_VENC_INVALID_CHNID;
+
+  if (!pstStatus)
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+
+  g_venc_mtx.lock();
+  if ((g_venc_chns[VeChn].status < CHN_STATUS_OPEN) ||
+      (!g_venc_chns[VeChn].rkmedia_flow)) {
+    g_venc_mtx.unlock();
+    return -RK_ERR_VENC_NOTREADY;
+  }
+
+  RK_U32 u32BufferTotalCnt = 0;
+  RK_U32 u32BufferUsedCnt = 0;
+  g_venc_chns[VeChn].rkmedia_flow->GetCachedBufferNum(u32BufferTotalCnt,
+                                                      u32BufferUsedCnt);
+  g_venc_mtx.unlock();
+  pstStatus->u32LeftFrames = u32BufferUsedCnt;
+  pstStatus->u32TotalFrames = u32BufferTotalCnt;
+
+  g_venc_chns[VeChn].buffer_mtx.lock();
+  pstStatus->u32TotalPackets = RKMEDIA_CHNNAL_BUFFER_LIMIT;
+  pstStatus->u32LeftPackets = g_venc_chns[VeChn].buffer_list.size();
+  g_venc_chns[VeChn].buffer_mtx.unlock();
+
+  return RK_ERR_SYS_OK;
+}
+
 RK_S32 RK_MPI_VENC_SetGopMode(VENC_CHN VeChn, VENC_GOP_ATTR_S *pstGopModeAttr) {
   if (!pstGopModeAttr)
     return -RK_ERR_VENC_ILLEGAL_PARAM;

@@ -335,6 +335,13 @@ typedef struct rkVENC_RESOLUTION_PARAM_S {
   RK_U32 u32VirHeight;
 } VENC_RESOLUTION_PARAM_S;
 
+typedef struct rkVENC_CHN_STATUS_S {
+  RK_U32 u32LeftFrames; // The number of unencoded frames remaining in the input buffer.
+  RK_U32 u32TotalFrames; // The capacity of the input buffer.
+  RK_U32 u32LeftPackets; // The number of packets remaining in the output buffer that have not been taken.
+  RK_U32 u32TotalPackets; // The capacity of the output buffer.
+} VENC_CHN_STATUS_S;
+
 #ifdef __cplusplus
 }
 #endif

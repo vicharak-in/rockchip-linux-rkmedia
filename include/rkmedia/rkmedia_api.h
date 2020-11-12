@@ -143,7 +143,7 @@ _CAPI RK_S32 RK_MPI_VENC_StartRecvFrame(
     VENC_CHN VeChn, const VENC_RECV_PIC_PARAM_S *pstRecvParam);
 _CAPI RK_S32 RK_MPI_VENC_DestroyChn(VENC_CHN VeChn);
 _CAPI RK_S32 RK_MPI_VENC_GetFd(VENC_CHN VeChn);
-
+_CAPI RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VeChn, VENC_CHN_STATUS_S *pstStatus);
 /********************************************************************
  * Ai api
  ********************************************************************/
