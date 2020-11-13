@@ -45,6 +45,9 @@ int main(int argc, char *argv[]) {
   SAMPLE_COMM_ISP_Init(hdr_mode, fec_enable, iq_file_dir);
   SAMPLE_COMM_ISP_Run();
   SAMPLE_COMM_ISP_SetFrameRate(fps);
+#else
+  (void)argc;
+  (void)argv;
 #endif
 
   RK_MPI_SYS_Init();
@@ -113,11 +116,11 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  RK_MPI_VO_DestroyChn(0);
+  RK_MPI_VI_DisableChn(0, 0);
 #ifdef RKAIQ
   SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
 #endif
-  RK_MPI_VO_DestroyChn(0);
-  RK_MPI_VI_DisableChn(0, 0);
 
   return 0;
 }

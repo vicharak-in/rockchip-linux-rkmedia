@@ -9,7 +9,7 @@
 
 #include "utils.h"
 
-#if 1
+#ifdef AUDIO_ALGORITHM_ENABLE
 extern "C" {
 #include <AP_AEC.h>
 #include <AP_ANR.h>
@@ -17,13 +17,11 @@ extern "C" {
 
 #define RK_AUDIO_BUFFER_MAX_SIZE 12288
 #define ALGO_FRAME_TIMS_MS 20 // 20ms
-
 typedef struct rkAUDIO_QUEUE_S {
   int buffer_size;
   char *buffer;
   int roffset;
 } AUDIO_QUEUE_S;
-
 struct rkAUDIO_VQE_S {
   AUDIO_QUEUE_S *in_queue;  /* for before process */
   AUDIO_QUEUE_S *out_queue; /* for after process */
@@ -82,7 +80,8 @@ static int queue_read(AUDIO_QUEUE_S *queue, unsigned char *buffer, int bytes) {
 
 static void queue_tune(AUDIO_QUEUE_S *queue) {
   /* Copy the rest of the sample to the beginning of the Buffer */
-  memcpy(queue->buffer, queue->buffer + queue->roffset, queue->buffer_size - queue->roffset);
+  memcpy(queue->buffer, queue->buffer + queue->roffset,
+         queue->buffer_size - queue->roffset);
   queue->buffer_size = queue->buffer_size - queue->roffset;
   queue->roffset = 0;
 }
@@ -104,7 +103,8 @@ int AI_TALKVQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   }
   if (handle->layout != AI_LAYOUT_MIC_REF &&
       handle->layout != AI_LAYOUT_REF_MIC) {
-    LOG("check failed: enAiLayout must be AI_LAYOUT_MIC_REF or AI_LAYOUT_REF_MIC\n");
+    LOG("check failed: enAiLayout must be AI_LAYOUT_MIC_REF or "
+        "AI_LAYOUT_REF_MIC\n");
     return -1;
   }
 
@@ -287,8 +287,7 @@ static int VQE_Process(AUDIO_VQE_S *handle, unsigned char *in,
 bool RK_AUDIO_VQE_Support() { return true; }
 
 AUDIO_VQE_S *RK_AUDIO_VQE_Init(const SampleInfo &sample_info,
-                               AI_LAYOUT_E layout,
-                               VQE_CONFIG_S *config) {
+                               AI_LAYOUT_E layout, VQE_CONFIG_S *config) {
   int ret = -1;
   AUDIO_VQE_S *handle = (AUDIO_VQE_S *)calloc(sizeof(AUDIO_VQE_S), 1);
   if (!handle)
@@ -352,7 +351,8 @@ int RK_AUDIO_VQE_Handle(AUDIO_VQE_S *handle, void *buffer, int bytes) {
     queue_tune(handle->out_queue);
     return 0;
   } else {
-    LOG("%s: queue size %d less than %d\n", __func__, queue_size(handle->out_queue), bytes);
+    LOG("%s: queue size %d less than %d\n", __func__,
+        queue_size(handle->out_queue), bytes);
     return -1;
   }
 }
@@ -376,16 +376,20 @@ void RK_AUDIO_VQE_Deinit(AUDIO_VQE_S *handle) {
     break;
   }
 }
-// void rk_audio_process_bind(AUDIO_VQE_S *tx, AUDIO_VQE_S *rx) {
-//}
 
 #else
+
+struct rkAUDIO_VQE_S {};
 bool RK_AUDIO_VQE_Support() { return false; }
-int RK_AUDIO_VQE_Init(const SampleInfo &sample_info, VQE_CONFIG_S *config) {
+AUDIO_VQE_S *RK_AUDIO_VQE_Init(const SampleInfo &sample_info _UNUSED,
+                               AI_LAYOUT_E layout _UNUSED,
+                               VQE_CONFIG_S *config _UNUSED) {
+  return NULL;
+}
+void RK_AUDIO_VQE_Deinit(AUDIO_VQE_S *handle _UNUSED) {}
+int RK_AUDIO_VQE_Handle(AUDIO_VQE_S *handle _UNUSED, void *buffer _UNUSED,
+                        int bytes _UNUSED) {
   return 0;
 }
-int RK_AUDIO_VQE_Handle(void *buffer _UNUSED, int bytes _UNUSED) {}
-void RK_AUDIO_VQE_Deinit() {}
-void rk_audio_process_bind(AUDIO_VQE_S *tx, AUDIO_VQE_S *rx); // for aec tx rx
 
 #endif

@@ -5,6 +5,7 @@
 #ifndef __SAMPLE_DOUBLE_CAM_ISP_H__
 #define __SAMPLE_DOUBLE_CAM_ISP_H__
 
+#ifdef RKAIQ
 #include <rk_aiq_user_api_imgproc.h>
 #include <rk_aiq_user_api_sysctl.h>
 
@@ -18,4 +19,6 @@ void aiq_double_cam_exit(rk_aiq_sys_ctx_t *ctx);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // RKAIQ
 #endif

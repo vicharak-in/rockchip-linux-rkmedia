@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "common/sample_double_cam_isp.h"
 #include "rkmedia_api.h"
@@ -138,6 +139,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+#ifdef RKAIQ
   rk_aiq_sys_ctx_t *ctx0 =
       aiq_double_cam_init(0, RK_AIQ_WORKING_MODE_NORMAL, iq_dir);
   if (!ctx0)
@@ -146,6 +148,7 @@ int main(int argc, char *argv[]) {
       aiq_double_cam_init(1, RK_AIQ_WORKING_MODE_NORMAL, iq_dir);
   if (!ctx1)
     return -1;
+#endif // RKAIQ
 
   rgb_mb = RK_MPI_MB_CreateImageBuffer(&disp_info, RK_TRUE, 0);
   if (!rgb_mb) {
@@ -285,8 +288,10 @@ int main(int argc, char *argv[]) {
   RK_MPI_MB_ReleaseBuffer(rgb_mb);
   RK_MPI_MB_ReleaseBuffer(ir_mb);
 
+#ifdef RKAIQ
   aiq_double_cam_exit(ctx0);
   aiq_double_cam_exit(ctx1);
+#endif
 
   return 0;
 }

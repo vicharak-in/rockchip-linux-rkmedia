@@ -29,7 +29,7 @@ void video_packet_cb(MEDIA_BUFFER mb) {
   if (g_output_file &&
       ((g_u32FrameCnt == 0) || (packet_cnt++ < g_u32FrameCnt))) {
     fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), g_output_file);
-    printf("write order: %d, size %d\n", packet_cnt, RK_MPI_MB_GetSize(mb));
+    printf("write order: %d, size %zu\n", packet_cnt, RK_MPI_MB_GetSize(mb));
   } else if (!g_output_file) {
     quit = true;
     printf("target file is null, exit!\n");

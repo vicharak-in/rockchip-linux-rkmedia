@@ -166,7 +166,7 @@ std::vector<EncROIRegion> StringToRoiRegions(const std::string &str_regions) {
   std::vector<EncROIRegion> ret;
   const char *start = nullptr;
   if (str_regions.empty())
-    return std::move(ret);
+    return ret;
 
   start = str_regions.c_str();
   while (start) {
@@ -203,7 +203,7 @@ std::vector<EncROIRegion> StringToRoiRegions(const std::string &str_regions) {
     if (r != 9) {
       LOG("ERROR: Fail to sscanf(ret=%d) : %m\n", r);
       ret.clear();
-      return std::move(ret);
+      return ret;
     }
     region.x = (uint16_t)x;
     region.y = (uint16_t)y;
@@ -218,7 +218,7 @@ std::vector<EncROIRegion> StringToRoiRegions(const std::string &str_regions) {
     start = end;
   }
 
-  return std::move(ret);
+  return ret;
 }
 
 std::string to_param_string(const ImageConfig &img_cfg) {

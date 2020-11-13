@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef RKAIQ
+
 #include "sample_double_cam_isp.h"
 
 #define IQFILES_PATH "/etc/iqfiles"
@@ -41,3 +43,5 @@ void aiq_double_cam_exit(rk_aiq_sys_ctx_t *ctx) {
     rk_aiq_uapi_sysctl_deinit(ctx);
   }
 }
+
+#endif

@@ -67,7 +67,7 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t%s "
          "[-i | --input /tmp/1080p.nv12] "
          "[-o | --output /tmp/output.h264] "
-         "[-h | --help] ",
+         "[-h | --help]\n",
          name);
   printf("\t-i | --input: VI height, Default:/tmp/1080p.nv12\n");
   printf("\t-o | --output: VI width, Default:/tmp/output.h264\n");

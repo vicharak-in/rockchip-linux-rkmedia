@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
@@ -361,12 +362,8 @@ int main(int argc, char *argv[]) {
   int main_width = 2688;
   int main_height = 1520;
   int ret = 0;
-  rk_aiq_working_mode_t hdr_mode;
-  RK_BOOL fec_enable;
-  const char *cur_hdr_mode_name;
-  const char *last_hdr_mode_name;
   const char *iq_file_dir = "/oem/etc/iqfiles/";
-  int fps;
+  int fps = 30;
   int c = 0;
 
   opterr = 1;
@@ -405,12 +402,19 @@ int main(int argc, char *argv[]) {
   RK_MPI_SYS_Init();
 
   int test_cnt = 0;
+
+#ifdef RKAIQ
   int hdr_mode_value = 0;
-  cur_hdr_mode_name = NULL;
-  last_hdr_mode_name = NULL;
-  fec_enable = RK_FALSE;
+  rk_aiq_working_mode_t hdr_mode;
+  RK_BOOL fec_enable = RK_FALSE;
+  const char *cur_hdr_mode_name = NULL;
+  const char *last_hdr_mode_name = NULL;
+#endif
+
   while (!quit) {
     srand((unsigned)time(NULL));
+
+#ifdef RKAIQ
     hdr_mode_value = rand() % 3;
     switch (hdr_mode_value) {
     case 0:
@@ -453,6 +457,7 @@ int main(int argc, char *argv[]) {
     SAMPLE_COMM_ISP_Init(hdr_mode, fec_enable, iq_file_dir);
     SAMPLE_COMM_ISP_Run();
     SAMPLE_COMM_ISP_SetFrameRate(fps);
+#endif // RKAIQ
 
     // Main Stream
     StreamInfo stream_info0;
@@ -551,9 +556,6 @@ int main(int argc, char *argv[]) {
         break;
     }
 
-    printf("INFO: Stop ISP...\n");
-    // isp aiq stop before vi streamoff
-    SAMPLE_COMM_ISP_Stop();
     ret = StreamOff(&stream_info0);
     if (ret) {
       printf("ERROR: Main strem off failed!\n");
@@ -570,7 +572,11 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+#ifdef RKAIQ
+    printf("INFO: Stop ISP...\n");
+    SAMPLE_COMM_ISP_Stop();
     last_hdr_mode_name = cur_hdr_mode_name;
+#endif
     test_cnt++;
   }
 

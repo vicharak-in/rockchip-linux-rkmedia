@@ -151,7 +151,7 @@ std::vector<ImageRect> StringToTwoImageRect(const std::string &str_rect) {
   std::vector<ImageRect> ret;
   const char *s = nullptr;
   if (str_rect.empty() || !(s = strstr(str_rect.c_str(), KEY_RIGHT_DIRECTION)))
-    return std::move(ret);
+    return ret;
   const char *args[2] = {str_rect.c_str(), s + sizeof(KEY_RIGHT_DIRECTION) - 1};
   for (int i = 0; i < 2; i++) {
     ImageRect rect = {0, 0, 0, 0};
@@ -160,12 +160,12 @@ std::vector<ImageRect> StringToTwoImageRect(const std::string &str_rect) {
     if (r != 4) {
       LOG("Fail to sscanf(ret=%d) : %m\n", r);
       ret.clear();
-      return std::move(ret);
+      return ret;
     }
     ret.push_back(std::move(rect));
   }
 
-  return std::move(ret);
+  return ret;
 }
 
 std::string ImageRectToString(const ImageRect &src_dst) {
@@ -184,7 +184,7 @@ std::vector<ImageRect> StringToImageRect(const std::string &str_rect) {
   const char *delimiter = nullptr;
 
   if (str_rect.empty())
-    return std::move(ret);
+    return ret;
 
   start = str_rect.c_str();
   while (start) {
@@ -196,7 +196,7 @@ std::vector<ImageRect> StringToImageRect(const std::string &str_rect) {
       else
         delimiter = strstr(delimiter, ",");
       if (!delimiter)
-        return std::move(ret);
+        return ret;
       delimiter += 1;
     }
 
@@ -204,14 +204,14 @@ std::vector<ImageRect> StringToImageRect(const std::string &str_rect) {
     int r = sscanf(start, "(%d,%d,%d,%d)", &rect.x, &rect.y, &rect.w, &rect.h);
     if (r != 4) {
       LOG("Fail to sscanf(ret=%d) : %m\n", r);
-      return std::move(ret);
+      return ret;
     }
 
     ret.push_back(std::move(rect));
     start = strstr(delimiter, "(");
   }
 
-  return std::move(ret);
+  return ret;
 }
 
 } // namespace easymedia

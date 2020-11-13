@@ -15,12 +15,6 @@
 #include "utils.h"
 #include "../rk_audio.h"
 
-extern "C" {
-#define __STDC_CONSTANT_MACROS
-#include <libavutil/mathematics.h>
-#include <libavutil/timestamp.h>
-}
-
 namespace easymedia {
 
 class AlsaCaptureStream : public Stream {
@@ -194,8 +188,7 @@ std::shared_ptr<MediaBuffer> AlsaCaptureStream::Read() {
     struct timespec crt_tm = {0, 0};
     clock_gettime(CLOCK_MONOTONIC, &crt_tm);
     buffer_time = crt_tm.tv_sec * 1000000LL + crt_tm.tv_nsec / 1000;
-    buffer_duration = av_rescale(alsa_sample_info.nb_samples, AV_TIME_BASE,
-                                 alsa_sample_info.sample_rate);
+    buffer_duration = alsa_sample_info.nb_samples * 1000000LL / alsa_sample_info.sample_rate;
   }
 
 read_one_frame:

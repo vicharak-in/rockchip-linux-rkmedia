@@ -143,7 +143,7 @@ split_h264_separate(const uint8_t *buffer, size_t length, int64_t timestamp) {
 
     nal_start = nal_end;
   }
-  return std::move(l);
+  return l;
 }
 
 std::list<std::shared_ptr<MediaBuffer>>
@@ -191,7 +191,7 @@ split_h265_separate(const uint8_t *buffer, size_t length, int64_t timestamp) {
 
     nal_start = nal_end;
   }
-  return std::move(l);
+  return l;
 }
 
 static void *FindNaluByType(std::shared_ptr<MediaBuffer> &mb, int nal_type,

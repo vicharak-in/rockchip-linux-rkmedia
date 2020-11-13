@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+
 static bool quit = false;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
@@ -59,6 +62,7 @@ int main(int argc, char *argv[]) {
       usage(argv[0]);
   }
 
+#ifdef RKAIQ
   rk_aiq_sys_ctx_t *ctx0 =
       aiq_double_cam_init(0, RK_AIQ_WORKING_MODE_NORMAL, iq_dir);
   if (!ctx0)
@@ -67,6 +71,7 @@ int main(int argc, char *argv[]) {
       aiq_double_cam_init(1, RK_AIQ_WORKING_MODE_NORMAL, iq_dir);
   if (!ctx1)
     return -1;
+#endif
 
   RK_MPI_SYS_Init();
   VI_CHN_ATTR_S vi_chn_attr;
@@ -234,7 +239,9 @@ int main(int argc, char *argv[]) {
   RK_MPI_VI_DisableChn(1, 1);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_RGA_DestroyChn(1);
+#ifdef RKAIQ
   aiq_double_cam_exit(ctx0);
   aiq_double_cam_exit(ctx1);
+#endif
   return 0;
 }

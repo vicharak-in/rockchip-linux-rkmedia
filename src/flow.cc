@@ -497,7 +497,7 @@ void Flow::DumpBase(std::string &dump_info) {
       sprintf(str_line, "    InputMode: NONE\r\n");
     dump_info.append(str_line);
     memset(str_line, 0, sizeof(str_line));
-    sprintf(str_line, "    BufferCnt: current:%d, max:%d\r\n",
+    sprintf(str_line, "    BufferCnt: current:%zu, max:%d\r\n",
             input.cached_buffers.size(), input.max_cache_num);
     dump_info.append(str_line);
   }
@@ -511,7 +511,7 @@ void Flow::DumpBase(std::string &dump_info) {
     sprintf(str_line, "    Valid: %s\r\n", fm.valid ? "True" : "False");
     dump_info.append(str_line);
     memset(str_line, 0, sizeof(str_line));
-    sprintf(str_line, "    BufferCnt: %d\r\n", fm.cached_buffers.size());
+    sprintf(str_line, "    BufferCnt: %zu\r\n", fm.cached_buffers.size());
     dump_info.append(str_line);
 
     dump_info.append("    NextFlow: ");
@@ -934,7 +934,7 @@ std::string gen_datatype_rule(std::map<std::string, std::string> &params) {
   PARAM_STRING_APPEND(rule, KEY_INPUTDATATYPE, value);
   CHECK_EMPTY_SETERRNO_RETURN(, value, params, KEY_OUTPUTDATATYPE, , "");
   PARAM_STRING_APPEND(rule, KEY_OUTPUTDATATYPE, value);
-  return std::move(rule);
+  return rule;
 }
 
 Model GetModelByString(const std::string &model) {
@@ -1012,7 +1012,7 @@ std::string JoinFlowParam(const std::string &flow_param, size_t num_elem, ...) {
     ret.append(1, FLOW_PARAM_SEPARATE_CHAR).append(elem_param);
   }
   va_end(va);
-  return std::move(ret);
+  return ret;
 }
 
 std::list<std::string> ParseFlowParamToList(const char *param) {
@@ -1020,7 +1020,7 @@ std::list<std::string> ParseFlowParamToList(const char *param) {
   if (!parse_media_param_list(param, separate_list, FLOW_PARAM_SEPARATE_CHAR) ||
       separate_list.size() < 2)
     separate_list.clear();
-  return std::move(separate_list);
+  return separate_list;
 }
 
 } // namespace easymedia
