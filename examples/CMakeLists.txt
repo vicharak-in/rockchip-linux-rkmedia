@@ -41,6 +41,15 @@ target_include_directories(rkmedia_venc_osd_test PRIVATE ${CMAKE_SOURCE_DIR}/inc
 install(TARGETS rkmedia_venc_osd_test RUNTIME DESTINATION "bin")
 
 #--------------------------
+#  rkmedia_rga_osd_test
+#--------------------------
+add_executable(rkmedia_rga_osd_test rkmedia_rga_osd_test.c ${COMMON_SRC})
+add_dependencies(rkmedia_rga_osd_test easymedia)
+target_link_libraries(rkmedia_rga_osd_test easymedia rga)
+target_include_directories(rkmedia_rga_osd_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+install(TARGETS rkmedia_rga_osd_test RUNTIME DESTINATION "bin")
+
+#--------------------------
 #  rkmedia_audio_test
 #--------------------------
 add_executable(rkmedia_audio_test rkmedia_audio_test.c)
