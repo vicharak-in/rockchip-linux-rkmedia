@@ -15,11 +15,10 @@ typedef struct rkAO_CHN_ATTR_S {
   RK_U32 u32NbSamples;
 } AO_CHN_ATTR_S;
 
-#define AO_VQE_MASK_ANR     0x1
-#define AO_VQE_MASK_AGC     0x2
+#define AO_VQE_MASK_ANR 0x1
+#define AO_VQE_MASK_AGC 0x2
 
-typedef struct rkAO_VQE_CONFIG_S
-{
+typedef struct rkAO_VQE_CONFIG_S {
   RK_U32 u32OpenMask;
   RK_S32 s32WorkSampleRate;
   RK_S32 s32FrameSample;

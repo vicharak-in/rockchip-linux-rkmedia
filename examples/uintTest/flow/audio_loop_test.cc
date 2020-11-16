@@ -25,7 +25,7 @@
 static bool quit = false;
 
 static void sigterm_handler(int sig) {
-  LOG("signal %d\n", sig);
+  RKMEDIA_LOGI("signal %d\n", sig);
   quit = true;
 }
 
@@ -107,18 +107,23 @@ create_audio_filter_flow(SampleInfo &info, std::string filter_name) {
 }
 
 void usage(char *name) {
-  LOG("\nUsage: simple mode\t%s -a default -o  default -s 1 -f S16 -r 8000 -c "
+  RKMEDIA_LOGI(
+      "\nUsage: simple mode\t%s -a default -o  default -s 1 -f S16 -r 8000 -c "
       "1\n",
       name);
-  LOG("\nUsage: complex mode\t%s -a default -o default -f S16 -r 16000 -c 2 -F "
+  RKMEDIA_LOGI(
+      "\nUsage: complex mode\t%s -a default -o default -f S16 -r 16000 -c 2 -F "
       "FLTP -R "
       "48000 -C 1\n",
       name);
-  LOG("\tNOTICE: format: -f -F [U8 S16 S32 FLT U8P S16P S32P FLTP G711A G711U]\n");
-  LOG("\tNOTICE: channels: -c -C [1 2]\n");
-  LOG("\tNOTICE: samplerate: -r -R [8000 16000 24000 32000 441000 48000]\n");
-  LOG("\tNOTICE: capture params: -f -c -r\n");
-  LOG("\tNOTICE: resample params: -F -C -R\n");
+  RKMEDIA_LOGI(
+      "\tNOTICE: format: -f -F [U8 S16 S32 FLT U8P S16P S32P FLTP G711A "
+      "G711U]\n");
+  RKMEDIA_LOGI("\tNOTICE: channels: -c -C [1 2]\n");
+  RKMEDIA_LOGI(
+      "\tNOTICE: samplerate: -r -R [8000 16000 24000 32000 441000 48000]\n");
+  RKMEDIA_LOGI("\tNOTICE: capture params: -f -c -r\n");
+  RKMEDIA_LOGI("\tNOTICE: resample params: -F -C -R\n");
   exit(EXIT_FAILURE);
 }
 
@@ -174,11 +179,11 @@ int main(int argc, char **argv) {
     switch (c) {
     case 'a':
       aud_in_path = optarg;
-      LOG("audio device path: %s\n", aud_in_path.c_str());
+      RKMEDIA_LOGI("audio device path: %s\n", aud_in_path.c_str());
       break;
     case 'o':
       output_path = optarg;
-      LOG("output device path: %s\n", output_path.c_str());
+      RKMEDIA_LOGI("output device path: %s\n", output_path.c_str());
       break;
     case 'f':
       fmt = parseFormat(optarg);
@@ -190,7 +195,7 @@ int main(int argc, char **argv) {
       if (sample_rate != 8000 && sample_rate != 16000 && sample_rate != 24000 &&
           sample_rate != 32000 && sample_rate != 44100 &&
           sample_rate != 48000) {
-        LOG("sorry, sample_rate %d not supported\n", sample_rate);
+        RKMEDIA_LOGI("sorry, sample_rate %d not supported\n", sample_rate);
         usage(argv[0]);
       }
       break;
@@ -212,7 +217,7 @@ int main(int argc, char **argv) {
       if (res_sample_rate != 8000 && res_sample_rate != 16000 &&
           res_sample_rate != 24000 && res_sample_rate != 32000 &&
           res_sample_rate != 44100 && res_sample_rate != 48000) {
-        LOG("sorry, sample_rate %d not supported\n", res_sample_rate);
+        RKMEDIA_LOGI("sorry, sample_rate %d not supported\n", res_sample_rate);
         usage(argv[0]);
       }
       break;
@@ -232,13 +237,13 @@ int main(int argc, char **argv) {
     nb_samples = sample_rate * sample_time_ms / 1000;
     SampleInfo sample_info = {fmt, channels, sample_rate, nb_samples};
 
-    LOG("Loop in simple mode: capture -> playback\n");
+    RKMEDIA_LOGI("Loop in simple mode: capture -> playback\n");
 
     // 1. alsa capture flow
     std::shared_ptr<easymedia::Flow> audio_source_flow =
         create_alsa_flow(aud_in_path, sample_info, true);
     if (!audio_source_flow) {
-      LOG("Create flow alsa_capture_flow failed\n");
+      RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
       exit(EXIT_FAILURE);
     }
 
@@ -246,7 +251,7 @@ int main(int argc, char **argv) {
     std::shared_ptr<easymedia::Flow> audio_sink_flow =
         create_alsa_flow(output_path, sample_info, false);
     if (!audio_sink_flow) {
-      LOG("Create flow alsa_capture_flow failed\n");
+      RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
       exit(EXIT_FAILURE);
     }
     audio_source_flow->AddDownFlow(audio_sink_flow, 0, 0);
@@ -268,14 +273,15 @@ int main(int argc, char **argv) {
   SampleInfo res_sample_info = {res_fmt, res_channels, res_sample_rate,
                                 res_nb_samples};
 
-  LOG("Loop in complex mode: capture -> anr -> resample -> resample -> fifo -> "
+  RKMEDIA_LOGI(
+      "Loop in complex mode: capture -> anr -> resample -> resample -> fifo -> "
       "playback\n");
 
   // 1. alsa capture flow
   std::shared_ptr<easymedia::Flow> audio_source_flow =
       create_alsa_flow(aud_in_path, sample_info, true);
   if (!audio_source_flow) {
-    LOG("Create flow alsa_capture_flow failed\n");
+    RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
     exit(EXIT_FAILURE);
   }
   int volume = 70;
@@ -285,14 +291,14 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> anr_flow =
       create_audio_filter_flow(sample_info, "ANR");
   if (!anr_flow) {
-    LOG("Create flow audio_resample_flow failed\n");
+    RKMEDIA_LOGI("Create flow audio_resample_flow failed\n");
     exit(EXIT_FAILURE);
   }
   // 3. alsa resample
   std::shared_ptr<easymedia::Flow> audio_resample_flow =
       create_audio_filter_flow(res_sample_info, "ffmpeg_resample");
   if (!audio_resample_flow) {
-    LOG("Create flow audio_resample_flow failed\n");
+    RKMEDIA_LOGI("Create flow audio_resample_flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -300,7 +306,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> audio_resample_back_flow =
       create_audio_filter_flow(sample_info, "ffmpeg_resample");
   if (!audio_resample_back_flow) {
-    LOG("Create flow audio_resample_flow failed\n");
+    RKMEDIA_LOGI("Create flow audio_resample_flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -309,7 +315,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> audio_fifo_flow =
       create_audio_filter_flow(sample_info, "ffmpeg_audio_fifo");
   if (!audio_fifo_flow) {
-    LOG("Create flow audio_fifo_flow failed\n");
+    RKMEDIA_LOGI("Create flow audio_fifo_flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -317,7 +323,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> audio_sink_flow =
       create_alsa_flow(output_path, sample_info, false);
   if (!audio_sink_flow) {
-    LOG("Create flow alsa_capture_flow failed\n");
+    RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
     exit(EXIT_FAILURE);
   }
   volume = 60;

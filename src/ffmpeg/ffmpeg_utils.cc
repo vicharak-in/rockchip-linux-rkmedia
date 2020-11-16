@@ -110,9 +110,9 @@ void PrintAVError(int err, const char *log, const char *mark) {
   char str[AV_ERROR_MAX_STRING_SIZE] = {0};
   av_strerror(err, str, sizeof(str));
   if (mark)
-    LOG("%s '%s': %s\n", log, mark, str);
+    RKMEDIA_LOGI("%s '%s': %s\n", log, mark, str);
   else
-    LOG("%s: %s\n", log, str);
+    RKMEDIA_LOGI("%s: %s\n", log, str);
 }
 
 #define CONV_FUNC_NAME(dst_fmt, src_fmt) conv_##src_fmt##_to_##dst_fmt

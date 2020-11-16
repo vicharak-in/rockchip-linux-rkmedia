@@ -4,36 +4,36 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
 #include "buffer.h"
 #include "encoder.h"
 #include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 static bool quit = false;
-static FILE* save_file;
+static FILE *save_file;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
   quit = true;
 }
 
-void encoder_output_cb(void *handle, std::shared_ptr<easymedia::MediaBuffer> mb) {
-  printf("==Encoder Output CallBack recived: %p(%s), %p, %d, %dBytes\n",
-    handle, (char *)handle, mb->GetPtr(), mb->GetFD(),
-    mb->GetValidSize());
+void encoder_output_cb(void *handle,
+                       std::shared_ptr<easymedia::MediaBuffer> mb) {
+  printf("==Encoder Output CallBack recived: %p(%s), %p, %d, %dBytes\n", handle,
+         (char *)handle, mb->GetPtr(), mb->GetFD(), mb->GetValidSize());
 
   if (save_file)
     fwrite(mb->GetPtr(), 1, mb->GetValidSize(), save_file);
@@ -44,9 +44,11 @@ static char optstr[] = "?:i:o:w:h:f:t:m:s:u:c:r:";
 static void print_usage(char *name) {
   printf("usage example for normal mode: \n");
   printf("%s -i /dev/video0 -o output.h264 -w 1920 -h 1080 "
-         "-f nv12 -t h264\n", name);
+         "-f nv12 -t h264\n",
+         name);
   printf("#[-t] enc type support list:\n\th264\n\th265\n\tjpeg\n\tmjpeg\n");
-  printf("#[-f] pix formate support list:\n\tyuyv422\n\tnv12\n\tfbc0\n\tfbc2\n");
+  printf(
+      "#[-f] pix formate support list:\n\tyuyv422\n\tnv12\n\tfbc0\n\tfbc2\n");
   printf("#[-m] mode support list:\n\tnormal\n\tstressTest\n");
   printf("#[-s] Slice split mode:\n");
   printf("\t0: No slice is split\n");
@@ -67,7 +69,7 @@ int main(int argc, char **argv) {
   std::string pixel_format;
   int video_fps = 30;
   std::string video_enc_type = VIDEO_H264;
-  int test_mode = 0; //0 for normal,1 for stressTest.
+  int test_mode = 0; // 0 for normal,1 for stressTest.
   int split_mode = 0;
   int userdata_enable = 0;
   int output_cb_enable = 0;
@@ -153,9 +155,9 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
-  if((pixel_format == "yuyv422") || (pixel_format == "nv12") ||
-    (pixel_format == "fbc0") || (pixel_format == "fbc2"))
+  // add prefix for pixformat
+  if ((pixel_format == "yuyv422") || (pixel_format == "nv12") ||
+      (pixel_format == "fbc0") || (pixel_format == "fbc2"))
     pixel_format = "image:" + pixel_format;
   else {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -163,7 +165,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for encoder type
+  // add prefix for encoder type
   if ((video_enc_type == "h264") || (video_enc_type == "h265") ||
       (video_enc_type == "mjpeg"))
     video_enc_type = "video:" + video_enc_type;
@@ -182,7 +184,7 @@ int main(int argc, char **argv) {
   easymedia::REFLECTOR(Stream)::DumpFactories();
 
   if (strstr(input_path.c_str(), "/dev/video") ||
-    strstr(input_path.c_str(), "rkispp")) {
+      strstr(input_path.c_str(), "rkispp")) {
     printf("INFO: reading yuv frome camera!\n");
     local_file_flag = 0;
   } else {
@@ -193,7 +195,7 @@ int main(int argc, char **argv) {
 RESTART:
 
   if (local_file_flag) {
-    //Reading yuv from file.
+    // Reading yuv from file.
     flow_name = "file_read_flow";
     flow_param = "";
     ImageInfo info;
@@ -207,22 +209,24 @@ RESTART:
 
     flow_param.append(easymedia::to_param_string(info, 1).c_str());
     PARAM_STRING_APPEND(flow_param, KEY_PATH, input_path);
-    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "re"); // read and close-on-exec
+    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                        "re"); // read and close-on-exec
     PARAM_STRING_APPEND_TO(flow_param, KEY_FPS, video_fps);
     PARAM_STRING_APPEND_TO(flow_param, KEY_LOOP_TIME, 0);
-    LOG("\n#FileRead flow param:\n%s\n", flow_param.c_str());
+    RKMEDIA_LOGI("\n#FileRead flow param:\n%s\n", flow_param.c_str());
 
     video_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
         flow_name.c_str(), flow_param.c_str());
     if (!video_read_flow) {
-      LOG("Create flow %s failed\n", flow_name.c_str());
+      RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
       exit(EXIT_FAILURE);
     }
   } else {
-    //Reading yuv from camera
+    // Reading yuv from camera
     flow_name = "source_stream";
     flow_param = "";
-    vir_width = UPALIGNTO(video_width, 8);;
+    vir_width = UPALIGNTO(video_width, 8);
+    ;
     vir_height = UPALIGNTO(video_height, 8);
     PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
     PARAM_STRING_APPEND(flow_param, KEK_THREAD_SYNC_MODEL, KEY_SYNC);
@@ -231,9 +235,12 @@ RESTART:
     stream_param = "";
     PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
     PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                        KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                        KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                           4); // if not set, default is 2
     PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
@@ -291,7 +298,7 @@ RESTART:
     flow_param = "";
     if (video_enc_type == IMAGE_JPEG) {
       int pos = output_path.find_last_of(".");
-      if(pos != -1)
+      if (pos != -1)
         output_path = output_path.substr(0, pos);
       PARAM_STRING_APPEND(flow_param, KEY_SAVE_MODE, KEY_SAVE_MODE_SINGLE);
       PARAM_STRING_APPEND(flow_param, KEY_FILE_PREFIX, output_path);
@@ -299,7 +306,8 @@ RESTART:
     } else {
       PARAM_STRING_APPEND(flow_param, KEY_PATH, output_path.c_str());
     }
-    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "w+"); // read and close-on-exec
+    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                        "w+"); // read and close-on-exec
     printf("\n#FileWrite:\n%s\n", flow_param.c_str());
     video_save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
         flow_name.c_str(), flow_param.c_str());
@@ -310,33 +318,35 @@ RESTART:
   } else {
     save_file = fopen(output_path.c_str(), "w");
     if (!save_file)
-      LOG("ERROR: open %s failed!\n", output_path.c_str());
+      RKMEDIA_LOGE("open %s failed!\n", output_path.c_str());
   }
 
   if (split_mode == 1) {
     int split_size = video_width * video_height / 2;
-    LOG("Split frame to slice with size = %d...\n", split_size);
+    RKMEDIA_LOGI("Split frame to slice with size = %d...\n", split_size);
     video_encoder_set_split(video_encoder_flow, split_mode, split_size);
   } else if (split_mode == 2) {
     int split_mb_cnt;
     if (video_enc_type == VIDEO_H264) {
-      split_mb_cnt = (video_width / 16) * (( video_height / 16) / 2);
-      easymedia::video_encoder_set_split(video_encoder_flow, split_mode, split_mb_cnt);
+      split_mb_cnt = (video_width / 16) * ((video_height / 16) / 2);
+      easymedia::video_encoder_set_split(video_encoder_flow, split_mode,
+                                         split_mb_cnt);
     } else {
-      split_mb_cnt = (video_width / 64) * (( video_height / 64) / 2);
-      easymedia::video_encoder_set_split(video_encoder_flow, split_mode, split_mb_cnt);
+      split_mb_cnt = (video_width / 64) * ((video_height / 64) / 2);
+      easymedia::video_encoder_set_split(video_encoder_flow, split_mode,
+                                         split_mb_cnt);
     }
-    LOG("Split frame to 2 slice with MB cnt = %d...\n", split_mb_cnt);
+    RKMEDIA_LOGI("Split frame to 2 slice with MB cnt = %d...\n", split_mb_cnt);
   }
 
   if (userdata_enable) {
     char sei_str[] = "RockChip AVC/HEVC Codec";
-    LOG("Set userdata string:%s\n", sei_str);
+    RKMEDIA_LOGI("Set userdata string:%s\n", sei_str);
     easymedia::video_encoder_set_userdata(video_encoder_flow, sei_str, 23);
   }
 
-  //Demo code: Show how to feed data to the coded Flow.
-  //YUV_IMG_SIZE is not defined
+  // Demo code: Show how to feed data to the coded Flow.
+  // YUV_IMG_SIZE is not defined
   /*
   std::shared_ptr<easymedia::MediaBuffer> mb =
     easymedia::MediaBuffer::Alloc(YUV_IMG_SIZE);
@@ -348,17 +358,17 @@ RESTART:
   easymedia::video_encoder_enable_statistics(video_encoder_flow, 1);
 
   if (output_cb_enable) {
-    LOG("Regest callback handle:%p\n", cb_str);
-    video_encoder_flow->SetOutputCallBack((void*)cb_str, encoder_output_cb);
+    RKMEDIA_LOGI("Regest callback handle:%p\n", cb_str);
+    video_encoder_flow->SetOutputCallBack((void *)cb_str, encoder_output_cb);
   } else {
     video_encoder_flow->AddDownFlow(video_save_flow, 0, 0);
   }
   video_read_flow->AddDownFlow(video_encoder_flow, 0, 0);
 
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
-  while(!test_mode && !quit) {
-      easymedia::msleep(100);
+  while (!test_mode && !quit) {
+    easymedia::msleep(100);
   }
 
   if (test_mode) {
@@ -377,7 +387,7 @@ RESTART:
     fclose(save_file);
   }
   video_encoder_flow.reset();
-  LOG("%s deinitial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s deinitial finish\n", argv[0]);
 
   if (test_mode && !quit) {
     printf("=> Stress Test: resatr\n");
@@ -386,4 +396,3 @@ RESTART:
 
   return 0;
 }
-

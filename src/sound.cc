@@ -66,7 +66,7 @@ bool ParseSampleInfoFromMap(std::map<std::string, std::string> &params,
   CHECK_EMPTY(value, params, KEY_INPUTDATATYPE)
   si.fmt = StringToSampleFmt(value.c_str());
   if (si.fmt == SAMPLE_FMT_NONE) {
-    LOG("unsupport sample fmt %s\n", value.c_str());
+    RKMEDIA_LOGI("unsupport sample fmt %s\n", value.c_str());
     return false;
   }
   CHECK_EMPTY(value, params, KEY_CHANNELS)

@@ -5,8 +5,8 @@
 #include "mjpeg_server_media_subsession.hh"
 #include <liveMedia/JPEGVideoRTPSink.hh>
 
-#include "utils.h"
 #include "media_type.h"
+#include "utils.h"
 
 namespace easymedia {
 MJPEGServerMediaSubsession *
@@ -39,12 +39,12 @@ void MJPEGServerMediaSubsession::startStream(
   if (fMediaInput.GetStartVideoStreamCallback() != NULL) {
     fMediaInput.GetStartVideoStreamCallback()();
   }
-  LOG("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
+  RKMEDIA_LOGI("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
   kSessionIdList.push_back(clientSessionId);
 }
 void MJPEGServerMediaSubsession::deleteStream(unsigned clientSessionId,
                                               void *&streamToken) {
-  LOG("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
+  RKMEDIA_LOGI("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
   kSessionIdList.remove(clientSessionId);
   if (kSessionIdList.empty())
     fMediaInput.Stop(envir());
@@ -57,26 +57,27 @@ MJPEGServerMediaSubsession::createNewStreamSource(unsigned clientSessionId,
   estBitrate = fEstimatedKbps;
   LOG_FILE_FUNC_LINE();
   if (!fSDPLines && clientSessionId != 0) {
-    LOG("%s:%s:%d --- you must get sdp first.\n", __FILE__, __func__, __LINE__);
+    RKMEDIA_LOGI("%s:%s:%d --- you must get sdp first.\n", __FILE__, __func__,
+                 __LINE__);
     return NULL;
   }
   // Create a framer for the Video Elementary Stream:
-  FramedSource *source =
-      MJPEGVideoSource::createNew(envir(), fMediaInput.videoSource(CODEC_TYPE_JPEG));
-  LOG("MJPEG framedsource : %p\n", source);
+  FramedSource *source = MJPEGVideoSource::createNew(
+      envir(), fMediaInput.videoSource(CODEC_TYPE_JPEG));
+  RKMEDIA_LOGI("MJPEG framedsource : %p\n", source);
   return source;
 }
 
 RTPSink *MJPEGServerMediaSubsession::createNewRTPSink(
     Groupsock *rtpGroupsock, unsigned char, FramedSource *inputSource) {
   if (!inputSource) {
-    LOG("inputSource is not ready, can not create new rtp sink\n");
+    RKMEDIA_LOGI("inputSource is not ready, can not create new rtp sink\n");
     return NULL;
   }
   setVideoRTPSinkBufferSize();
   LOG_FILE_FUNC_LINE();
   RTPSink *rtp_sink = JPEGVideoRTPSink::createNew(envir(), rtpGroupsock);
-  LOG("MJPEG rtp sink : %p\n", rtp_sink);
+  RKMEDIA_LOGI("MJPEG rtp sink : %p\n", rtp_sink);
   return rtp_sink;
 }
 

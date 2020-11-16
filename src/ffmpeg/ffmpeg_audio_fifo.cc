@@ -60,9 +60,9 @@ private:
   SampleFormat format;
   int nb_samples;
   AVAudioFifo *fifo;
-  int64_t in_timestamp;  // timebase 1/AV_TIME_BASE
-  int64_t in_pts;        // timebase 1/samplerate
-  int64_t out_pts;       // timebase 1/samplerate
+  int64_t in_timestamp; // timebase 1/AV_TIME_BASE
+  int64_t in_pts;       // timebase 1/samplerate
+  int64_t out_pts;      // timebase 1/samplerate
   int finished;
 
 #if DEBUG_FILE
@@ -83,10 +83,10 @@ AudioFifo::AudioFifo(const char *param)
       std::pair<const std::string, std::string &>(KEY_SAMPLE_FMT, s_format));
   req_list.push_back(
       std::pair<const std::string, std::string &>(KEY_CHANNELS, s_channels));
+  req_list.push_back(std::pair<const std::string, std::string &>(
+      KEY_SAMPLE_RATE, s_sample_rate));
   req_list.push_back(
-    std::pair<const std::string, std::string &>(KEY_SAMPLE_RATE, s_sample_rate));
-  req_list.push_back(
-    std::pair<const std::string, std::string &>(KEY_FRAMES, s_nb_samples));
+      std::pair<const std::string, std::string &>(KEY_FRAMES, s_nb_samples));
   parse_media_param_match(param, params, req_list);
   if (!s_channels.empty())
     channels = std::atoi(s_channels.c_str());
@@ -100,7 +100,7 @@ AudioFifo::AudioFifo(const char *param)
   SampleInfo info = {format, channels, sample_rate, nb_samples};
   int ret = SampleInfoIsValid(info);
   if (!ret) {
-    LOG("%s: sample info not valid\n", __func__);
+    RKMEDIA_LOGI("%s: sample info not valid\n", __func__);
   }
   assert(ret == 0);
   assert(nb_samples > 0);
@@ -145,7 +145,7 @@ int AudioFifo::SendInput(std::shared_ptr<MediaBuffer> input _UNUSED) {
   SampleInfo src_info = in->GetSampleInfo();
   if (src_info.fmt != format && src_info.channels != channels &&
       src_info.sample_rate != sample_rate) {
-    LOG("check sample info failed\n");
+    RKMEDIA_LOGI("check sample info failed\n");
     return -1;
   }
 
@@ -156,7 +156,7 @@ int AudioFifo::SendInput(std::shared_ptr<MediaBuffer> input _UNUSED) {
                          channels, in->GetSamples(),
                          SampleFmtToAVSamFmt(format), 1);
   if (add_samples_to_fifo(fifo, src_data, in->GetSamples())) {
-    LOG("add samples to fifo failed\n");
+    RKMEDIA_LOGI("add samples to fifo failed\n");
     return -1;
   }
 
@@ -189,7 +189,7 @@ std::shared_ptr<MediaBuffer> AudioFifo::FetchOutput() {
 
     if (av_audio_fifo_read(fifo, (void **)dst_data, dst_nb_samples) <
         dst_nb_samples) {
-      LOG("Could not read data from FIFO\n");
+      RKMEDIA_LOGI("Could not read data from FIFO\n");
       return NULL;
     }
     out_pts += dst_nb_samples;
@@ -201,7 +201,7 @@ std::shared_ptr<MediaBuffer> AudioFifo::FetchOutput() {
 
 #if DEBUG_FILE
     outfile.write((const char *)dst->GetPtr(), dst->GetValidSize());
-    LOG("diff pts: %lldus\n", dst->GetUSTimeStamp() - in_timestamp);
+    RKMEDIA_LOGI("diff pts: %lldus\n", dst->GetUSTimeStamp() - in_timestamp);
 #endif
     return dst;
   }

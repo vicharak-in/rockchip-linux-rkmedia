@@ -48,7 +48,8 @@ public:
     CHECK_FILE(file)
     return fwrite(ptr, size, nmemb, file);
   }
-  virtual size_t WriteAndClose(const void *ptr, size_t size, size_t nmemb) final {
+  virtual size_t WriteAndClose(const void *ptr, size_t size,
+                               size_t nmemb) final {
     if (!Writeable())
       return -1;
     CHECK_FILE(file)
@@ -67,12 +68,11 @@ public:
   virtual int NewStream(std::string new_path) {
     Close();
     path = new_path;
-    LOG("NewStream file:%s\n", new_path.c_str());
+    RKMEDIA_LOGI("NewStream file:%s\n", new_path.c_str());
     return Open();
   }
 
-  virtual int ReName(std::string old_path,
-                       std::string new_path ) {
+  virtual int ReName(std::string old_path, std::string new_path) {
     int ret;
     Close();
     ret = rename(old_path.c_str(), new_path.c_str());
@@ -120,7 +120,7 @@ private:
 };
 
 FileStream::FileStream(const char *param)
-    : file(NULL), eof(true), open_late (0) {
+    : file(NULL), eof(true), open_late(0) {
   std::map<std::string, std::string> params;
   std::list<std::pair<const std::string, std::string &>> req_list;
   req_list.push_back(

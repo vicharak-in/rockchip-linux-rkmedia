@@ -5,6 +5,92 @@
 #ifndef EASYMEDIA_UTILS_H_
 #define EASYMEDIA_UTILS_H_
 
+#include <stdarg.h>
+#include <string.h>
+#ifdef RKMEDIA_SUPPORT_MINILOG
+#include "minilogger/log.h"
+#endif
+
+#define LOG_LEVEL_ERROR 0
+#define LOG_LEVEL_WARN 1
+#define LOG_LEVEL_INFO 2
+#define LOG_LEVEL_DBG 3
+
+#define LOG_MOD_MAX_NUM 18
+#define LOG_MOD_MAX_LEN 10
+
+#ifndef MOD_TAG
+#define MOD_TAG 2
+#endif
+
+extern short g_level_list[LOG_MOD_MAX_NUM];
+extern int rkmedia_log_method;
+extern char mod_tag_list[][LOG_MOD_MAX_LEN];
+
+#define LOG_LEVEL_JUDGE(FILTER_LEVEL)                                          \
+  {                                                                            \
+    if (g_level_list[MOD_TAG] < FILTER_LEVEL)                                  \
+      break;                                                                   \
+  }
+
+#ifdef RKMEDIA_SUPPORT_MINILOG
+#define RKMEDIA_LOGE(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_ERROR);                                          \
+    minilog_error("[%s][Error]:" format, mod_tag_list[MOD_TAG],                \
+                  ##__VA_ARGS__);                                              \
+  } while (0)
+
+#define RKMEDIA_LOGW(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_WARN);                                           \
+    minilog_warn("[%s][Warn]:" format, mod_tag_list[MOD_TAG], ##__VA_ARGS__);  \
+  } while (0)
+
+#define RKMEDIA_LOGI(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_INFO);                                           \
+    minilog_info("[%s][Info]:" format, mod_tag_list[MOD_TAG], ##__VA_ARGS__);  \
+  } while (0)
+
+#define RKMEDIA_LOGD(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_DBG);                                            \
+    minilog_debug("[%s][Debug]:" format, mod_tag_list[MOD_TAG],                \
+                  ##__VA_ARGS__);                                              \
+  } while (0)
+
+#else // RKMEDIA_SUPPORT_MINILOG
+
+#define RKMEDIA_LOGE(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_ERROR);                                          \
+    fprintf(stderr, "[%s][Error]:" format, mod_tag_list[MOD_TAG],              \
+            ##__VA_ARGS__);                                                    \
+  } while (0)
+
+#define RKMEDIA_LOGW(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_WARN);                                           \
+    fprintf(stderr, "[%s][Warn]:" format, mod_tag_list[MOD_TAG],               \
+            ##__VA_ARGS__);                                                    \
+  } while (0)
+
+#define RKMEDIA_LOGI(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_INFO);                                           \
+    fprintf(stderr, "[%s][Info]:" format, mod_tag_list[MOD_TAG],               \
+            ##__VA_ARGS__);                                                    \
+  } while (0)
+
+#define RKMEDIA_LOGD(format, ...)                                              \
+  do {                                                                         \
+    LOG_LEVEL_JUDGE(LOG_LEVEL_DBG);                                            \
+    fprintf(stderr, "[%s][Debug]:" format, mod_tag_list[MOD_TAG],              \
+            ##__VA_ARGS__);                                                    \
+  } while (0)
+#endif // RKMEDIA_SUPPORT_MINILOG
+
 #define _UNUSED __attribute__((unused))
 #define UNUSED(x) (void)x
 
@@ -12,12 +98,14 @@
 #define _API __attribute__((visibility("default")))
 
 _API void LOG_INIT();
-_API void LOGD(const char *format, ...);
-_API void LOG(const char *format, ...);
+_API void LOG_DEINIT();
 
-#define LOG_NO_MEMORY() LOG("No memory %s: %d\n", __FUNCTION__, __LINE__)
-#define LOG_FILE_FUNC_LINE() LOG("%s : %s: %d\n", __FILE__, __FUNCTION__, __LINE__)
-#define LOG_TODO() LOG("TODO, %s : %s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+#define LOG_NO_MEMORY()                                                        \
+  RKMEDIA_LOGI("No memory %s: %d\n", __FUNCTION__, __LINE__)
+#define LOG_FILE_FUNC_LINE()                                                   \
+  RKMEDIA_LOGI("%s : %s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+#define LOG_TODO()                                                             \
+  RKMEDIA_LOGI("TODO, %s : %s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 
 #define UPALIGNTO(value, align) ((value + align - 1) & (~(align - 1)))
 
@@ -54,16 +142,16 @@ public:
 
 namespace easymedia {
 
-#define GET_STRING_TO_INT(var, map, key, defalut)    \
-  if (!map[key].empty())                                \
-    var = std::stoi(map[key]);                          \
-  else                                                  \
+#define GET_STRING_TO_INT(var, map, key, defalut)                              \
+  if (!map[key].empty())                                                       \
+    var = std::stoi(map[key]);                                                 \
+  else                                                                         \
     var = defalut;
 
 #define CHECK_EMPTY_SETERRNO_RETURN(v_type, v, map, k, seterrno, ret)          \
   v_type v = map[k];                                                           \
   if (v.empty()) {                                                             \
-    LOG("miss %s\n", k);                                                       \
+    RKMEDIA_LOGI("miss %s\n", k);                                              \
     seterrno;                                                                  \
     return ret;                                                                \
   }
@@ -167,8 +255,8 @@ private:
 class AutoPrintLine {
 #ifndef NDEBUG
 public:
-  AutoPrintLine(const char *f) : func(f) { LOGD("Enter %s\n", f); }
-  ~AutoPrintLine() { LOGD("Exit %s\n", func); }
+  AutoPrintLine(const char *f) : func(f) { RKMEDIA_LOGD("Enter %s\n", f); }
+  ~AutoPrintLine() { RKMEDIA_LOGD("Exit %s\n", func); }
 
 private:
   const char *func;

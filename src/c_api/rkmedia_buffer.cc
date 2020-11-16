@@ -8,6 +8,11 @@
 #include "rkmedia_utils.h"
 #include "rkmedia_venc.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 1
+
 void *RK_MPI_MB_GetPtr(MEDIA_BUFFER mb) {
   if (!mb)
     return NULL;
@@ -103,13 +108,13 @@ MEDIA_BUFFER RK_MPI_MB_CreateAudioBuffer(RK_U32 u32BufferSize,
   }
   MEDIA_BUFFER_IMPLE *mb = new MEDIA_BUFFER_IMPLE;
   if (!mb) {
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
 
   if (!rkmedia_mb) {
     delete mb;
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
   mb->rkmedia_mb = rkmedia_mb;
@@ -135,7 +140,7 @@ MEDIA_BUFFER RK_MPI_MB_CreateImageBuffer(MB_IMAGE_INFO_S *pstImageInfo,
   std::string strPixFormat = ImageTypeToString(pstImageInfo->enImgType);
   PixelFormat rkmediaPixFormat = StringToPixFmt(strPixFormat.c_str());
   if (rkmediaPixFormat == PIX_FMT_NONE) {
-    LOG("ERROR: %s: unsupport pixformat!\n", __func__);
+    RKMEDIA_LOGE("%s: unsupport pixformat!\n", __func__);
     return NULL;
   }
   RK_U32 buf_size = CalPixFmtSize(rkmediaPixFormat, pstImageInfo->u32HorStride,
@@ -145,7 +150,7 @@ MEDIA_BUFFER RK_MPI_MB_CreateImageBuffer(MB_IMAGE_INFO_S *pstImageInfo,
 
   MEDIA_BUFFER_IMPLE *mb = new MEDIA_BUFFER_IMPLE;
   if (!mb) {
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
 
@@ -161,7 +166,7 @@ MEDIA_BUFFER RK_MPI_MB_CreateImageBuffer(MB_IMAGE_INFO_S *pstImageInfo,
       u32RkmediaBufFlag);
   if (!rkmedia_mb) {
     delete mb;
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
 
@@ -244,13 +249,13 @@ RK_BOOL RK_MPI_MB_IsViFrame(MEDIA_BUFFER mb) {
 MEDIA_BUFFER RK_MPI_MB_CreateBuffer(RK_U32 u32Size, RK_BOOL boolHardWare,
                                     RK_U8 u8Flag) {
   if (!u32Size) {
-    LOG("ERROR: %s: unsupport pixformat!\n", __func__);
+    RKMEDIA_LOGE("%s: unsupport pixformat!\n", __func__);
     return NULL;
   }
 
   MEDIA_BUFFER_IMPLE *mb = new MEDIA_BUFFER_IMPLE;
   if (!mb) {
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
 
@@ -266,7 +271,7 @@ MEDIA_BUFFER RK_MPI_MB_CreateBuffer(RK_U32 u32Size, RK_BOOL boolHardWare,
       u32RkmediaBufFlag);
   if (!mb->rkmedia_mb) {
     delete mb;
-    LOG("ERROR: %s: no space left!\n", __func__);
+    RKMEDIA_LOGE("%s: no space left!\n", __func__);
     return NULL;
   }
 
@@ -288,29 +293,30 @@ MEDIA_BUFFER RK_MPI_MB_ConvertToImgBuffer(MEDIA_BUFFER mb,
   if (!mb || !pstImageInfo || !pstImageInfo->u32Height ||
       !pstImageInfo->u32Width || !pstImageInfo->u32VerStride ||
       !pstImageInfo->u32HorStride) {
-    LOG("ERROR: %s: invalid args!\n", __func__);
+    RKMEDIA_LOGE("%s: invalid args!\n", __func__);
     return NULL;
   }
 
   MEDIA_BUFFER_IMPLE *mb_impl = (MEDIA_BUFFER_IMPLE *)mb;
   if (!mb_impl->rkmedia_mb) {
-    LOG("ERROR: %s: mediabuffer not init yet!\n", __func__);
+    RKMEDIA_LOGE("%s: mediabuffer not init yet!\n", __func__);
     return NULL;
   }
 
   std::string strPixFormat = ImageTypeToString(pstImageInfo->enImgType);
   PixelFormat rkmediaPixFormat = StringToPixFmt(strPixFormat.c_str());
   if (rkmediaPixFormat == PIX_FMT_NONE) {
-    LOG("ERROR: %s: unsupport pixformat!\n", __func__);
+    RKMEDIA_LOGE("%s: unsupport pixformat!\n", __func__);
     return NULL;
   }
 
   RK_U32 buf_size = CalPixFmtSize(rkmediaPixFormat, pstImageInfo->u32HorStride,
                                   pstImageInfo->u32VerStride, 1);
   if (buf_size > mb_impl->rkmedia_mb->GetSize()) {
-    LOG("ERROR: %s: buffer size:%d do not match imgInfo(%dx%d, %s)!\n",
-        __func__, mb_impl->rkmedia_mb->GetSize(), pstImageInfo->u32HorStride,
-        pstImageInfo->u32VerStride, strPixFormat.c_str());
+    RKMEDIA_LOGE("%s: buffer size:%d do not match imgInfo(%dx%d, %s)!\n",
+                 __func__, mb_impl->rkmedia_mb->GetSize(),
+                 pstImageInfo->u32HorStride, pstImageInfo->u32VerStride,
+                 strPixFormat.c_str());
     return NULL;
   }
 
@@ -327,12 +333,12 @@ MEDIA_BUFFER RK_MPI_MB_ConvertToImgBuffer(MEDIA_BUFFER mb,
 
 MEDIA_BUFFER RK_MPI_MB_ConvertToAudBuffer(MEDIA_BUFFER mb) {
   if (!mb) {
-    LOG("ERROR: %s: invalid args!\n", __func__);
+    RKMEDIA_LOGE("%s: invalid args!\n", __func__);
     return NULL;
   }
   MEDIA_BUFFER_IMPLE *mb_impl = (MEDIA_BUFFER_IMPLE *)mb;
   if (!mb_impl->rkmedia_mb) {
-    LOG("ERROR: %s: mediabuffer not init yet!\n", __func__);
+    RKMEDIA_LOGE("%s: mediabuffer not init yet!\n", __func__);
     return NULL;
   }
 

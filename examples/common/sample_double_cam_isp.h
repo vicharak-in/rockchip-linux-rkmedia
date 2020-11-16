@@ -13,7 +13,8 @@
 extern "C" {
 #endif
 
-rk_aiq_sys_ctx_t *aiq_double_cam_init(int id, rk_aiq_working_mode_t mode, char *iq_dir);
+rk_aiq_sys_ctx_t *aiq_double_cam_init(int id, rk_aiq_working_mode_t mode,
+                                      char *iq_dir);
 void aiq_double_cam_exit(rk_aiq_sys_ctx_t *ctx);
 
 #ifdef __cplusplus

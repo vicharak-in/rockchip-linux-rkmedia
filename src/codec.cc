@@ -197,7 +197,7 @@ split_h265_separate(const uint8_t *buffer, size_t length, int64_t timestamp) {
 static void *FindNaluByType(std::shared_ptr<MediaBuffer> &mb, int nal_type,
                             int &size, CodecType c_type) {
   if ((c_type != CODEC_TYPE_H264) && (c_type != CODEC_TYPE_H265)) {
-    LOG("ERROR: %s failed! Invalid codec type\n", __func__);
+    RKMEDIA_LOGE("%s failed! Invalid codec type\n", __func__);
     return NULL;
   }
 

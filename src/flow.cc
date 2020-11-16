@@ -70,14 +70,15 @@ public:
 FlowCoroutine::FlowCoroutine(Flow *f, Model sync_model, FunctionProcess func,
                              float inter)
     : flow(f), model(sync_model), interval(inter), th(nullptr), th_run(func),
-      is_processing(false), clear_buffers_enable(false), expect_process_time(0) {}
+      is_processing(false), clear_buffers_enable(false),
+      expect_process_time(0) {}
 
 FlowCoroutine::~FlowCoroutine() {
   if (th) {
     th->join();
     delete th;
   }
-  LOG("%s quit\n", name.c_str());
+  RKMEDIA_LOGI("%s quit\n", name.c_str());
 }
 
 void FlowCoroutine::Bind(std::vector<int> &in, std::vector<int> &out) {
@@ -107,7 +108,7 @@ bool FlowCoroutine::Start() {
     send_down_func = &FlowCoroutine::SendBufferDown;
     break;
   default:
-    LOG("invalid model %d\n", (int)model);
+    RKMEDIA_LOGI("invalid model %d\n", (int)model);
     return false;
   }
   in_vector.resize(in_slots.size());
@@ -124,7 +125,8 @@ bool FlowCoroutine::Start() {
 #ifndef NDEBUG
 static void check_consume_time(const char *name, int expect, int exactly) {
   if (exactly > expect) {
-    LOG("%s, expect consume %d ms, however %d ms\n", name, expect, exactly);
+    RKMEDIA_LOGI("%s, expect consume %d ms, however %d ms\n", name, expect,
+                 exactly);
   }
 }
 #endif
@@ -165,7 +167,7 @@ void FlowCoroutine::RunOnce() {
 
 void FlowCoroutine::WhileRun() {
   prctl(PR_SET_NAME, this->name.c_str());
-  LOGD("flow-name %s\n", this->name.c_str());
+  RKMEDIA_LOGD("flow-name %s\n", this->name.c_str());
   while (!flow->quit)
     RunOnce();
 }
@@ -175,7 +177,7 @@ void FlowCoroutine::WhileRunSleep() {
   AutoDuration ad;
   assert(interval > 0);
   prctl(PR_SET_NAME, this->name.c_str());
-  LOGD("flow-name %s\n", this->name.c_str());
+  RKMEDIA_LOGD("flow-name %s\n", this->name.c_str());
 
   while (!flow->quit) {
     if (times == 0)
@@ -323,9 +325,7 @@ int FlowCoroutine::GetCachedBufferCnt() {
   return cnt;
 }
 
-bool FlowCoroutine::IsProcessing() {
-  return is_processing;
-}
+bool FlowCoroutine::IsProcessing() { return is_processing; }
 
 void FlowCoroutine::ClearCachedBuffers() {
   clear_buffers_mtx.lock();
@@ -365,24 +365,24 @@ bool Flow::IsAllBuffEmpty() {
   int i = 0;
 
   for (auto &input : v_input) {
-    LOG("#FLOW v_input-%d cached_buffers size:%zu\n", i,
-        input.cached_buffers.size());
-    LOG("#FLOW v_input-%d cached_buffer :%s\n", i++,
-        input.cached_buffer ? "NotNull" : "Null");
+    RKMEDIA_LOGI("#FLOW v_input-%d cached_buffers size:%zu\n", i,
+                 input.cached_buffers.size());
+    RKMEDIA_LOGI("#FLOW v_input-%d cached_buffer :%s\n", i++,
+                 input.cached_buffer ? "NotNull" : "Null");
   }
 
   i = 0;
   for (auto &coroutin : coroutines) {
-    LOG("#FLOW coroutin-%d in_vector size:%d\n", i++,
-        coroutin->GetCachedBufferCnt());
+    RKMEDIA_LOGI("#FLOW coroutin-%d in_vector size:%d\n", i++,
+                 coroutin->GetCachedBufferCnt());
   }
 
   i = 0;
   for (auto &fm : downflowmap) {
-    LOG("#FLOW downflowmap-%d cached_buffers size:%zu\n", i,
-        fm.cached_buffers.size());
-    LOG("#FLOW downflowmap-%d cached_buffer : %s\n", i++,
-        fm.cached_buffer ? "NotNull" : "Null");
+    RKMEDIA_LOGI("#FLOW downflowmap-%d cached_buffers size:%zu\n", i,
+                 fm.cached_buffers.size());
+    RKMEDIA_LOGI("#FLOW downflowmap-%d cached_buffer : %s\n", i++,
+                 fm.cached_buffer ? "NotNull" : "Null");
   }
 #endif
 
@@ -442,7 +442,7 @@ void Flow::StartStream() {
 
 int Flow::SetRunTimes(int _run_times) {
   run_times = _run_times;
-  LOG("Flow:%s set run_times to %d\n", flow_tag.c_str(), run_times);
+  RKMEDIA_LOGI("Flow:%s set run_times to %d\n", flow_tag.c_str(), run_times);
   return run_times;
 }
 
@@ -529,12 +529,12 @@ static bool check_slots(std::vector<int> &slots, const char *debugstr) {
   std::sort(slots.begin(), slots.end());
   auto iend = std::unique(slots.begin(), slots.end());
   if (iend != slots.end()) {
-    LOG("%s slot duplicate :", debugstr);
+    RKMEDIA_LOGI("%s slot duplicate :", debugstr);
     while (iend != slots.end()) {
-      LOG(" %d", *iend);
+      RKMEDIA_LOGI(" %d", *iend);
       iend++;
     }
-    LOG("\n");
+    RKMEDIA_LOGI("\n");
     return false;
   }
   return true;
@@ -542,7 +542,7 @@ static bool check_slots(std::vector<int> &slots, const char *debugstr) {
 
 Flow::FlowMap::FlowMap(FlowMap &&fm) {
   if (fm.valid) {
-    LOG("Flow::FlowMap is not copyable and moveable after inited\n");
+    RKMEDIA_LOGI("Flow::FlowMap is not copyable and moveable after inited\n");
     assert(0);
   }
 }
@@ -568,7 +568,7 @@ void Flow::FlowMap::SetOutputToQueueBehavior(
 
 Flow::Input::Input(Input &&in) {
   if (in.valid) {
-    LOG("Flow::Input is not copyable and moveable after inited\n");
+    RKMEDIA_LOGI("Flow::Input is not copyable and moveable after inited\n");
     assert(0);
   }
 }
@@ -623,7 +623,7 @@ bool Flow::SetAsSource(const std::vector<int> &output_slots, FunctionProcess f,
   sm.thread_model = Model::SYNC;
   sm.mode_when_full = InputMode::DROPFRONT;
   if (!InstallSlotMap(sm, mark, 0)) {
-    LOG("Fail to InstallSlotMap, read %s\n", mark.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap, read %s\n", mark.c_str());
     return false;
   }
   return true;
@@ -631,12 +631,12 @@ bool Flow::SetAsSource(const std::vector<int> &output_slots, FunctionProcess f,
 
 bool Flow::InstallSlotMap(SlotMap &map, const std::string &mark,
                           int exp_process_time) {
-  LOGD("%s, thread_model=%d, mode_when_full=%d\n", mark.c_str(),
-       map.thread_model, map.mode_when_full);
+  RKMEDIA_LOGD("%s, thread_model=%d, mode_when_full=%d\n", mark.c_str(),
+               (int)map.thread_model, (int)map.mode_when_full);
   // parameters validity check
   auto &in_slots = map.input_slots;
   if (in_slots.size() > 1 && map.thread_model == Model::SYNC) {
-    LOG("More than 1 input to flow, can not set sync input\n");
+    RKMEDIA_LOGI("More than 1 input to flow, can not set sync input\n");
     return false;
   }
   if (!check_slots(in_slots, "input"))
@@ -646,7 +646,7 @@ bool Flow::InstallSlotMap(SlotMap &map, const std::string &mark,
     if (i >= (int)v_input.size())
       continue;
     if (v_input[i].valid) {
-      LOG("input slot %d has been set\n", i);
+      RKMEDIA_LOGI("input slot %d has been set\n", i);
       ret = false;
     }
   }
@@ -660,7 +660,7 @@ bool Flow::InstallSlotMap(SlotMap &map, const std::string &mark,
     if (i >= (int)downflowmap.size())
       continue;
     if (downflowmap[i].valid) {
-      LOG("output slot %d has been set\n", i);
+      RKMEDIA_LOGI("output slot %d has been set\n", i);
       ret = false;
     }
   }
@@ -714,7 +714,7 @@ void Flow::FlowMap::AddFlow(std::shared_ptr<Flow> flow, int index) {
   AutoLockMutex _lg(list_mtx);
   auto i = std::find(flows.begin(), flows.end(), flow);
   if (i != flows.end()) {
-    LOG("repeatedly add, update index\n");
+    RKMEDIA_LOGI("repeatedly add, update index\n");
     i->index_of_in = index;
     return;
   }
@@ -730,15 +730,15 @@ void Flow::FlowMap::RemoveFlow(std::shared_ptr<Flow> flow) {
 bool Flow::AddDownFlow(std::shared_ptr<Flow> down, int out_slot_index,
                        int in_slot_index_of_down) {
   if (out_slot_num <= 0 || (int)downflowmap.size() != out_slot_num) {
-    LOG("Uncompleted or final flow\n");
+    RKMEDIA_LOGI("Uncompleted or final flow\n");
     return false;
   }
   if (out_slot_index >= (int)downflowmap.size()) {
-    LOG("output slot index exceed max\n");
+    RKMEDIA_LOGI("output slot index exceed max\n");
     return false;
   }
   if (this == down.get()) {
-    LOG("can not set self loop flow\n");
+    RKMEDIA_LOGI("can not set self loop flow\n");
     return false;
   }
   downflowmap[out_slot_index].AddFlow(down, in_slot_index_of_down);
@@ -755,7 +755,7 @@ void Flow::RemoveDownFlow(std::shared_ptr<Flow> down) {
   if (out_slot_num <= 0 || (int)downflowmap.size() != out_slot_num)
     return;
   // if (down->down_flow_num > 0)
-  //   LOG("the removing flow has down flows, remove them first\n");
+  //   RKMEDIA_LOGI("the removing flow has down flows, remove them first\n");
   for (auto &dm : downflowmap) {
     if (!dm.valid)
       continue;
@@ -772,7 +772,7 @@ void Flow::RemoveDownFlow(std::shared_ptr<Flow> down) {
 void Flow::SendInput(std::shared_ptr<MediaBuffer> &input, int in_slot_index) {
   if (in_slot_index < 0 || in_slot_index >= input_slot_num) {
     errno = EINVAL;
-    LOG("ERROR: Input slot[%d] is vaild!\n", in_slot_index);
+    RKMEDIA_LOGE("Input slot[%d] is vaild!\n", in_slot_index);
     return;
   }
   if (enable) {
@@ -785,7 +785,7 @@ bool Flow::SetOutput(const std::shared_ptr<MediaBuffer> &output,
                      int out_slot_index) {
   if (out_slot_index < 0 || out_slot_index >= out_slot_num) {
     errno = EINVAL;
-    LOG("ERROR: Output slot[%d] is vaild!\n", out_slot_index);
+    RKMEDIA_LOGE("Output slot[%d] is vaild!\n", out_slot_index);
     return false;
   }
 
@@ -810,7 +810,7 @@ bool Flow::ParseWrapFlowParams(const char *param,
     return false;
   sub_param_list.pop_front();
   if (flow_params[KEY_NAME].empty()) {
-    LOG("missing key name\n");
+    RKMEDIA_LOGI("missing key name\n");
     return false;
   }
   return true;
@@ -908,22 +908,22 @@ bool Flow::Input::ASyncFullBlockingBehavior(volatile bool &pred) {
   } while (pred);
 #ifndef NDEBUG
   if (ad.Get() > 100000 /*ms*/)
-    LOG("WARN: Flow[%s]: Input[block mode]: block too long(%.2fms) > 5ms\n",
-        flow ? flow->GetFlowTag() : "Name is null", ad.Get() / 1000.0);
+    RKMEDIA_LOGW("Flow[%s]: Input[block mode]: block too long(%.2fms) > 5ms\n",
+                 flow ? flow->GetFlowTag() : "Name is null", ad.Get() / 1000.0);
 #endif
   return pred;
 }
 
 bool Flow::Input::ASyncFullDropFrontBehavior(volatile bool &pred _UNUSED) {
-  LOG("WARN: Flow[%s]: Input: drop front buffer!\n",
-      flow ? flow->GetFlowTag() : "Name is null");
+  RKMEDIA_LOGW("Flow[%s]: Input: drop front buffer!\n",
+               flow ? flow->GetFlowTag() : "Name is null");
   cached_buffers.pop_front();
   return true;
 }
 
 bool Flow::Input::ASyncFullDropCurrentBehavior(volatile bool &pred _UNUSED) {
-  LOG("WARN: Flow[%s]: Input: drop current buffer!\n",
-      flow ? flow->GetFlowTag() : "Name Is Null");
+  RKMEDIA_LOGW("Flow[%s]: Input: drop current buffer!\n",
+               flow ? flow->GetFlowTag() : "Name Is Null");
   return false;
 }
 
@@ -975,7 +975,7 @@ void ParseParamToSlotMap(std::map<std::string, std::string> &params,
   if (!cache_num_str.empty()) {
     cache_num = std::stoi(cache_num_str);
     if (cache_num <= 0)
-      LOG("warning, input cache num = %d\n", cache_num);
+      RKMEDIA_LOGW("input cache num = %d\n", cache_num);
     input_maxcachenum = cache_num;
   }
 }

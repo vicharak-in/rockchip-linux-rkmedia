@@ -58,12 +58,13 @@ int main(int argc, char **argv) {
     assert(!alsa_device.empty());
   } else {
     unlink(output_path.c_str());
-    output_file_fd = open(output_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0664);
+    output_file_fd =
+        open(output_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0664);
     assert(output_file_fd >= 0);
   }
 
-  LOG("alsa_device: %s, output_file_fd: %d\n", alsa_device.c_str(),
-      output_file_fd);
+  RKMEDIA_LOGI("alsa_device: %s, output_file_fd: %d\n", alsa_device.c_str(),
+               output_file_fd);
 
   easymedia::REFLECTOR(Demuxer)::DumpFactories();
 
@@ -82,7 +83,7 @@ int main(int argc, char **argv) {
   // On rockchip powerful platform, ogg audio demuxer and decoder seems
   // unnecessary to be separated.
   if (!ogg_demuxer->IncludeDecoder()) {
-    LOG("ogg TODO: separate ogg demuxer and ogg decoder\n");
+    RKMEDIA_LOGI("ogg TODO: separate ogg demuxer and ogg decoder\n");
     exit(EXIT_FAILURE);
   }
 
@@ -124,7 +125,7 @@ int main(int argc, char **argv) {
     PARAM_STRING_APPEND(params, KEY_SAMPLE_FMT, fmt_str);
     PARAM_STRING_APPEND_TO(params, KEY_CHANNELS, sample_info.channels);
     PARAM_STRING_APPEND_TO(params, KEY_SAMPLE_RATE, sample_info.sample_rate);
-    LOG("params:\n%s\n", params.c_str());
+    RKMEDIA_LOGI("params:\n%s\n", params.c_str());
     out_stream = easymedia::REFLECTOR(Stream)::Create<easymedia::Stream>(
         stream_name.c_str(), params.c_str());
     if (!out_stream) {
@@ -156,9 +157,10 @@ int main(int argc, char **argv) {
           buffer->GetPtr(), sample_buffer->GetSampleSize(),
           sample_buffer->GetSamples()); // TODO: check the ret value
     if (output_file_fd >= 0) {
-      ssize_t count = write(output_file_fd, buffer->GetPtr(), buffer->GetValidSize());
+      ssize_t count =
+          write(output_file_fd, buffer->GetPtr(), buffer->GetValidSize());
       if (count < 0) {
-        LOG("write file failed!\n");
+        RKMEDIA_LOGI("write file failed!\n");
       }
     }
   }

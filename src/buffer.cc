@@ -26,8 +26,8 @@ MediaBuffer::MemType StringToMemType(const char *s) {
     if (!strcmp(s, KEY_MEM_DRM) || !strcmp(s, KEY_MEM_HARDWARE))
       return MediaBuffer::MemType::MEM_HARD_WARE;
 #endif
-    LOG("warning: %s is not supported or not integrated, fallback to common\n",
-        s);
+    RKMEDIA_LOGW("%s is not supported or not integrated, fallback to common\n",
+                 s);
   }
   return MediaBuffer::MemType::MEM_COMMON;
 }
@@ -84,7 +84,7 @@ IonBuffer::~IonBuffer() {
   if (handle) {
     int ret = ion_free(client, handle);
     if (ret)
-      LOG("ion_free() failed <handle: %d>: %m!\n", handle);
+      RKMEDIA_LOGI("ion_free() failed <handle: %d>: %m!\n", handle);
   }
   ion_close(client);
 }
@@ -104,18 +104,18 @@ static MediaBuffer alloc_ion_memory(size_t size) {
   IonBuffer *buffer;
   int client = ion_open();
   if (client < 0) {
-    LOG("ion_open() failed: %m\n");
+    RKMEDIA_LOGI("ion_open() failed: %m\n");
     goto err;
   }
   ret = ion_alloc(client, size, 0, ION_HEAP_TYPE_DMA_MASK, 0, &handle);
   if (ret) {
-    LOG("ion_alloc() failed: %m\n");
+    RKMEDIA_LOGI("ion_alloc() failed: %m\n");
     ion_close(client);
     goto err;
   }
   ret = ion_share(client, handle, &fd);
   if (ret < 0) {
-    LOG("ion_share() failed: %m\n");
+    RKMEDIA_LOGI("ion_share() failed: %m\n");
     ion_free(client, handle);
     ion_close(client);
     goto err;
@@ -123,7 +123,7 @@ static MediaBuffer alloc_ion_memory(size_t size) {
   ptr =
       mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED, fd, 0);
   if (!ptr) {
-    LOG("ion mmap() failed: %m\n");
+    RKMEDIA_LOGI("ion mmap() failed: %m\n");
     ion_free(client, handle);
     ion_close(client);
     close(fd);
@@ -213,21 +213,21 @@ static int drm_device_open(const char *device = nullptr) {
     return fd;
   version = drmGetVersion(fd);
   if (!version) {
-    LOG("Failed to get version information "
-        "from %s: probably not a DRM device?\n",
-        device);
+    RKMEDIA_LOGI("Failed to get version information "
+                 "from %s: probably not a DRM device?\n",
+                 device);
     close(fd);
     return -1;
   }
-  LOG("Opened DRM device %s: driver %s "
-      "version %d.%d.%d.\n",
-      device, version->name, version->version_major, version->version_minor,
-      version->version_patchlevel);
+  RKMEDIA_LOGI("Opened DRM device %s: driver %s "
+               "version %d.%d.%d.\n",
+               device, version->name, version->version_major,
+               version->version_minor, version->version_patchlevel);
   drmFreeVersion(version);
   if (drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &has_dumb) < 0 || !has_dumb) {
-    LOG("drm device '%s' "
-        "does not support dumb buffers\n",
-        device);
+    RKMEDIA_LOGI("drm device '%s' "
+                 "does not support dumb buffers\n",
+                 device);
     close(fd);
     return -1;
   }
@@ -266,8 +266,8 @@ public:
     dmcb.flags = flags;
     int ret = drmIoctl(dev->fd, DRM_IOCTL_MODE_CREATE_DUMB, &dmcb);
     if (ret < 0) {
-      LOG("Failed to create dumb<w,h,bpp: %d,%d,%d>: %m\n", dmcb.width,
-          dmcb.height, dmcb.bpp);
+      RKMEDIA_LOGI("Failed to create dumb<w,h,bpp: %d,%d,%d>: %m\n", dmcb.width,
+                   dmcb.height, dmcb.bpp);
       return;
     }
     assert(dmcb.handle > 0);
@@ -276,7 +276,7 @@ public:
     len = dmcb.size;
     ret = drmPrimeHandleToFD(dev->fd, dmcb.handle, DRM_CLOEXEC, &fd);
     if (ret) {
-      LOG("Failed to convert drm handle to fd: %m\n");
+      RKMEDIA_LOGI("Failed to convert drm handle to fd: %m\n");
       return;
     }
     assert(fd >= 0);
@@ -291,12 +291,12 @@ public:
       };
       ret = drmIoctl(device->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &data);
       if (ret)
-        LOG("Failed to free drm handle <%d>: %m\n", handle);
+        RKMEDIA_LOGI("Failed to free drm handle <%d>: %m\n", handle);
     }
     if (fd >= 0) {
       ret = close(fd);
       if (ret)
-        LOG("Failed to close drm buffer fd <%d>: %m\n", fd);
+        RKMEDIA_LOGI("Failed to close drm buffer fd <%d>: %m\n", fd);
     }
   }
   bool MapToVirtual() {
@@ -305,14 +305,14 @@ public:
     dmmd.handle = handle;
     int ret = drmIoctl(device->fd, DRM_IOCTL_MODE_MAP_DUMB, &dmmd);
     if (ret) {
-      LOG("Failed to map dumb: %m\n");
+      RKMEDIA_LOGI("Failed to map dumb: %m\n");
       return false;
     }
     // default read and write
     void *ptr = drm_mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED,
                          device->fd, dmmd.offset);
     if (ptr == MAP_FAILED) {
-      LOG("Failed to drm_mmap: %m\n");
+      RKMEDIA_LOGI("Failed to drm_mmap: %m\n");
       return false;
     }
     assert(ptr);
@@ -399,7 +399,7 @@ MediaBuffer MediaBuffer::Alloc2(size_t size, MemType type, unsigned int flag) {
     return alloc_drm_memory(size, flag);
 #endif
   default:
-    LOG("unknown memtype\n");
+    RKMEDIA_LOGI("unknown memtype\n");
     return MediaBuffer();
   }
 }
@@ -455,7 +455,7 @@ void MediaBuffer::BeginCPUAccess(bool readonly) {
 
   int ret = ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
   if (ret < 0)
-    LOG("%s: %s\n", __func__, strerror(errno));
+    RKMEDIA_LOGI("%s: %s\n", __func__, strerror(errno));
 }
 
 void MediaBuffer::EndCPUAccess(bool readonly) {
@@ -471,7 +471,7 @@ void MediaBuffer::EndCPUAccess(bool readonly) {
 
   int ret = ioctl(fd, DMA_BUF_IOCTL_SYNC, &sync);
   if (ret < 0)
-    LOG("%s: %s\n", __func__, strerror(errno));
+    RKMEDIA_LOGI("%s: %s\n", __func__, strerror(errno));
 }
 
 MediaGroupBuffer *MediaGroupBuffer::Alloc(size_t size,
@@ -484,7 +484,7 @@ MediaGroupBuffer *MediaGroupBuffer::Alloc(size_t size,
     return alloc_drm_memory_group(size);
 #endif
   default:
-    LOG("unknown memtype\n");
+    RKMEDIA_LOGI("unknown memtype\n");
     return nullptr;
   }
 }
@@ -493,7 +493,7 @@ BufferPool::BufferPool(int cnt, int size, MediaBuffer::MemType type) {
   bool sucess = true;
 
   if (cnt <= 0) {
-    LOG("ERROR: BufferPool: cnt:%d is invalid!\n", cnt);
+    RKMEDIA_LOGE("BufferPool: cnt:%d is invalid!\n", cnt);
     return;
   }
 
@@ -504,21 +504,22 @@ BufferPool::BufferPool(int cnt, int size, MediaBuffer::MemType type) {
       break;
     }
     mgb->SetBufferPool(this);
-    LOGD("Create: pool:%p, mgb:%p, ptr:%p, fd:%d, size:%zu\n", this, mgb,
-         mgb->GetPtr(), mgb->GetFD(), mgb->GetSize());
+    RKMEDIA_LOGD("Create: pool:%p, mgb:%p, ptr:%p, fd:%d, size:%zu\n", this,
+                 mgb, mgb->GetPtr(), mgb->GetFD(), mgb->GetSize());
     ready_buffers.push_back(mgb);
   }
 
   if (!sucess) {
     while (ready_buffers.size() > 0)
       ready_buffers.pop_front();
-    LOG("ERROR: BufferPool: Create buffer pool failed! Please check space is "
-        "enough!\n");
+    RKMEDIA_LOGE("BufferPool: Create buffer pool failed! Please check space is "
+                 "enough!\n");
     return;
   }
   buf_cnt = cnt;
   buf_size = size;
-  LOGD("BufferPool: Create buffer pool:%p, size:%d, cnt:%d\n", this, size, cnt);
+  RKMEDIA_LOGD("BufferPool: Create buffer pool:%p, size:%d, cnt:%d\n", this,
+               size, cnt);
 }
 
 BufferPool::~BufferPool() {
@@ -527,7 +528,7 @@ BufferPool::~BufferPool() {
 
   while (busy_buffers.size() > 0) {
     if (wait_times-- <= 0) {
-      LOG("ERROR: BufferPool: waiting bufferpool free for 900ms, TimeOut!\n");
+      RKMEDIA_LOGE("BufferPool: waiting bufferpool free for 900ms, TimeOut!\n");
       break;
     }
     easymedia::usleep(30000); // wait 30ms
@@ -537,8 +538,8 @@ BufferPool::~BufferPool() {
   while (ready_buffers.size() > 0) {
     mgb = ready_buffers.front();
     ready_buffers.pop_front();
-    LOGD("BufferPool: #%02d Destroy buffer pool(ready):[%p,%p]\n", cnt, this,
-         mgb);
+    RKMEDIA_LOGD("BufferPool: #%02d Destroy buffer pool(ready):[%p,%p]\n", cnt,
+                 this, mgb);
     delete mgb;
     cnt++;
   }
@@ -546,8 +547,8 @@ BufferPool::~BufferPool() {
   while (busy_buffers.size() > 0) {
     mgb = busy_buffers.front();
     busy_buffers.pop_front();
-    LOG("WARN: BufferPool: #%02d Destroy buffer pool(busy):[%p,%p]\n", cnt,
-        this, mgb);
+    RKMEDIA_LOGW("BufferPool: #%02d Destroy buffer pool(busy):[%p,%p]\n", cnt,
+                 this, mgb);
     delete mgb;
     cnt++;
   }
@@ -556,12 +557,12 @@ BufferPool::~BufferPool() {
 static int __groupe_buffer_free(void *data) {
   assert(data);
   if (data == NULL) {
-    LOG("ERROR: BufferPool: free ptr is null!\n");
+    RKMEDIA_LOGE("BufferPool: free ptr is null!\n");
     return 0;
   }
   MediaGroupBuffer *mgb = (MediaGroupBuffer *)data;
   if (mgb->pool == NULL) {
-    LOG("ERROR: BufferPool: free pool ptr is null!\n");
+    RKMEDIA_LOGE("BufferPool: free pool ptr is null!\n");
     return 0;
   }
 
@@ -611,25 +612,25 @@ int BufferPool::PutBuffer(MediaGroupBuffer *mgb) {
   }
 
   if (!sucess)
-    LOG("ERROR: BufferPool: Unknow media group buffer:%p\n", mgb);
+    RKMEDIA_LOGE("BufferPool: Unknow media group buffer:%p\n", mgb);
 
   return sucess ? 0 : -1;
 }
 
 void BufferPool::DumpInfo() {
   int id = 0;
-  LOG("##BufferPool DumpInfo:%p\n", this);
-  LOG("\tcnt:%d\n", buf_cnt);
-  LOG("\tsize:%zu\n", buf_size);
-  LOG("\tready buffers(%d):\n", ready_buffers.size());
+  RKMEDIA_LOGI("##BufferPool DumpInfo:%p\n", this);
+  RKMEDIA_LOGI("\tcnt:%d\n", buf_cnt);
+  RKMEDIA_LOGI("\tsize:%zu\n", buf_size);
+  RKMEDIA_LOGI("\tready buffers(%d):\n", ready_buffers.size());
   for (auto dev : ready_buffers)
-    LOG("\t  #%02d Pool:%p, mgb:%p, ptr:%p\n", id++, dev->pool, dev,
-        dev->GetPtr());
-  LOG("\tbusy buffers(%d):\n", busy_buffers.size());
+    RKMEDIA_LOGI("\t  #%02d Pool:%p, mgb:%p, ptr:%p\n", id++, dev->pool, dev,
+                 dev->GetPtr());
+  RKMEDIA_LOGI("\tbusy buffers(%d):\n", busy_buffers.size());
   id = 0;
   for (auto dev : busy_buffers)
-    LOG("\t  #%02d Pool:%p, mgb:%p, ptr:%p\n", id++, dev->pool, dev,
-        dev->GetPtr());
+    RKMEDIA_LOGI("\t  #%02d Pool:%p, mgb:%p, ptr:%p\n", id++, dev->pool, dev,
+                 dev->GetPtr());
 }
 
 } // namespace easymedia

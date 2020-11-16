@@ -57,7 +57,7 @@ RTPSink *AACServerMediaSubsession::createNewRTPSink(
     Groupsock *rtpGroupsock, unsigned char rtpPayloadTypeIfDynamic,
     FramedSource *inputSource) {
   if (!inputSource) {
-    LOG("inputSource is not ready, can not create new rtp sink\n");
+    RKMEDIA_LOGI("inputSource is not ready, can not create new rtp sink\n");
     return NULL;
   }
 
@@ -87,15 +87,15 @@ void AACServerMediaSubsession::startStream(
   if (fMediaInput.GetStartAudioStreamCallback() != NULL) {
     fMediaInput.GetStartAudioStreamCallback()();
   }
-  LOG("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
-      clientSessionId);
+  RKMEDIA_LOGI("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
+               clientSessionId);
   kSessionIdList.push_back(clientSessionId);
   // kMutex.unlock();
 }
 void AACServerMediaSubsession::deleteStream(unsigned clientSessionId,
                                             void *&streamToken) {
   // kMutex.lock();
-  LOG("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
+  RKMEDIA_LOGI("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
   kSessionIdList.remove(clientSessionId);
   if (kSessionIdList.empty())
     fMediaInput.Stop(envir());

@@ -9,6 +9,11 @@
 #include "ffmpeg_utils.h"
 #include "media_type.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 13
+
 namespace easymedia {
 
 // A encoder which call the ffmpeg interface.
@@ -61,7 +66,7 @@ FFMPEGAudioEncoder::~FFMPEGAudioEncoder() {
 
 bool FFMPEGAudioEncoder::Init() {
   if (output_data_type.empty()) {
-    LOG("missing %s\n", KEY_OUTPUTDATATYPE);
+    RKMEDIA_LOGI("missing %s\n", KEY_OUTPUTDATATYPE);
     return false;
   }
   codec_type = StringToCodecType(output_data_type.c_str());
@@ -72,17 +77,18 @@ bool FFMPEGAudioEncoder::Init() {
     av_codec = avcodec_find_encoder(id);
   }
   if (!av_codec) {
-    LOG("Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
+    RKMEDIA_LOGI(
+        "Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
         ff_codec_name.c_str(), output_data_type.c_str());
     return false;
   }
   avctx = avcodec_alloc_context3(av_codec);
   if (!avctx) {
-    LOG("Fail to avcodec_alloc_context3\n");
+    RKMEDIA_LOGI("Fail to avcodec_alloc_context3\n");
     return false;
   }
-  LOG("av codec name=%s\n",
-      av_codec->long_name ? av_codec->long_name : av_codec->name);
+  RKMEDIA_LOGI("av codec name=%s\n",
+               av_codec->long_name ? av_codec->long_name : av_codec->name);
   return true;
 }
 
@@ -95,8 +101,8 @@ static bool check_sample_fmt(const AVCodec *codec,
     if (*p++ == sample_fmt)
       return true;
   }
-  LOG("av codec_id [0x%08x] does not support av sample fmt [%d]\n", codec->id,
-      sample_fmt);
+  RKMEDIA_LOGI("av codec_id [0x%08x] does not support av sample fmt [%d]\n",
+               codec->id, sample_fmt);
   return false;
 }
 
@@ -108,8 +114,8 @@ static bool check_sample_rate(const AVCodec *codec, int sample_rate) {
     if (*p++ == sample_rate)
       return true;
   }
-  LOG("av codec_id [0x%08x] does not support sample_rate [%d]\n", codec->id,
-      sample_rate);
+  RKMEDIA_LOGI("av codec_id [0x%08x] does not support sample_rate [%d]\n",
+               codec->id, sample_rate);
   return false;
 }
 
@@ -122,7 +128,8 @@ static bool check_channel_layout(const AVCodec *codec,
     if (*p++ == channel_layout)
       return true;
   }
-  LOG("av codec_id [0x%08x] does not support audio channel_layout [%d]\n",
+  RKMEDIA_LOGI(
+      "av codec_id [0x%08x] does not support audio channel_layout [%d]\n",
       codec->id, (int)channel_layout);
   return false;
 }

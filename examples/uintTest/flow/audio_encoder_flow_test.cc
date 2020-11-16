@@ -25,7 +25,7 @@
 static bool quit = false;
 
 static void sigterm_handler(int sig) {
-  LOG("signal %d\n", sig);
+  RKMEDIA_LOGI("signal %d\n", sig);
   quit = true;
 }
 
@@ -41,17 +41,18 @@ int main(int argc, char **argv) {
     switch (c) {
     case 'i':
       input_path = optarg;
-      LOG("input file path: %s\n", input_path.c_str());
+      RKMEDIA_LOGI("input file path: %s\n", input_path.c_str());
       break;
     case 'o':
       output_path = optarg;
-      LOG("output file path: %s\n", output_path.c_str());
+      RKMEDIA_LOGI("output file path: %s\n", output_path.c_str());
       break;
     case '?':
     default:
-      LOG("usage example: \n");
-      LOG("\t%s -i input.pcm -o output.mp2\n"
-        "\tNOTICE: input.pcm: 2Channels, 44100, S16_LE\n", argv[0]);
+      RKMEDIA_LOGI("usage example: \n");
+      RKMEDIA_LOGI("\t%s -i input.pcm -o output.mp2\n"
+                   "\tNOTICE: input.pcm: 2Channels, 44100, S16_LE\n",
+                   argv[0]);
       break;
     }
   }
@@ -79,11 +80,11 @@ int main(int argc, char **argv) {
   std::string enc_param;
   enc_param.append(easymedia::to_param_string(enc_config, AUDIO_MP2));
   param = easymedia::JoinFlowParam(param, 1, enc_param);
-  LOG("\nAudioEncoder flow param:\n%s\n", param.c_str());
+  RKMEDIA_LOGI("\nAudioEncoder flow param:\n%s\n", param.c_str());
   auto enc_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), param.c_str());
   if (!enc_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -99,14 +100,14 @@ int main(int argc, char **argv) {
   if (read_size > 0) {
     nb_samples = read_size / GetSampleSize(aud_info);
     fps = aud_info.sample_rate / nb_samples;
-    LOG("\nThe data block size(%d Byte) is specified by the codec.\n",
-      read_size);
+    RKMEDIA_LOGI("\nThe data block size(%d Byte) is specified by the codec.\n",
+                 read_size);
   } else {
     nb_samples = aud_info.nb_samples;
     read_size = nb_samples * GetSampleSize(aud_info);
     fps = aud_info.sample_rate / nb_samples;
-    LOG("\nThe data block size(%d Byte) is specified by the user.\n",
-      read_size);
+    RKMEDIA_LOGI("\nThe data block size(%d Byte) is specified by the user.\n",
+                 read_size);
   }
 
   PARAM_STRING_APPEND(param, KEY_PATH, input_path);
@@ -114,12 +115,12 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND_TO(param, KEY_MEM_SIZE_PERTIME, read_size);
   PARAM_STRING_APPEND_TO(param, KEY_FPS, fps);
   PARAM_STRING_APPEND_TO(param, KEY_LOOP_TIME, 0);
-  LOG("\nReadFile flow param:\n%s\n", param.c_str());
+  RKMEDIA_LOGI("\nReadFile flow param:\n%s\n", param.c_str());
 
   auto file_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), param.c_str());
   if (!file_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -128,18 +129,19 @@ int main(int argc, char **argv) {
   param = "";
   PARAM_STRING_APPEND(param, KEY_PATH, output_path.c_str());
   PARAM_STRING_APPEND(param, KEY_OPEN_MODE, "w+");
-  LOG("\nFileWrite flow param:\n%s\n", param.c_str());
+  RKMEDIA_LOGI("\nFileWrite flow param:\n%s\n", param.c_str());
   auto save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), param.c_str());
   if (!save_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
 
   // 4. link above flows
   enc_flow->AddDownFlow(save_flow, 0, 0);
-  file_flow->AddDownFlow(enc_flow, 0, 0); // the source flow better place the end to add down flow
-  LOG("%s initial finish\n", argv[0]);
+  file_flow->AddDownFlow(
+      enc_flow, 0, 0); // the source flow better place the end to add down flow
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
   signal(SIGINT, sigterm_handler);
 
@@ -147,7 +149,7 @@ int main(int argc, char **argv) {
     easymedia::msleep(100);
   }
 
-  LOG("%s reclaiming\n", argv[0]);
+  RKMEDIA_LOGI("%s reclaiming\n", argv[0]);
   file_flow->RemoveDownFlow(enc_flow);
   enc_flow->RemoveDownFlow(save_flow);
   file_flow.reset();
@@ -155,4 +157,3 @@ int main(int argc, char **argv) {
   save_flow.reset();
   return 0;
 }
-

@@ -6,9 +6,9 @@
 #include "filter.h"
 #include "link_config.h"
 #include "lock.h"
+#include "rknn_user.h"
 #include "rknn_utils.h"
 #include "utils.h"
-#include "rknn_user.h"
 #include <assert.h>
 #include <rockx/rockx.h>
 
@@ -73,7 +73,7 @@ void DumpFps() {
     mFps = ((mFrameCount - mLastFrameCount) * 1000) / diff;
     mLastFpsTime = now;
     mLastFrameCount = mFrameCount;
-    LOG("---mFps = %2.3f\n", mFps);
+    RKMEDIA_LOGI("---mFps = %2.3f\n", mFps);
   }
 }
 
@@ -188,9 +188,9 @@ private:
   int ProcessRockxFinger(std::shared_ptr<easymedia::ImageBuffer> input_buffer,
                          rockx_image_t input_img,
                          std::vector<rockx_handle_t> handles);
-  int ProcessRockxObjectDetect(std::shared_ptr<easymedia::ImageBuffer> input_buffer,
-                         rockx_image_t input_img,
-                         std::vector<rockx_handle_t> handles);
+  int ProcessRockxObjectDetect(
+      std::shared_ptr<easymedia::ImageBuffer> input_buffer,
+      rockx_image_t input_img, std::vector<rockx_handle_t> handles);
   static void RockxPoseBodyAsyncCallback(void *result, size_t result_size,
                                          void *extra_data);
   static void RockxFaceDetectAsyncCallback(void *result, size_t result_size,
@@ -321,14 +321,14 @@ ROCKXFilter::ROCKXFilter(const char *param) : model_name_("") {
   }
 
   if (params[KEY_ROCKX_MODEL].empty()) {
-    LOG("lost rockx model info!\n");
+    RKMEDIA_LOGI("lost rockx model info!\n");
     return;
   } else {
     model_name_ = params[KEY_ROCKX_MODEL];
   }
 
   if (params[KEY_INPUTDATATYPE].empty()) {
-    LOG("rockx lost input type.\n");
+    RKMEDIA_LOGI("rockx lost input type.\n");
     return;
   } else {
     input_type_ = params[KEY_INPUTDATATYPE];
@@ -389,7 +389,7 @@ ROCKXFilter::ROCKXFilter(const char *param) : model_name_("") {
   contrl_ = std::make_shared<RockxContrl>(enable, interval);
 
   if (!contrl_) {
-    LOG("rockx contrl is nullptr.\n");
+    RKMEDIA_LOGI("rockx contrl is nullptr.\n");
     return;
   }
 
@@ -474,7 +474,7 @@ int ROCKXFilter::ProcessRockxFaceLandmark(
   }
 
   if (ret != ROCKX_RET_SUCCESS) {
-    LOG("rockx_face_detect error %d\n", ret);
+    RKMEDIA_LOGI("rockx_face_detect error %d\n", ret);
     return -1;
   }
 
@@ -519,7 +519,7 @@ int ROCKXFilter::ProcessRockxPoseBody(
         rockx_pose_body(pose_body_handle, &input_img, &key_points_array, NULL);
 
   if (ret != ROCKX_RET_SUCCESS) {
-    LOG("rockx_face_detect error %d\n", ret);
+    RKMEDIA_LOGI("rockx_face_detect error %d\n", ret);
     return -1;
   }
   if (key_points_array.count <= 0) {
@@ -572,7 +572,8 @@ int ROCKXFilter::ProcessRockxObjectDetect(
   rockx_ret_t ret;
 
   memset(&object_array, 0, sizeof(rockx_object_array_t));
-  ret = rockx_object_detect(object_detect_handle, &input_img, &object_array, NULL);
+  ret = rockx_object_detect(object_detect_handle, &input_img, &object_array,
+                            NULL);
   if (ret != ROCKX_RET_SUCCESS) {
     printf("rockx_object_detect error %d\n", ret);
     return -1;
@@ -590,11 +591,12 @@ int ROCKXFilter::ProcessRockxObjectDetect(
 
   RknnResult nn_array[object_array.count];
   for (int i = 0; i < object_array.count; i++) {
-      nn_array[i].timeval = input_buffer->GetAtomicClock();
-      nn_array[i].img_w = input_img.width;
-      nn_array[i].img_h = input_img.height;
-      nn_array[i].type = NNRESULT_TYPE_OBJECT_DETECT;
-      memcpy(&nn_array[i].object_info, &object_array.object[i], sizeof(rockx_object_t));
+    nn_array[i].timeval = input_buffer->GetAtomicClock();
+    nn_array[i].img_w = input_img.width;
+    nn_array[i].img_h = input_img.height;
+    nn_array[i].type = NNRESULT_TYPE_OBJECT_DETECT;
+    memcpy(&nn_array[i].object_info, &object_array.object[i],
+           sizeof(rockx_object_t));
   }
   if (callback_)
     callback_(this, NNRESULT_TYPE_OBJECT_DETECT, nn_array, object_array.count);
@@ -619,7 +621,7 @@ int ROCKXFilter::Process(std::shared_ptr<MediaBuffer> input,
   auto &name = model_name_;
   auto &handles = rockx_handles_;
   if (enable_rockx_debug)
-    LOG("ROCKXFilter::Process %s begin \n", model_name_.c_str());
+    RKMEDIA_LOGI("ROCKXFilter::Process %s begin \n", model_name_.c_str());
   if (name == "rockx_face_detect") {
     ProcessRockxFaceDetect(input_buffer, input_img, handles);
   } else if (name == "rockx_face_landmark") {
@@ -634,7 +636,7 @@ int ROCKXFilter::Process(std::shared_ptr<MediaBuffer> input,
     assert(0);
   }
   if (enable_rockx_debug)
-    LOG("ROCKXFilter::Process %s end \n", model_name_.c_str());
+    RKMEDIA_LOGI("ROCKXFilter::Process %s end \n", model_name_.c_str());
   return 0;
 }
 

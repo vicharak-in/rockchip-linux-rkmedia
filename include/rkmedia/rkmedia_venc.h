@@ -321,10 +321,10 @@ typedef struct rkVENC_RECV_PIC_PARAM_S {
 } VENC_RECV_PIC_PARAM_S;
 
 typedef struct rkVENC_JPEG_PARAM_S {
-  RK_U32 u32Qfactor; // 1-99
-  RK_U8 u8YQt[64]; // useless now
-  RK_U8 u8CbQt[64]; // useless now
-  RK_U8 u8CrQt[64]; // useless now
+  RK_U32 u32Qfactor;   // 1-99
+  RK_U8 u8YQt[64];     // useless now
+  RK_U8 u8CbQt[64];    // useless now
+  RK_U8 u8CrQt[64];    // useless now
   RK_U32 u32MCUPerECS; // useless now
 } VENC_JPEG_PARAM_S;
 
@@ -336,9 +336,11 @@ typedef struct rkVENC_RESOLUTION_PARAM_S {
 } VENC_RESOLUTION_PARAM_S;
 
 typedef struct rkVENC_CHN_STATUS_S {
-  RK_U32 u32LeftFrames; // The number of unencoded frames remaining in the input buffer.
+  RK_U32 u32LeftFrames; // The number of unencoded frames remaining in the input
+                        // buffer.
   RK_U32 u32TotalFrames; // The capacity of the input buffer.
-  RK_U32 u32LeftPackets; // The number of packets remaining in the output buffer that have not been taken.
+  RK_U32 u32LeftPackets; // The number of packets remaining in the output buffer
+                         // that have not been taken.
   RK_U32 u32TotalPackets; // The capacity of the output buffer.
 } VENC_CHN_STATUS_S;
 

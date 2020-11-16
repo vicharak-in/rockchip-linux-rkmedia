@@ -100,7 +100,7 @@ int FaceCapture::InitPlugin(std::map<std::string, std::string> &params) {
   enc_ = easymedia::REFLECTOR(Encoder)::Create<easymedia::VideoEncoder>(
       mpp_codec.c_str(), enc_param.c_str());
   if (!enc_) {
-    LOG("FaceCapture Create encoder %s failed\n", mpp_codec.c_str());
+    RKMEDIA_LOGI("FaceCapture Create encoder %s failed\n", mpp_codec.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -115,7 +115,7 @@ int FaceCapture::InitPlugin(std::map<std::string, std::string> &params) {
 
   rga_ = REFLECTOR(Filter)::Create<Filter>("rkrga", rga_param.c_str());
   if (!rga_) {
-    LOG("FaceCapture Create rga %s failed\n", rga_param.c_str());
+    RKMEDIA_LOGI("FaceCapture Create rga %s failed\n", rga_param.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -123,7 +123,7 @@ int FaceCapture::InitPlugin(std::map<std::string, std::string> &params) {
   std::string value;
   file_prefix_ = params[KEY_FILE_PREFIX];
   if (file_prefix_.empty()) {
-    LOG("FaceCapture file_prefix empty\n");
+    RKMEDIA_LOGI("FaceCapture file_prefix empty\n");
   }
   file_path_ = params[KEY_PATH];
   file_suffix_ = params[KEY_FILE_SUFFIX];
@@ -135,8 +135,8 @@ int FaceCapture::InitPlugin(std::map<std::string, std::string> &params) {
   fstream_ = REFLECTOR(Stream)::Create<Stream>("file_write_stream",
                                                stream_param.c_str());
   if (!fstream_) {
-    LOG("FaceCapture Create file_write_stream %s failed\n",
-        stream_param.c_str());
+    RKMEDIA_LOGI("FaceCapture Create file_write_stream %s failed\n",
+                 stream_param.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -201,7 +201,7 @@ int FaceCapture::DoCrop(std::shared_ptr<MediaBuffer> src,
 
   size_t size = CalPixFmtSize(dst_info);
   if (size == 0) {
-    LOG("FaceCapture rga size empty\n");
+    RKMEDIA_LOGI("FaceCapture rga size empty\n");
     return -1;
   }
 
@@ -211,7 +211,7 @@ int FaceCapture::DoCrop(std::shared_ptr<MediaBuffer> src,
 
   int ret = rga_->Process(src, dst);
   if (ret < 0) {
-    LOG("FaceCapture rga Process failed\n");
+    RKMEDIA_LOGI("FaceCapture rga Process failed\n");
     return -1;
   }
 
@@ -226,7 +226,7 @@ int FaceCapture::DoEncode(std::shared_ptr<MediaBuffer> src,
   img_cfg.image_info = img_buffer->GetImageInfo();
   img_cfg.qfactor = 50;
   if (!enc_->InitConfig(enc_config)) {
-    LOG("FaceCapture Init config of encoder mjpeg failed\n");
+    RKMEDIA_LOGI("FaceCapture Init config of encoder mjpeg failed\n");
     exit(EXIT_FAILURE);
   }
   dst = std::make_shared<MediaBuffer>();
@@ -235,7 +235,7 @@ int FaceCapture::DoEncode(std::shared_ptr<MediaBuffer> src,
     return -1;
   }
   if (0 != enc_->Process(src, dst, nullptr)) {
-    LOG("FaceCapture encoder Process failed\n");
+    RKMEDIA_LOGI("FaceCapture encoder Process failed\n");
     return -1;
   }
   return 0;

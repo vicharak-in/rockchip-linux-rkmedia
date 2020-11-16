@@ -12,7 +12,7 @@ namespace easymedia {
 FaceDBManager::FaceDBManager(std::string path) {
   int ret = sqlite3_open(path.c_str(), &sqlite_);
   if (ret) {
-    LOG("sqlite3_open %s failed.\n", path.c_str());
+    RKMEDIA_LOGI("sqlite3_open %s failed.\n", path.c_str());
     return;
   }
   if (sqlite_)
@@ -31,7 +31,7 @@ int FaceDBManager::AddUser(rockface_feature_t *feature) {
   memcpy(&face_db.feature, feature, sizeof(rockface_feature_t));
   int ret = InsertFaceDb(&face_db);
   if (ret < 0) {
-    LOG("insert feature failed.\n");
+    RKMEDIA_LOGI("insert feature failed.\n");
     return -1;
   }
   return face_db.user_id;
@@ -46,7 +46,7 @@ int FaceDBManager::DeleteUser(int user_id) {
   char *error = nullptr;
   int ret = sqlite3_exec(sqlite_, sq_buffer, nullptr, nullptr, &error);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_exec failed, error = %s\n", error);
+    RKMEDIA_LOGI("sqlite3_exec failed, error = %s\n", error);
     return -1;
   }
   return 0;
@@ -59,7 +59,7 @@ void FaceDBManager::ClearDb(void) {
   char *error = nullptr;
   int ret = sqlite3_exec(sqlite_, sq_buffer, nullptr, nullptr, &error);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_exec failed, error = %s\n", error);
+    RKMEDIA_LOGI("sqlite3_exec failed, error = %s\n", error);
     return;
   }
   if (sqlite_)
@@ -77,7 +77,7 @@ void FaceDBManager::CreateTable(void) {
       "FEATURE BLOB);";
   int ret = sqlite3_exec(sqlite_, sq_buffer, nullptr, 0, &error);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_exec error: %s\n", error);
+    RKMEDIA_LOGI("sqlite3_exec error: %s\n", error);
     return;
   }
 }
@@ -88,12 +88,12 @@ int FaceDBManager::GetRecordCount(void) {
 
   int ret = sqlite3_prepare_v2(sqlite_, sq_buffer, -1, &stmt, nullptr);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_prepare_v2 failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_prepare_v2 failed, ret = %d\n", ret);
     return -1;
   }
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_ROW) {
-    LOG("sqlite3_step failed. ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_step failed. ret = %d\n", ret);
     return -1;
   }
   int count = sqlite3_column_int(stmt, 0);
@@ -108,7 +108,7 @@ int FaceDBManager::GetMaxUserId(void) {
   int max_user = -1;
   int ret = sqlite3_prepare_v2(sqlite_, sq_buffer, -1, &stmt, nullptr);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_prepare failed. ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_prepare failed. ret = %d\n", ret);
     goto exit;
   }
   ret = sqlite3_step(stmt);
@@ -132,7 +132,7 @@ std::vector<FaceDb> FaceDBManager::GetAllFaceDb(void) {
 
   int ret = sqlite3_prepare_v2(sqlite_, sq_buffer, -1, &stmt, nullptr);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_prepare failed. ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_prepare failed. ret = %d\n", ret);
     goto exit;
   }
   ret = sqlite3_step(stmt);
@@ -168,13 +168,13 @@ int FaceDBManager::InsertFaceDb(FaceDb *face_db) {
   sqlite3_stmt *stmt;
   int ret = sqlite3_prepare_v2(sqlite_, sq_buffer, -1, &stmt, nullptr);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_prepare_v2 failed. ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_prepare_v2 failed. ret = %d\n", ret);
     goto error;
   }
   ret = sqlite3_bind_blob(stmt, 1, face_db->feature.feature,
                           face_db->feature.len, nullptr);
   if (ret != SQLITE_OK) {
-    LOG("sqlite3_bind_blob failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("sqlite3_bind_blob failed, ret = %d\n", ret);
     goto error;
   }
   sqlite3_step(stmt);

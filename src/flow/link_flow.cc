@@ -50,7 +50,7 @@ LinkFlow::LinkFlow(const char *param) {
   sm.process = process_buffer;
 
   if (!InstallSlotMap(sm, "LinkFLow", 0)) {
-    LOG("Fail to InstallSlotMap for LinkFLow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for LinkFLow\n");
     return;
   }
   SetFlowTag("LinkFLow");
@@ -91,8 +91,8 @@ bool process_buffer(Flow *f, MediaBufferVector &input_vector) {
   } else if (flow->link_type_ == LINK_PICTURE) {
     auto link_handler = flow->GetCaptureHandler();
     if (link_handler)
-      link_handler((unsigned char *)buffer->GetPtr(), buffer->GetValidSize(),
-                   0, NULL);
+      link_handler((unsigned char *)buffer->GetPtr(), buffer->GetValidSize(), 0,
+                   NULL);
   } else if (flow->link_type_ == LINK_NNDATA) {
     auto user_callback = flow->GetUserCallBack();
     auto timestamp = easymedia::gettimeofday() / 1000;

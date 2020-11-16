@@ -10,6 +10,11 @@
 #include "media_type.h"
 #include "sound.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 13
+
 namespace easymedia {
 
 static bool encode(Flow *f, MediaBufferVector &input_vector);
@@ -44,8 +49,8 @@ bool encode(Flow *f, MediaBufferVector &input_vector) {
     return false;
 
   if (limit_size && (src->GetValidSize() > limit_size))
-    LOG("WARNING: AudioEncFlow: buffer(%d) is bigger than expected(%d)\n",
-        (int)src->GetValidSize(), (int)limit_size);
+    RKMEDIA_LOGW("AudioEncFlow: buffer(%d) is bigger than expected(%d)\n",
+                 (int)src->GetValidSize(), (int)limit_size);
   else if (src->GetValidSize() < limit_size) {
     // last frame?
     if (src->GetValidSize() <= 0)
@@ -92,7 +97,7 @@ bool encode(Flow *f, MediaBufferVector &input_vector) {
     size_t out_len = dst->GetValidSize();
     if (out_len == 0)
       break;
-    LOGD("[Audio]: frame encoded, out %d bytes\n\n", (int)out_len);
+    RKMEDIA_LOGD("[Audio]: frame encoded, out %d bytes\n\n", (int)out_len);
     result = af->SetOutput(dst, 0);
     if (!result)
       break;
@@ -110,7 +115,7 @@ AudioEncoderFlow::AudioEncoderFlow(const char *param) {
   }
   std::string &codec_name = params[KEY_NAME];
   if (codec_name.empty()) {
-    LOG("missing codec name\n");
+    RKMEDIA_LOGI("missing codec name\n");
     SetError(-EINVAL);
     return;
   }
@@ -123,7 +128,8 @@ AudioEncoderFlow::AudioEncoderFlow(const char *param) {
   }
 
   if (!REFLECTOR(Encoder)::IsMatch(ccodec_name, rule.c_str())) {
-    LOG("Unsupport for audio encoder %s : [%s]\n", ccodec_name, rule.c_str());
+    RKMEDIA_LOGI("Unsupport for audio encoder %s : [%s]\n", ccodec_name,
+                 rule.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -143,14 +149,14 @@ AudioEncoderFlow::AudioEncoderFlow(const char *param) {
   auto encoder = REFLECTOR(Encoder)::Create<AudioEncoder>(
       ccodec_name, enc_param_str.c_str());
   if (!encoder) {
-    LOG("Fail to create audio encoder %s<%s>\n", ccodec_name,
-        enc_param_str.c_str());
+    RKMEDIA_LOGI("Fail to create audio encoder %s<%s>\n", ccodec_name,
+                 enc_param_str.c_str());
     SetError(-EINVAL);
     return;
   }
 
   if (!encoder->InitConfig(mc)) {
-    LOG("Fail to init config, %s\n", ccodec_name);
+    RKMEDIA_LOGI("Fail to init config, %s\n", ccodec_name);
     SetError(-EINVAL);
     return;
   }
@@ -167,7 +173,7 @@ AudioEncoderFlow::AudioEncoderFlow(const char *param) {
   sm.mode_when_full = InputMode::DROPFRONT;
   sm.input_maxcachenum.push_back(3);
   if (!InstallSlotMap(sm, "AudioEncoderFlow", 40)) {
-    LOG("Fail to InstallSlotMap for AudioEncoderFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for AudioEncoderFlow\n");
     SetError(-EINVAL);
     return;
   }

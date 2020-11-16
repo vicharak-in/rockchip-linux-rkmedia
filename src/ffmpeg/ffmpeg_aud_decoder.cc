@@ -9,6 +9,11 @@
 #include "ffmpeg_utils.h"
 #include "media_type.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 14
+
 namespace easymedia {
 
 // A decoder which call the ffmpeg interface.
@@ -66,7 +71,7 @@ FFMPEGAudioDecoder::~FFMPEGAudioDecoder() {
 
 bool FFMPEGAudioDecoder::Init() {
   if (input_data_type.empty()) {
-    LOG("missing %s\n", KEY_INPUTDATATYPE);
+    RKMEDIA_LOGI("missing %s\n", KEY_INPUTDATATYPE);
     return false;
   }
   codec_type = StringToCodecType(input_data_type.c_str());
@@ -79,7 +84,8 @@ bool FFMPEGAudioDecoder::Init() {
     av_codec = avcodec_find_decoder(id);
   }
   if (!av_codec) {
-    LOG("Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
+    RKMEDIA_LOGI(
+        "Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
         ff_codec_name.c_str(), input_data_type.c_str());
     return false;
   }
@@ -87,18 +93,18 @@ bool FFMPEGAudioDecoder::Init() {
   if (need_parser) {
     parser = av_parser_init(av_codec->id);
     if (!parser) {
-      LOG("Parser not found\n");
+      RKMEDIA_LOGI("Parser not found\n");
       return false;
     }
   }
 
   avctx = avcodec_alloc_context3(av_codec);
   if (!avctx) {
-    LOG("Fail to avcodec_alloc_context3\n");
+    RKMEDIA_LOGI("Fail to avcodec_alloc_context3\n");
     return false;
   }
-  LOG("av codec name=%s\n",
-      av_codec->long_name ? av_codec->long_name : av_codec->name);
+  RKMEDIA_LOGI("av codec name=%s\n",
+               av_codec->long_name ? av_codec->long_name : av_codec->name);
   return true;
 }
 
@@ -108,8 +114,8 @@ bool FFMPEGAudioDecoder::InitConfig(const MediaConfig &cfg) {
     avctx->sample_rate = cfg.aud_cfg.sample_info.sample_rate;
   }
   int av_ret = avcodec_open2(avctx, av_codec, NULL);
-  LOG("InitConfig channels = %d, sample_rate = %d. sample_fmt = %d.\n",
-      avctx->channels, avctx->sample_rate, avctx->sample_fmt);
+  RKMEDIA_LOGI("InitConfig channels = %d, sample_rate = %d. sample_fmt = %d.\n",
+               avctx->channels, avctx->sample_rate, avctx->sample_fmt);
   if (av_ret < 0) {
     PrintAVError(av_ret, "Fail to avcodec_open2", av_codec->long_name);
     return false;
@@ -155,12 +161,13 @@ int FFMPEGAudioDecoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
       if (avpkt->size) {
         ret = avcodec_send_packet(avctx, avpkt);
         if (ret < 0) {
-          LOG("Audio data lost!, ret = %d.\n", ret);
+          RKMEDIA_LOGI("Audio data lost!, ret = %d.\n", ret);
         }
       }
     }
   } else {
-    LOG(" will use avcodec_send_packet send nullptr to fflush decoder.\n");
+    RKMEDIA_LOGI(
+        " will use avcodec_send_packet send nullptr to fflush decoder.\n");
     ret = avcodec_send_packet(avctx, nullptr);
   }
   if (ret < 0) {
@@ -207,8 +214,8 @@ std::shared_ptr<MediaBuffer> FFMPEGAudioDecoder::FetchOutput() {
     fprintf(stderr, "Failed to calculate data size\n");
     return nullptr;
   }
-  LOGD("decode [%d]-[%d]-[%d]-[%d]\n", ret, frame->nb_samples, data_size,
-       avctx->channels);
+  RKMEDIA_LOGD("decode [%d]-[%d]-[%d]-[%d]\n", ret, frame->nb_samples,
+               data_size, avctx->channels);
   buffer->SetPtr(frame->data[0]);
   buffer->SetValidSize(data_size * frame->nb_samples * avctx->channels);
   buffer->SetUSTimeStamp(frame->pts);

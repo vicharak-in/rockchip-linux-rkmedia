@@ -61,7 +61,7 @@ static bool _convert_to_avdictionary(std::string avdictionary,
     std::list<std::string> values;
     parse_media_param_list(avdic.c_str(), values, '-');
     if (values.size() != 2) {
-      LOG("ffmpeg_muxer:: avdictionary error: %s.\n", avdic.c_str());
+      RKMEDIA_LOGI("ffmpeg_muxer:: avdictionary error: %s.\n", avdic.c_str());
       continue;
     }
     std::string name, value;
@@ -109,7 +109,7 @@ bool FFMPEGMuxer::Init() {
   if (!empty)
     return false;
   if (path.empty() && oformat.empty()) {
-    LOG("you must set path or output format.\n");
+    RKMEDIA_LOGI("you must set path or output format.\n");
     return false;
   }
   AVFormatContext *c = NULL;
@@ -202,12 +202,12 @@ bool FFMPEGMuxer::NewMuxerStream(
     return false;
   AVStream *s = avformat_new_stream(context, NULL);
   if (!s) {
-    LOG("avformat_new_stream failed\n");
+    RKMEDIA_LOGI("avformat_new_stream failed\n");
     return false;
   }
   assert(s->index < 64);
   stream_no = s->index;
-  LOGD("new stream index %d\n", stream_no);
+  RKMEDIA_LOGD("new stream index %d\n", stream_no);
   s->id = context->nb_streams - 1;
   *(s->codecpar) = *codecpar;
   s->time_base = time_base;
@@ -252,7 +252,7 @@ bool FFMPEGMuxer::NewMuxerStream(
 
 std::shared_ptr<MediaBuffer> FFMPEGMuxer::WriteHeader(int stream_no) {
   if (stream_no < 0 || stream_no >= (int)streams.size()) {
-    LOG("Invalid stream no : %d\n", stream_no);
+    RKMEDIA_LOGI("Invalid stream no : %d\n", stream_no);
     return nullptr;
   }
   const char *url = path.c_str();
@@ -299,8 +299,8 @@ std::shared_ptr<MediaBuffer> FFMPEGMuxer::WriteHeader(int stream_no) {
 #ifndef NDEBUG
   int i = 0;
   for (auto s : streams) {
-    LOGD("stream index %d, after write header time_base: %d/%d\n", i++,
-         s->time_base.num, s->time_base.den);
+    RKMEDIA_LOGD("stream index %d, after write header time_base: %d/%d\n", i++,
+                 s->time_base.num, s->time_base.den);
   }
 #endif
   return empty;
@@ -337,8 +337,8 @@ FFMPEGMuxer::Write(std::shared_ptr<MediaBuffer> data, int stream_no) {
       pre_pts[stream_no] = pts;
     }
     avpkt.dts = avpkt.pts = pts;
-    LOGD("[%d] pts = %ld, num/den =%d/%d\n", stream_no, pts, s->time_base.num,
-         s->time_base.den);
+    RKMEDIA_LOGD("[%d] pts = %lld, num/den =%d/%d\n", stream_no, pts,
+                 s->time_base.num, s->time_base.den);
     ret = av_write_frame(context, &avpkt);
     av_packet_unref(&avpkt);
     if (ret < 0) {

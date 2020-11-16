@@ -83,7 +83,7 @@ BodyDetect::BodyDetect(const char *param) : callback_(nullptr) {
   }
   input_type_ = params[KEY_INPUTDATATYPE];
   if (input_type_.empty()) {
-    LOG("bodydetect lost input type.\n");
+    RKMEDIA_LOGI("bodydetect lost input type.\n");
     return;
   }
   bool enable = false;
@@ -108,7 +108,7 @@ BodyDetect::BodyDetect(const char *param) : callback_(nullptr) {
 
   auto &&rects = StringToImageRect(params[KEY_DETECT_RECT]);
   if (rects.empty()) {
-    LOG("missing rects\n");
+    RKMEDIA_LOGI("missing rects\n");
     SetError(-EINVAL);
     return;
   }
@@ -116,7 +116,7 @@ BodyDetect::BodyDetect(const char *param) : callback_(nullptr) {
   contrl_ = std::make_shared<BodyContrl>(enable, interval, duration_thr,
                                          percentage_thr, roi_rect);
   if (!contrl_) {
-    LOG("body contrl is nullptr.\n");
+    RKMEDIA_LOGI("body contrl is nullptr.\n");
     return;
   }
 
@@ -136,11 +136,11 @@ BodyDetect::BodyDetect(const char *param) : callback_(nullptr) {
 
   ret = rockface_init_person_detector(body_handle_);
   if (ret != ROCKFACE_RET_SUCCESS) {
-    LOG("rockface_init_person_detector failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("rockface_init_person_detector failed, ret = %d\n", ret);
     return;
   }
   if (authorized_result_.status != SUCCESS)
-    LOG("rockface bodydetect authorize failed.\n");
+    RKMEDIA_LOGI("rockface bodydetect authorize failed.\n");
 }
 
 BodyDetect::~BodyDetect() {
@@ -183,10 +183,10 @@ int BodyDetect::Process(std::shared_ptr<MediaBuffer> input,
                   1);
       }
     }
-    LOG("rockface_person_detect failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("rockface_person_detect failed, ret = %d\n", ret);
     return -1;
   }
-  LOGD("rockface_person_detect cost time %lldus\n", cost_time.Get());
+  RKMEDIA_LOGD("rockface_person_detect cost time %lldus\n", cost_time.Get());
 
   RknnResult nn_result;
   memset(&nn_result, 0, sizeof(RknnResult));
@@ -198,8 +198,8 @@ int BodyDetect::Process(std::shared_ptr<MediaBuffer> input,
     if (!contrl_->PercentageFilter(body))
       continue;
 
-    LOGD("body[%d], position:[%d, %d, %d, %d]\n", i, body->box.left,
-         body->box.top, body->box.right, body->box.bottom);
+    RKMEDIA_LOGD("body[%d], position:[%d, %d, %d, %d]\n", i, body->box.left,
+                 body->box.top, body->box.right, body->box.bottom);
 
     memcpy(&nn_result.body_info.base, body, sizeof(rockface_det_t));
     nn_list.push_back(nn_result);

@@ -4,25 +4,25 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
-#include <string>
 #include <iostream>
+#include <string>
 
 #include "buffer.h"
 #include "encoder.h"
 #include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 #define ROI_REGION_CNT 4
 
@@ -37,7 +37,8 @@ static char optstr[] = "?:i:o:w:h:f:t:";
 static void print_usage(char *name) {
   printf("usage example: \n");
   printf("%s -i /dev/video0 -o output.h264 -w 1920 -h 1080 "
-         "-f nv12 -t h264\n", name);
+         "-f nv12 -t h264\n",
+         name);
   printf("#[-t] support list:\n\th264\n\th265\n");
   printf("#[-f] support list:\n\tyuyv422\n\tnv12\n");
 }
@@ -102,8 +103,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
-  if((pixel_format == "yuyv422") || (pixel_format == "nv12"))
+  // add prefix for pixformat
+  if ((pixel_format == "yuyv422") || (pixel_format == "nv12"))
     pixel_format = "image:" + pixel_format;
   else {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -111,8 +112,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for encoder type
-  if ((video_enc_type =="h264") || (video_enc_type == "h265"))
+  // add prefix for encoder type
+  if ((video_enc_type == "h264") || (video_enc_type == "h265"))
     video_enc_type = "video:" + video_enc_type;
   else {
     printf("ERROR: encoder type:%s not support!\n", video_enc_type.c_str());
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
   }
 
   if (local_file_flag) {
-    //Reading yuv from file.
+    // Reading yuv from file.
     flow_name = "file_read_flow";
     flow_param = "";
     ImageInfo info;
@@ -149,22 +150,24 @@ int main(int argc, char **argv) {
 
     flow_param.append(easymedia::to_param_string(info, 1).c_str());
     PARAM_STRING_APPEND(flow_param, KEY_PATH, input_path);
-    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "re"); // read and close-on-exec
+    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                        "re"); // read and close-on-exec
     PARAM_STRING_APPEND_TO(flow_param, KEY_FPS, video_fps);
     PARAM_STRING_APPEND_TO(flow_param, KEY_LOOP_TIME, 0);
-    LOG("\n#FileRead flow param:\n%s\n", flow_param.c_str());
+    RKMEDIA_LOGI("\n#FileRead flow param:\n%s\n", flow_param.c_str());
 
     video_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
         flow_name.c_str(), flow_param.c_str());
     if (!video_read_flow) {
-      LOG("Create flow %s failed\n", flow_name.c_str());
+      RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
       exit(EXIT_FAILURE);
     }
   } else {
-    //Reading yuv from camera
+    // Reading yuv from camera
     flow_name = "source_stream";
     flow_param = "";
-    vir_width = UPALIGNTO(video_width, 8);;
+    vir_width = UPALIGNTO(video_width, 8);
+    ;
     vir_height = UPALIGNTO(video_height, 8);
     PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
     PARAM_STRING_APPEND(flow_param, KEK_THREAD_SYNC_MODEL, KEY_SYNC);
@@ -173,9 +176,12 @@ int main(int argc, char **argv) {
     stream_param = "";
     PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
     PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                        KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                        KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                           4); // if not set, default is 2
     PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
@@ -209,7 +215,8 @@ int main(int argc, char **argv) {
   image_info.vir_height = vir_height;
   enc_param = easymedia::get_video_encoder_config_string(image_info, vcfg);
   PARAM_STRING_APPEND(enc_param, KEY_ROI_REGIONS,
-  "(0,0,256,256,0,18,0,1,1)(256,256,512,512,0,18,0,1,1)(512,512,768,768,0,18,0,1,1)");
+                      "(0,0,256,256,0,18,0,1,1)(256,256,512,512,0,18,0,1,1)("
+                      "512,512,768,768,0,18,0,1,1)");
   flow_param = easymedia::JoinFlowParam(flow_param, 1, enc_param);
   printf("\n#VideoEncoder flow param:\n%s\n", flow_param.c_str());
   video_encoder_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
@@ -222,7 +229,8 @@ int main(int argc, char **argv) {
   flow_name = "file_write_flow";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_PATH, output_path.c_str());
-  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "w+"); // read and close-on-exec
+  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                      "w+"); // read and close-on-exec
   printf("\n#FileWrite:\n%s\n", flow_param.c_str());
   video_save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
@@ -259,13 +267,13 @@ int main(int argc, char **argv) {
   video_encoder_flow->AddDownFlow(video_save_flow, 0, 0);
   video_read_flow->AddDownFlow(video_encoder_flow, 0, 0);
 
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
   sleep(10);
   printf("clear encoder roi function...\n");
   video_encoder_set_roi_regions(video_encoder_flow, NULL, 0);
 
-  while(!quit) {
+  while (!quit) {
     easymedia::msleep(100);
   }
 
@@ -277,4 +285,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-

@@ -4,24 +4,24 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
 #include "buffer.h"
 #include "encoder.h"
 #include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 static bool quit = false;
 static void sigterm_handler(int sig) {
@@ -35,7 +35,8 @@ static void print_usage(char *name) {
   printf("@function:\nCrop input image to half of original.\n");
   printf("@usage example: \n");
   printf("%s -i /dev/video0 -o output.yuv -w 1920 -h 1080 "
-         "-f nv12\n", name);
+         "-f nv12\n",
+         name);
 }
 
 int main(int argc, char **argv) {
@@ -96,7 +97,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
+  // add prefix for pixformat
   pixel_format = "image:" + pixel_format;
   if (StringToPixFmt(pixel_format.c_str()) == PIX_FMT_NONE) {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -109,10 +110,10 @@ int main(int argc, char **argv) {
   printf("#Dump streams:");
   easymedia::REFLECTOR(Stream)::DumpFactories();
 
-  //init log:set log level and log method.
+  // init log:set log level and log method.
   LOG_INIT();
 
-  //Reading yuv from camera
+  // Reading yuv from camera
   flow_name = "source_stream";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
@@ -122,9 +123,12 @@ int main(int argc, char **argv) {
   stream_param = "";
   PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
   PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                      KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                      KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                         4); // if not set, default is 2
   PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
@@ -146,9 +150,9 @@ int main(int argc, char **argv) {
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "rkrga");
   PARAM_STRING_APPEND(flow_param, KEY_INPUTDATATYPE, pixel_format);
-  //Set output buffer type.
+  // Set output buffer type.
   PARAM_STRING_APPEND(flow_param, KEY_OUTPUTDATATYPE, pixel_format);
-  //Set output buffer size.
+  // Set output buffer size.
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_WIDTH, target_width);
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_HEIGHT, target_height);
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_VIR_WIDTH, target_width);
@@ -166,7 +170,7 @@ int main(int argc, char **argv) {
   rect_vect.push_back(src_rect);
   rect_vect.push_back(dst_rect);
   PARAM_STRING_APPEND(filter_param, KEY_BUFFER_RECT,
-    easymedia::TwoImageRectToString(rect_vect).c_str());
+                      easymedia::TwoImageRectToString(rect_vect).c_str());
   PARAM_STRING_APPEND_TO(filter_param, KEY_BUFFER_ROTATE, 0);
   flow_param = easymedia::JoinFlowParam(flow_param, 1, filter_param);
   printf("\n#Rkrga Filter flow param:\n%s\n", flow_param.c_str());
@@ -180,7 +184,8 @@ int main(int argc, char **argv) {
   flow_name = "file_write_flow";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_PATH, output_path.c_str());
-  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "w+"); // read and close-on-exec
+  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                      "w+"); // read and close-on-exec
   printf("\n#FileWrite:\n%s\n", flow_param.c_str());
   video_save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
@@ -192,13 +197,13 @@ int main(int argc, char **argv) {
   video_process_flow->AddDownFlow(video_save_flow, 0, 0);
   video_read_flow->AddDownFlow(video_process_flow, 0, 0);
 
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
-  while(!quit) {
+  while (!quit) {
     easymedia::msleep(100);
   }
 
-  LOG("%s quit!\n", argv[0]);
+  RKMEDIA_LOGI("%s quit!\n", argv[0]);
 
   video_read_flow->RemoveDownFlow(video_process_flow);
   video_read_flow.reset();
@@ -208,4 +213,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-

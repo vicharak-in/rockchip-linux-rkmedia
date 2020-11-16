@@ -1,24 +1,24 @@
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
-#include "control.h"
 #include "buffer.h"
+#include "control.h"
 #include "encoder.h"
 #include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 static bool quit = false;
 static void sigterm_handler(int sig) {
@@ -33,7 +33,8 @@ static void print_usage(char *name) {
   printf("%s -i /dev/video0 -w 640 -h 480 -f nv12\n", name);
 }
 
-int OcclusionDetectionEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loop) {
+int OcclusionDetectionEventProc(std::shared_ptr<easymedia::Flow> flow,
+                                bool &loop) {
   while (loop) {
     flow->EventHookWait();
     auto msg = flow->GetEventMessage();
@@ -42,14 +43,15 @@ int OcclusionDetectionEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loo
       continue;
 
     if (param->GetId() == MSG_FLOW_EVENT_INFO_OCCLUSIONDETECTION) {
-      OcclusionDetectEvent *odevent = (OcclusionDetectEvent *)param->GetParams();
+      OcclusionDetectEvent *odevent =
+          (OcclusionDetectEvent *)param->GetParams();
       if (odevent) {
-        printf("@@@ MD: Get occlusion info[%d]: IMG:%dx%d\n",
-          odevent->info_cnt, odevent->img_width, odevent->img_height);
+        printf("@@@ MD: Get occlusion info[%d]: IMG:%dx%d\n", odevent->info_cnt,
+               odevent->img_width, odevent->img_height);
         OcclusionDetecInfo *odinfo = odevent->data;
         for (int i = 0; i < odevent->info_cnt; i++) {
-          printf("--> %d rect:(%d, %d, %d, %d), occlusion:%d\n",
-                 i, odinfo->x, odinfo->y, odinfo->w, odinfo->h, odinfo->occlusion);
+          printf("--> %d rect:(%d, %d, %d, %d), occlusion:%d\n", i, odinfo->x,
+                 odinfo->y, odinfo->w, odinfo->h, odinfo->occlusion);
           odinfo++;
         }
       }
@@ -109,8 +111,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
-  if((pixel_format == "yuyv422") || (pixel_format == "nv12"))
+  // add prefix for pixformat
+  if ((pixel_format == "yuyv422") || (pixel_format == "nv12"))
     pixel_format = "image:" + pixel_format;
   else {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -126,7 +128,7 @@ int main(int argc, char **argv) {
 
   LOG_INIT();
 
-  //Reading yuv from camera
+  // Reading yuv from camera
   flow_name = "source_stream";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
@@ -138,19 +140,22 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
   PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
   // PARAM_STRING_APPEND(param, KEY_SUB_DEVICE, sub_input_path);
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                      KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                      KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                         4); // if not set, default is 2
   PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
 
   flow_param = easymedia::JoinFlowParam(flow_param, 1, stream_param);
-  printf("\n#VideoCapture %s flow param:\n%s\n",
-    input_path.c_str(), flow_param.c_str());
+  printf("\n#VideoCapture %s flow param:\n%s\n", input_path.c_str(),
+         flow_param.c_str());
   video_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
-  if (!video_read_flow ) {
+  if (!video_read_flow) {
     fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
@@ -165,7 +170,8 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND_TO(od_param, KEY_OD_HEIGHT, video_height);
   PARAM_STRING_APPEND_TO(od_param, KEY_OD_ROI_CNT, 1);
   ImageRect rect = {0, 0, video_width, video_height};
-  PARAM_STRING_APPEND(od_param, KEY_OD_ROI_RECT, easymedia::ImageRectToString(rect));
+  PARAM_STRING_APPEND(od_param, KEY_OD_ROI_RECT,
+                      easymedia::ImageRectToString(rect));
   flow_param = easymedia::JoinFlowParam(flow_param, 1, od_param);
 
   printf("\n#OcclusionDetection flow param:\n%s\n", flow_param.c_str());
@@ -180,9 +186,9 @@ int main(int argc, char **argv) {
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "rkrga");
   PARAM_STRING_APPEND(flow_param, KEY_INPUTDATATYPE, IMAGE_NV12);
-  //Set output buffer type.
+  // Set output buffer type.
   PARAM_STRING_APPEND(flow_param, KEY_OUTPUTDATATYPE, IMAGE_RGB888);
-  //Set output buffer size.
+  // Set output buffer size.
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_WIDTH, 720);
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_HEIGHT, 1280);
   PARAM_STRING_APPEND_TO(flow_param, KEY_BUFFER_VIR_WIDTH, 720);
@@ -196,7 +202,7 @@ int main(int argc, char **argv) {
   rect_vect.push_back(src_rect);
   rect_vect.push_back(dst_rect);
   PARAM_STRING_APPEND(filter_param, KEY_BUFFER_RECT,
-    easymedia::TwoImageRectToString(rect_vect).c_str());
+                      easymedia::TwoImageRectToString(rect_vect).c_str());
   PARAM_STRING_APPEND_TO(filter_param, KEY_BUFFER_ROTATE, 90);
   flow_param = easymedia::JoinFlowParam(flow_param, 1, filter_param);
   printf("\n#Rkrga Filter flow param:\n%s\n", flow_param.c_str());
@@ -210,15 +216,15 @@ int main(int argc, char **argv) {
   flow_name = "output_stream";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "drm_output_stream");
-  //PARAM_STRING_APPEND(flow_param, KEY_INPUTDATATYPE, IMAGE_NV12);
-  
+  // PARAM_STRING_APPEND(flow_param, KEY_INPUTDATATYPE, IMAGE_NV12);
+
   stream_param = "";
   PARAM_STRING_APPEND(stream_param, KEY_DEVICE, "/dev/dri/card0");
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, 720);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, 1280);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_VIR_WIDTH, 720);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_VIR_HEIGHT, 1280);
-  //PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, IMAGE_NV12);
+  // PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, IMAGE_NV12);
   PARAM_STRING_APPEND(stream_param, "framerate", "60");
   PARAM_STRING_APPEND(stream_param, "plane_type", "Primary");
   PARAM_STRING_APPEND(stream_param, "ZPOS", "0");
@@ -232,24 +238,25 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  video_od_flow->RegisterEventHandler(video_od_flow, OcclusionDetectionEventProc);
+  video_od_flow->RegisterEventHandler(video_od_flow,
+                                      OcclusionDetectionEventProc);
   video_read_flow->AddDownFlow(video_od_flow, 0, 0);
   video_read_flow->AddDownFlow(video_process_flow, 0, 0);
   video_process_flow->AddDownFlow(video_display_flow, 0, 0);
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
- #if 0
+#if 0
   easymedia::msleep(30000);
 
-  LOG("#Disable roi function for 10s....\n");
+  RKMEDIA_LOGI("#Disable roi function for 10s....\n");
   video_od_flow->Control(easymedia::S_OD_ROI_ENABLE, 0);
   easymedia::msleep(10000);
 
-  LOG("#Enable roi function....\n");
+  RKMEDIA_LOGI("#Enable roi function....\n");
   video_od_flow->Control(easymedia::S_OD_ROI_ENABLE, 1);
   easymedia::msleep(3000);
 
-  LOG("#Set new roi rects with ImageRect....\n");
+  RKMEDIA_LOGI("#Set new roi rects with ImageRect....\n");
   ImageRect retcs[2];
   retcs[0].x = 0;
   retcs[0].y = 0;
@@ -263,7 +270,7 @@ int main(int argc, char **argv) {
   easymedia::msleep(3000);
 #endif
 
-  while(!quit) {
+  while (!quit) {
     easymedia::msleep(10);
   }
 

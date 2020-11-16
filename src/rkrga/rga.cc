@@ -11,6 +11,11 @@
 #include "buffer.h"
 #include "filter.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 17
+
 namespace easymedia {
 
 RockchipRga RgaFilter::gRkRga;
@@ -24,7 +29,7 @@ RgaFilter::RgaFilter(const char *param) : rotate(0) {
   const std::string &value = params[KEY_BUFFER_RECT];
   auto &&rects = StringToTwoImageRect(value);
   if (rects.empty()) {
-    LOG("missing rects\n");
+    RKMEDIA_LOGI("missing rects\n");
     SetError(-EINVAL);
     return;
   }
@@ -100,22 +105,22 @@ static int get_rga_format(PixelFormat f) {
 
 #ifndef NDEBUG
 static void dummp_rga_info(rga_info_t info, std::string name) {
-  LOGD("\n### %s dummp info:\n", name.c_str());
-  LOGD("\t info.fd = %d\n", info.fd);
-  LOGD("\t info.mmuFlag = %d\n", info.mmuFlag);
-  LOGD("\t info.rotation = %d\n", info.rotation);
-  LOGD("\t info.blend = %d\n", info.blend);
-  LOGD("\t info.virAddr = %p\n", info.virAddr);
-  LOGD("\t info.phyAddr = %p\n", info.phyAddr);
-  LOGD("\t info.rect.xoffset = %d\n", info.rect.xoffset);
-  LOGD("\t info.rect.yoffset = %d\n", info.rect.yoffset);
-  LOGD("\t info.rect.width = %d\n", info.rect.width);
-  LOGD("\t info.rect.height = %d\n", info.rect.height);
-  LOGD("\t info.rect.wstride = %d\n", info.rect.wstride);
-  LOGD("\t info.rect.hstride = %d\n", info.rect.hstride);
-  LOGD("\t info.rect.format = %d\n", info.rect.format);
-  LOGD("\t info.rect.size = %d\n", info.rect.size);
-  LOGD("\n");
+  RKMEDIA_LOGD("\n### %s dummp info:\n", name.c_str());
+  RKMEDIA_LOGD("\t info.fd = %d\n", info.fd);
+  RKMEDIA_LOGD("\t info.mmuFlag = %d\n", info.mmuFlag);
+  RKMEDIA_LOGD("\t info.rotation = %d\n", info.rotation);
+  RKMEDIA_LOGD("\t info.blend = %d\n", info.blend);
+  RKMEDIA_LOGD("\t info.virAddr = %p\n", info.virAddr);
+  RKMEDIA_LOGD("\t info.phyAddr = %p\n", info.phyAddr);
+  RKMEDIA_LOGD("\t info.rect.xoffset = %d\n", info.rect.xoffset);
+  RKMEDIA_LOGD("\t info.rect.yoffset = %d\n", info.rect.yoffset);
+  RKMEDIA_LOGD("\t info.rect.width = %d\n", info.rect.width);
+  RKMEDIA_LOGD("\t info.rect.height = %d\n", info.rect.height);
+  RKMEDIA_LOGD("\t info.rect.wstride = %d\n", info.rect.wstride);
+  RKMEDIA_LOGD("\t info.rect.hstride = %d\n", info.rect.hstride);
+  RKMEDIA_LOGD("\t info.rect.format = %d\n", info.rect.format);
+  RKMEDIA_LOGD("\t info.rect.size = %d\n", info.rect.size);
+  RKMEDIA_LOGD("\n");
 }
 #endif
 
@@ -145,7 +150,7 @@ int rga_blit(std::shared_ptr<ImageBuffer> src, std::shared_ptr<ImageBuffer> dst,
     src_info.rotation = HAL_TRANSFORM_ROT_270;
     break;
   default:
-    LOG("WARN: rotate is not valid! use default:0");
+    RKMEDIA_LOGW("rotate is not valid! use default:0");
     src_info.rotation = 0;
     break;
   }
@@ -184,7 +189,7 @@ int rga_blit(std::shared_ptr<ImageBuffer> src, std::shared_ptr<ImageBuffer> dst,
   int ret = RgaFilter::gRkRga.RkRgaBlit(&src_info, &dst_info, NULL);
   if (ret) {
     dst->SetValidSize(0);
-    LOG("Fail to RkRgaBlit, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to RkRgaBlit, ret=%d\n", ret);
   } else {
     size_t valid_size = CalPixFmtSize(dst->GetPixelFormat(), dst->GetVirWidth(),
                                       dst->GetVirHeight(), 0);

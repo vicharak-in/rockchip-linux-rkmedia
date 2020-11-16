@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
-  LOG("rtsp server test initial finish\n");
+  RKMEDIA_LOGI("rtsp server test initial finish\n");
   signal(SIGINT, sigterm_handler);
   // 3. create rtsp server
   param = "";
@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
       buffer_idx = 0;
     easymedia::msleep(33);
   }
-  LOG("rtsp server test reclaiming\n");
+  RKMEDIA_LOGI("rtsp server test reclaiming\n");
   rtsp_flow.reset();
   return 0;
 }
@@ -398,12 +398,12 @@ int main(int argc, char **argv) {
   enc_flow->AddDownFlow(rtsp_flow, 0, 0);
   file_flow->AddDownFlow(
       enc_flow, 0, 0); // the source flow better place the end to add down flow
-  LOG("rtsp server test initial finish\n");
+  RKMEDIA_LOGI("rtsp server test initial finish\n");
   signal(SIGINT, sigterm_handler);
   while (!quit) {
     easymedia::msleep(10);
   }
-  LOG("rtsp server test reclaiming\n");
+  RKMEDIA_LOGI("rtsp server test reclaiming\n");
   file_flow->RemoveDownFlow(enc_flow);
   file_flow.reset();
   enc_flow->RemoveDownFlow(rtsp_flow);

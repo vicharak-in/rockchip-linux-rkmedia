@@ -1,24 +1,24 @@
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
-#include "control.h"
 #include "buffer.h"
+#include "control.h"
 #include "encoder.h"
 #include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 static bool quit = false;
 static void sigterm_handler(int sig) {
@@ -45,10 +45,12 @@ int MoveDetectionEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loop) {
       MoveDetectEvent *mdevent = (MoveDetectEvent *)param->GetParams();
       if (mdevent) {
         printf("@@@ MD: Get movement info[%d]: ORI:%dx%d, DS:%dx%d\n",
-          mdevent->info_cnt, mdevent->ori_width, mdevent->ori_height, mdevent->ds_width, mdevent->ds_height);
+               mdevent->info_cnt, mdevent->ori_width, mdevent->ori_height,
+               mdevent->ds_width, mdevent->ds_height);
         MoveDetecInfo *mdinfo = mdevent->data;
         for (int i = 0; i < mdevent->info_cnt; i++) {
-          printf("--> %d rect:(%d, %d, %d, %d)\n", i, mdinfo->x, mdinfo->y, mdinfo->w, mdinfo->h);
+          printf("--> %d rect:(%d, %d, %d, %d)\n", i, mdinfo->x, mdinfo->y,
+                 mdinfo->w, mdinfo->h);
           mdinfo++;
         }
       }
@@ -106,8 +108,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
-  if((pixel_format == "yuyv422") || (pixel_format == "nv12"))
+  // add prefix for pixformat
+  if ((pixel_format == "yuyv422") || (pixel_format == "nv12"))
     pixel_format = "image:" + pixel_format;
   else {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -123,7 +125,7 @@ int main(int argc, char **argv) {
 
   LOG_INIT();
 
-  //Reading yuv from camera
+  // Reading yuv from camera
   flow_name = "source_stream";
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
@@ -135,19 +137,22 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
   PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
   // PARAM_STRING_APPEND(param, KEY_SUB_DEVICE, sub_input_path);
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                      KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+  PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                      KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+  PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                         4); // if not set, default is 2
   PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
   PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
 
   flow_param = easymedia::JoinFlowParam(flow_param, 1, stream_param);
-  printf("\n#VideoCapture %s flow param:\n%s\n",
-    input_path.c_str(), flow_param.c_str());
+  printf("\n#VideoCapture %s flow param:\n%s\n", input_path.c_str(),
+         flow_param.c_str());
   video_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
-  if (!video_read_flow ) {
+  if (!video_read_flow) {
     fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
@@ -165,7 +170,8 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND_TO(md_param, KEY_MD_DS_HEIGHT, video_height);
   PARAM_STRING_APPEND_TO(md_param, KEY_MD_ROI_CNT, 1);
   ImageRect rect = {0, 0, video_width / 2, video_height / 2};
-  PARAM_STRING_APPEND(md_param, KEY_MD_ROI_RECT, easymedia::ImageRectToString(rect));
+  PARAM_STRING_APPEND(md_param, KEY_MD_ROI_RECT,
+                      easymedia::ImageRectToString(rect));
   flow_param = easymedia::JoinFlowParam(flow_param, 1, md_param);
 
   printf("\n#MoveDetection flow param:\n%s\n", flow_param.c_str());
@@ -178,20 +184,20 @@ int main(int argc, char **argv) {
 
   video_md_flow->RegisterEventHandler(video_md_flow, MoveDetectionEventProc);
   video_read_flow->AddDownFlow(video_md_flow, 0, 0);
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
   easymedia::msleep(30000);
 
-  LOG("#Disable roi function for 10s....\n");
+  RKMEDIA_LOGI("#Disable roi function for 10s....\n");
   video_md_flow->Control(easymedia::S_MD_ROI_ENABLE, 0);
   easymedia::msleep(10000);
 
-  LOG("#Enable roi function....\n");
+  RKMEDIA_LOGI("#Enable roi function....\n");
   video_md_flow->Control(easymedia::S_MD_ROI_ENABLE, 1);
-  LOG("#Enable sensitivity....\n");
+  RKMEDIA_LOGI("#Enable sensitivity....\n");
   video_md_flow->Control(easymedia::S_MD_SENSITIVITY, 3);
   easymedia::msleep(3000);
 
-  LOG("#Set new roi rects with ImageRect....\n");
+  RKMEDIA_LOGI("#Set new roi rects with ImageRect....\n");
   ImageRect retcs[2];
   retcs[0].x = 0;
   retcs[0].y = 0;
@@ -201,15 +207,15 @@ int main(int argc, char **argv) {
   retcs[1].y = 32;
   retcs[1].w = 32;
   retcs[1].h = 32;
-  //video_md_flow->Control(easymedia::S_MD_ROI_RECTS, retcs, 2);
+  // video_md_flow->Control(easymedia::S_MD_ROI_RECTS, retcs, 2);
   video_move_detect_set_rects(video_md_flow, retcs, 2);
   easymedia::msleep(3000);
 
-  LOG("#Set new roi rects with String....\n");
+  RKMEDIA_LOGI("#Set new roi rects with String....\n");
   std::string retcs_str = "(0,0,64,64)(64,64,64,64)(128,128,64,64)";
   video_move_detect_set_rects(video_md_flow, retcs_str);
 
-  while(!quit) {
+  while (!quit) {
     easymedia::msleep(10);
   }
 
@@ -219,4 +225,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-

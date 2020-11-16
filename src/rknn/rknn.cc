@@ -57,13 +57,13 @@ static rknn_tensor_format GetTensorFmtByString(const std::string &fmt) {
 static uint8_t *load_model(const char *filename, int *model_size) {
   FILE *fp = fopen(filename, "rb");
   if (!fp) {
-    LOG("Fail to fopen %s\n", filename);
+    RKMEDIA_LOGI("Fail to fopen %s\n", filename);
     return nullptr;
   }
   fseek(fp, 0, SEEK_END);
   long model_len = ftell(fp);
   if (model_len <= 0) {
-    LOG("Fail to ftell %s\n", filename);
+    RKMEDIA_LOGI("Fail to ftell %s\n", filename);
     fclose(fp);
     return nullptr;
   }
@@ -72,7 +72,7 @@ static uint8_t *load_model(const char *filename, int *model_size) {
   if (model) {
     fseek(fp, 0, SEEK_SET);
     if (model_len != (long)fread(model, 1, model_len, fp)) {
-      LOG("Fail to fread %s\n", filename);
+      RKMEDIA_LOGI("Fail to fread %s\n", filename);
       free(model);
       fclose(fp);
       return nullptr;
@@ -84,7 +84,8 @@ static uint8_t *load_model(const char *filename, int *model_size) {
 }
 
 static void print_rknn_tensor(rknn_tensor_attr *attr) {
-  LOG("index=%d name=%s n_dims=%d dims=[%d %d %d %d] n_elems=%d size=%d fmt=%d "
+  RKMEDIA_LOGI(
+      "index=%d name=%s n_dims=%d dims=[%d %d %d %d] n_elems=%d size=%d fmt=%d "
       "type=%d qnt_type=%d fl=%d zp=%d scale=%f\n",
       attr->index, attr->name, attr->n_dims, attr->dims[3], attr->dims[2],
       attr->dims[1], attr->dims[0], attr->n_elems, attr->size, 0, attr->type,
@@ -93,7 +94,7 @@ static void print_rknn_tensor(rknn_tensor_attr *attr) {
 
 static int print_rknn_attrs(const rknn_context &ctx,
                             const rknn_input_output_num &io_num) {
-  LOG("input tensors:\n");
+  RKMEDIA_LOGI("input tensors:\n");
   rknn_tensor_attr input_attrs[io_num.n_input];
   memset(input_attrs, 0, sizeof(input_attrs));
   for (uint32_t i = 0; i < io_num.n_input; i++) {
@@ -101,12 +102,12 @@ static int print_rknn_attrs(const rknn_context &ctx,
     int ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &(input_attrs[i]),
                          sizeof(rknn_tensor_attr));
     if (ret != RKNN_SUCC) {
-      LOG("Fail to rknn_query INPUT_ATTR fail, ret=%d\n", ret);
+      RKMEDIA_LOGI("Fail to rknn_query INPUT_ATTR fail, ret=%d\n", ret);
       return ret;
     }
     print_rknn_tensor(&(input_attrs[i]));
   }
-  LOG("output tensors:\n");
+  RKMEDIA_LOGI("output tensors:\n");
   rknn_tensor_attr output_attrs[io_num.n_output];
   memset(output_attrs, 0, sizeof(output_attrs));
   for (uint32_t i = 0; i < io_num.n_output; i++) {
@@ -114,7 +115,7 @@ static int print_rknn_attrs(const rknn_context &ctx,
     int ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &(output_attrs[i]),
                          sizeof(rknn_tensor_attr));
     if (ret != RKNN_SUCC) {
-      LOG("Fail to rknn_query OUTPUT_ATTR fail, ret=%d\n", ret);
+      RKMEDIA_LOGI("Fail to rknn_query OUTPUT_ATTR fail, ret=%d\n", ret);
       return ret;
     }
     print_rknn_tensor(&(output_attrs[i]));
@@ -146,20 +147,20 @@ RKNNFilter::RKNNFilter(const char *param) {
   tensor_type = GetTensorTypeByString(str_tensor_type);
   tensor_fmt = GetTensorFmtByString(str_tensor_fmt);
   if (tensor_type < 0 || tensor_fmt < 0) {
-    LOG("incorrect tensor type or tensor fmt\n");
+    RKMEDIA_LOGI("incorrect tensor type or tensor fmt\n");
     SetError(-EINVAL);
     return;
   }
   int model_size = 0;
   uint8_t *model = load_model(model_path.c_str(), &model_size);
   if (!model) {
-    LOG("Fail to load model\n");
+    RKMEDIA_LOGI("Fail to load model\n");
     SetError(-EINVAL);
     return;
   }
   ret = rknn_init(&ctx, model, model_size, 0);
   if (ret < 0) {
-    LOG("Fail to rknn_init, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to rknn_init, ret=%d\n", ret);
     goto err;
   }
   rknn_ctx = std::make_shared<RKNNContext>(ctx);
@@ -169,10 +170,11 @@ RKNNFilter::RKNNFilter(const char *param) {
   }
   ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &io_num, sizeof(io_num));
   if (ret != RKNN_SUCC) {
-    LOG("Fail to rknn_query IN_OUT_NUM fail, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to rknn_query IN_OUT_NUM fail, ret=%d\n", ret);
     goto err;
   }
-  LOG("model input num: %d, output num: %d\n", io_num.n_input, io_num.n_output);
+  RKMEDIA_LOGI("model input num: %d, output num: %d\n", io_num.n_input,
+               io_num.n_output);
   ret = print_rknn_attrs(ctx, io_num);
   free(model);
   if (!str_output_want_float.empty()) {
@@ -183,8 +185,8 @@ RKNNFilter::RKNNFilter(const char *param) {
       return;
     }
     if (value_list.size() != io_num.n_output) {
-      LOG("warning: input want floats [%d] not match model n_output [%d]\n",
-          (int)value_list.size(), (int)io_num.n_output);
+      RKMEDIA_LOGW("input want floats [%d] not match model n_output [%d]\n",
+                   (int)value_list.size(), (int)io_num.n_output);
     }
     for (auto &s : value_list)
       output_want_float.push_back(!!std::stoi(s));
@@ -238,12 +240,12 @@ int RKNNFilter::Process(std::shared_ptr<MediaBuffer> input,
   }
   int ret = rknn_inputs_set(ctx, io_num.n_input, inputs);
   if (ret < 0) {
-    LOG("Fail to rknn_input_set, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to rknn_input_set, ret=%d\n", ret);
     return -1;
   }
   ret = rknn_run(ctx, nullptr);
   if (ret < 0) {
-    LOG("Fail to rknn_run, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to rknn_run, ret=%d\n", ret);
     return -1;
   }
   rknn_output *outputs = nullptr;
@@ -257,7 +259,7 @@ int RKNNFilter::Process(std::shared_ptr<MediaBuffer> input,
     outputs[i].want_float = output_want_float[i] ? 1 : 0;
   ret = rknn_outputs_get(ctx, io_num.n_output, outputs, NULL);
   if (ret < 0) {
-    LOG("Fail to rknn_outputs_get, ret=%d\n", ret);
+    RKMEDIA_LOGI("Fail to rknn_outputs_get, ret=%d\n", ret);
     free(outputs);
     return -1;
   }

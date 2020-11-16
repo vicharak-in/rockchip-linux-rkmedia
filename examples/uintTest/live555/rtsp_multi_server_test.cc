@@ -72,8 +72,8 @@ std::shared_ptr<easymedia::Flow> video_enc_flow_2 = nullptr;
 std::shared_ptr<easymedia::Flow> video_enc_flow_t = nullptr;
 
 static void testStartStreamCallback(easymedia::Flow *f) {
-  LOG("%s:%s: force all video_enc send I frame, Flow *f = %p.\n", __FILE__,
-      __func__, f);
+  RKMEDIA_LOGI("%s:%s: force all video_enc send I frame, Flow *f = %p.\n",
+               __FILE__, __func__, f);
   auto value = std::make_shared<easymedia::ParameterBuffer>(0);
   if (video_enc_flow_1)
     (video_enc_flow_1)->Control(easymedia::VideoEncoder::kForceIdrFrame, value);
@@ -237,7 +237,8 @@ std::shared_ptr<easymedia::Flow> create_muxer_flow(std::string audio_enc_param,
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "muxer_flow");
   if (!output_type.empty()) {
     PARAM_STRING_APPEND(flow_param, KEY_OUTPUTDATATYPE, output_type);
-    LOG("FFmpeg use customIO, output_type = %s.\n", output_type.c_str());
+    RKMEDIA_LOGI("FFmpeg use customIO, output_type = %s.\n",
+                 output_type.c_str());
   }
   auto &&param =
       easymedia::JoinFlowParam(flow_param, 2, audio_enc_param, video_enc_param);
@@ -246,7 +247,7 @@ std::shared_ptr<easymedia::Flow> create_muxer_flow(std::string audio_enc_param,
   if (!muxer_flow) {
     exit(EXIT_FAILURE);
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
   return muxer_flow;
 }
@@ -284,9 +285,9 @@ create_audio_enc_flow(SampleInfo &info, CodecType codec_type,
   auto audio_enc_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
   if (!audio_enc_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
   return audio_enc_flow;
 }
@@ -370,7 +371,7 @@ int main(int argc, char **argv) {
     case 'v':
       videoType = parseCodec(optarg);
       if (videoType == CODEC_TYPE_NONE)
-        LOG("videoType error.\n");
+        RKMEDIA_LOGI("videoType error.\n");
       break;
     case 'h':
       video_height = atoi(optarg);
@@ -381,7 +382,7 @@ int main(int argc, char **argv) {
     case 'a':
       audioType = parseCodec(optarg);
       if (audioType == CODEC_TYPE_NONE)
-        LOG("audioType error.\n");
+        RKMEDIA_LOGI("audioType error.\n");
       break;
     case 's' + 't':
       stress_sleep_time = atoi(optarg);
@@ -473,24 +474,24 @@ int main(int argc, char **argv) {
     audio_enc_flow =
         create_audio_enc_flow(sample_info, audioType, audio_enc_param);
     if (!audio_enc_flow) {
-      LOG("Create flow failed\n");
+      RKMEDIA_LOGI("Create flow failed\n");
       exit(EXIT_FAILURE);
     }
     // Tuning the nb_samples according to the encoder requirements.
     int read_size = audio_enc_flow->GetInputSize();
     if (read_size > 0) {
       sample_info.nb_samples = read_size / GetSampleSize(sample_info);
-      LOG("codec %s : nm_samples fixed to %d\n",
-          CodecToString(audioType).c_str(), sample_info.nb_samples);
+      RKMEDIA_LOGI("codec %s : nm_samples fixed to %d\n",
+                   CodecToString(audioType).c_str(), sample_info.nb_samples);
     }
     audio_enc_param =
         get_audio_enc_param(sample_info, audioType, bitrate, quality);
-    LOG("Audio post enc param: %s\n", audio_enc_param.c_str());
+    RKMEDIA_LOGI("Audio post enc param: %s\n", audio_enc_param.c_str());
 
     // 3. alsa capture flow
     audio_source_flow = create_alsa_flow(aud_in_path, sample_info);
     if (!audio_source_flow) {
-      LOG("Create flow alsa_capture_flow failed\n");
+      RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
       exit(EXIT_FAILURE);
     }
     audio_source_flow->AddDownFlow(audio_enc_flow, 0, 0);
@@ -505,7 +506,7 @@ int main(int argc, char **argv) {
       stream_name0, CodecToString(audioType) + "," + CodecToString(videoType),
       sample_rate, channels, profile, bitrate);
   if (!rtsp_flow_1) {
-    LOG("Create rtsp_stream1_flow failed\n");
+    RKMEDIA_LOGI("Create rtsp_stream1_flow failed\n");
     exit(EXIT_FAILURE);
   }
   if (audio_enc_flow) {
@@ -518,7 +519,7 @@ int main(int argc, char **argv) {
   rtsp_flow_2 = create_live555_rtsp_server_flow(
       stream_name1, "," + output_type, sample_rate, channels, profile, bitrate);
   if (!rtsp_flow_2) {
-    LOG("Create rtsp_stream2_flow failed\n");
+    RKMEDIA_LOGI("Create rtsp_stream2_flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -553,14 +554,14 @@ int main(int argc, char **argv) {
   // stress test
   if (stress_sleep_time > 0) {
     while (!quit) {
-      LOG("=========start stress test stress_sleep_time = %d.\n",
-          stress_sleep_time);
+      RKMEDIA_LOGI("=========start stress test stress_sleep_time = %d.\n",
+                   stress_sleep_time);
       std::shared_ptr<easymedia::Flow> rtsp_flow_t;
 
       video_enc_flow_t = create_video_enc_flow(video_enc_param, input_format,
                                                CodecToString(videoType));
       if (!video_enc_flow_t) {
-        LOG("Create rtsp_stream_t_flow failed\n");
+        RKMEDIA_LOGI("Create rtsp_stream_t_flow failed\n");
         exit(EXIT_FAILURE);
       }
 
@@ -569,7 +570,7 @@ int main(int argc, char **argv) {
           CodecToString(videoType) + "," + CodecToString(audioType),
           sample_rate, channels, profile, bitrate);
       if (!rtsp_flow_t) {
-        LOG("Create rtsp_stream_t_flow failed\n");
+        RKMEDIA_LOGI("Create rtsp_stream_t_flow failed\n");
         exit(EXIT_FAILURE);
       }
 

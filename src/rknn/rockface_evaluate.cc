@@ -12,7 +12,7 @@
 
 namespace easymedia {
 
-static int GetFaceSize(FaceInfo& face) {
+static int GetFaceSize(FaceInfo &face) {
   return (face.base.box.right - face.base.box.left) *
          (face.base.box.bottom - face.base.box.top);
 }
@@ -28,11 +28,11 @@ public:
   virtual int IoCtrl(unsigned long int request, ...) override;
 
 protected:
-  bool Evaluate(std::list<RknnResult>& list, RknnResult* result);
+  bool Evaluate(std::list<RknnResult> &list, RknnResult *result);
 };
 
 int RockFaceEvaluate::Process(std::shared_ptr<MediaBuffer> input,
-                             std::shared_ptr<MediaBuffer> &output) {
+                              std::shared_ptr<MediaBuffer> &output) {
   auto input_buffer = std::static_pointer_cast<easymedia::ImageBuffer>(input);
   if (!input_buffer)
     return -1;
@@ -42,7 +42,7 @@ int RockFaceEvaluate::Process(std::shared_ptr<MediaBuffer> input,
   bool ret = Evaluate(list, &best);
   // Clear all faces in the list
   std::list<RknnResult>::iterator it = list.begin();
-  for (;it != list.end();) {
+  for (; it != list.end();) {
     if ((*it).type == NNRESULT_TYPE_FACE)
       it = list.erase(it);
     else
@@ -54,9 +54,10 @@ int RockFaceEvaluate::Process(std::shared_ptr<MediaBuffer> input,
   return 0;
 }
 
-bool RockFaceEvaluate::Evaluate(std::list<RknnResult>& list, RknnResult* result) {
+bool RockFaceEvaluate::Evaluate(std::list<RknnResult> &list,
+                                RknnResult *result) {
   int max_size = -1;
-  for (RknnResult& it : list) {
+  for (RknnResult &it : list) {
     if (it.type != NNRESULT_TYPE_FACE)
       continue;
 
@@ -91,6 +92,8 @@ DEFINE_COMMON_FILTER_FACTORY(RockFaceEvaluate)
 const char *FACTORY(RockFaceEvaluate)::ExpectedInputDataType() {
   return TYPE_ANYTHING;
 }
-const char *FACTORY(RockFaceEvaluate)::OutPutDataType() { return TYPE_ANYTHING; }
+const char *FACTORY(RockFaceEvaluate)::OutPutDataType() {
+  return TYPE_ANYTHING;
+}
 
 } // namespace easymedia

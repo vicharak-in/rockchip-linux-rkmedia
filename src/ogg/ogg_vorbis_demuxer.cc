@@ -48,21 +48,21 @@ bool OggVorbisDemuxer::Init(std::shared_ptr<Stream> input,
   if (!input) {
     // input means the path is a standard file, and open/close by libvorbisfile
     if (path.empty()) {
-      LOG("you need pass path=xxx when construct OggVorbisDemuxer\n");
+      RKMEDIA_LOGI("you need pass path=xxx when construct OggVorbisDemuxer\n");
       return false;
     }
     ret = ov_fopen(path.c_str(), &vf);
   } else {
     ov_callbacks callbacks = {
-        input->c_operations.read,
-        input->c_operations.seek,
+        input->c_operations.read, input->c_operations.seek,
         NULL, // as stream open outsides, user should close it outsides too
         input->c_operations.tell,
     };
     ret = ov_open_callbacks(input.get(), &vf, NULL, 0, callbacks);
   }
   if (ret) {
-    LOG("input invalid, access trouble or not an Ogg bitstream: ret=%d\n", ret);
+    RKMEDIA_LOGI(
+        "input invalid, access trouble or not an Ogg bitstream: ret=%d\n", ret);
     return false;
   }
 
@@ -127,7 +127,7 @@ std::shared_ptr<MediaBuffer> OggVorbisDemuxer::Read(size_t request_size) {
   } else if (ret == 0) {
     sb->SetEOF(true);
   } else if (ret < 0) {
-    LOG("ov_read failed: ret=%d\n", (int)ret);
+    RKMEDIA_LOGI("ov_read failed: ret=%d\n", (int)ret);
     ret = 0;
   }
   sb->SetValidSize(ret);

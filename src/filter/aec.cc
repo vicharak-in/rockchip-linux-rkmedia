@@ -72,7 +72,7 @@ AECFilter::AECFilter(const char *param) : aec_handle(nullptr), prebuf(nullptr) {
   assert(sample_rate == 8000 || sample_rate == 16000);
   assert(channels == 2);
   int frame_time = nb_samples * 1000 / sample_rate;
-  LOG("AEC: frame time %d\n", frame_time);
+  RKMEDIA_LOGI("AEC: frame time %d\n", frame_time);
   assert(frame_time == 16 || frame_time == 20);
   assert(nb_samples > 0);
   if (param_path.empty()) {
@@ -84,10 +84,10 @@ AECFilter::AECFilter(const char *param) : aec_handle(nullptr), prebuf(nullptr) {
 
   RKAP_AEC_State state;
   state.swSampleRate = sample_rate; // 8k|16k
-  state.swFrameLen = nb_samples;  //16ms|20ms
+  state.swFrameLen = nb_samples;    // 16ms|20ms
   state.pathPara = param_path.c_str();
 
-  LOG("AEC: param file = %s\n", param_path.c_str());
+  RKMEDIA_LOGI("AEC: param file = %s\n", param_path.c_str());
 
   aec_handle = AEC_Init(&state, AEC_TX_TYPE);
   assert(aec_handle);
@@ -138,13 +138,13 @@ int AECFilter::Process(std::shared_ptr<MediaBuffer> input,
   short *sigout;
   if (format == SAMPLE_FMT_S16) {
     sigin = prebuf;
-    sigref =  prebuf + nb_samples;
+    sigref = prebuf + nb_samples;
     sigout = (short *)dst->GetPtr();
     for (int i = 0; i < nb_samples; i++) {
       sigin[i] = *((short *)input->GetPtr() + i * 2);
       sigref[i] = *((short *)input->GetPtr() + i * 2 + 1);
     }
-  } else { //AUDIO_PCM_S16P
+  } else { // AUDIO_PCM_S16P
     sigin = (short *)input->GetPtr();
     sigref = (short *)input->GetPtr() + nb_samples,
     sigout = (short *)dst->GetPtr();
@@ -161,14 +161,12 @@ int AECFilter::Process(std::shared_ptr<MediaBuffer> input,
   return 0;
 }
 
-#define AEC_PCM                                                            \
-  TYPENEAR(AUDIO_PCM_S16)                                                        \
+#define AEC_PCM                                                                \
+  TYPENEAR(AUDIO_PCM_S16)                                                      \
   TYPENEAR(AUDIO_PCM_S16P)
 
 DEFINE_COMMON_FILTER_FACTORY(AECFilter)
-const char *FACTORY(AECFilter)::ExpectedInputDataType() {
-  return  AEC_PCM;
-}
+const char *FACTORY(AECFilter)::ExpectedInputDataType() { return AEC_PCM; }
 
 const char *FACTORY(AECFilter)::OutPutDataType() { return nullptr; }
 } // namespace easymedia

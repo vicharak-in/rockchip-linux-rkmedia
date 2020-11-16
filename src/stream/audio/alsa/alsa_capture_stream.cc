@@ -77,7 +77,7 @@ AlsaCaptureStream::AlsaCaptureStream(const char *param)
   if (SampleInfoIsValid(output_sample_info))
     SetReadable(true);
   else
-    LOG("missing some necessary param\n");
+    RKMEDIA_LOGI("missing some necessary param\n");
   interleaved = SampleFormatToInterleaved(output_sample_info.fmt);
 
   alsa_sample_info = output_sample_info;
@@ -90,18 +90,21 @@ AlsaCaptureStream::AlsaCaptureStream(const char *param)
   stVqeConfig.u32VQEMode = VQE_MODE_BUTT;
 
   ParseVQEParams(param, params, &bVqeEnable, &stVqeConfig);
-  LOGD("VqeEnable is %d\n", bVqeEnable);
-  LOGD("VqeConfig.u32VQEMode is %d\n", stVqeConfig.u32VQEMode);
-  LOGD("OpenMask is %d\n", stVqeConfig.stAiTalkConfig.u32OpenMask);
-  LOGD("WorkSampleRate is %d\n", stVqeConfig.stAiTalkConfig.s32WorkSampleRate);
-  LOGD("FrameSample is %d\n", stVqeConfig.stAiTalkConfig.s32FrameSample);
-  LOGD("ParamFilePath is %s\n", stVqeConfig.stAiTalkConfig.aParamFilePath);
+  RKMEDIA_LOGD("VqeEnable is %d\n", bVqeEnable);
+  RKMEDIA_LOGD("VqeConfig.u32VQEMode is %d\n", stVqeConfig.u32VQEMode);
+  RKMEDIA_LOGD("OpenMask is %d\n", stVqeConfig.stAiTalkConfig.u32OpenMask);
+  RKMEDIA_LOGD("WorkSampleRate is %d\n",
+               stVqeConfig.stAiTalkConfig.s32WorkSampleRate);
+  RKMEDIA_LOGD("FrameSample is %d\n",
+               stVqeConfig.stAiTalkConfig.s32FrameSample);
+  RKMEDIA_LOGD("ParamFilePath is %s\n",
+               stVqeConfig.stAiTalkConfig.aParamFilePath);
   if (bVqeEnable)
     pstVqeHandle = RK_AUDIO_VQE_Init(alsa_sample_info, layout, &stVqeConfig);
 #endif
 
-  LOG("%s: Layout %d, output chan %d, alsa chan %d\n", __func__, layout,
-      output_sample_info.channels, alsa_sample_info.channels);
+  RKMEDIA_LOGI("%s: Layout %d, output chan %d, alsa chan %d\n", __func__,
+               layout, output_sample_info.channels, alsa_sample_info.channels);
 }
 
 AlsaCaptureStream::~AlsaCaptureStream() {
@@ -137,7 +140,8 @@ size_t AlsaCaptureStream::Readi(void *vptr, size_t size, size_t nmemb) {
       status = snd_pcm_recover(alsa_handle, status, 0);
       if (status < 0) {
         /* Hmm, not much we can do - abort */
-        LOG("ALSA write failed (unrecoverable): %s\n", snd_strerror(status));
+        RKMEDIA_LOGI("ALSA write failed (unrecoverable): %s\n",
+                     snd_strerror(status));
         errno = EIO;
         break;
       }
@@ -177,7 +181,8 @@ size_t AlsaCaptureStream::Readn(void *ptr, size_t size, size_t nmemb) {
       status = snd_pcm_recover(alsa_handle, status, 0);
       if (status < 0) {
         /* Hmm, not much we can do - abort */
-        LOG("ALSA write failed (unrecoverable): %s\n", snd_strerror(status));
+        RKMEDIA_LOGI("ALSA write failed (unrecoverable): %s\n",
+                     snd_strerror(status));
         errno = EIO;
         break;
       }
@@ -202,7 +207,8 @@ std::shared_ptr<MediaBuffer> AlsaCaptureStream::Read() {
       MediaBuffer::Alloc2(buffer_size), alsa_sample_info);
 
   if (!sample_buffer) {
-    LOG("Alloc audio frame buffer failed:%d,%d!\n", buffer_size, frame_size);
+    RKMEDIA_LOGI("Alloc audio frame buffer failed:%d,%d!\n", buffer_size,
+                 frame_size);
     return nullptr;
   }
   if (buffer_time == -1 || buffer_duration == -1) {
@@ -274,7 +280,7 @@ int AlsaCaptureStream::Open() {
     return -1;
   int status = snd_pcm_hw_params_malloc(&hwparams);
   if (status < 0) {
-    LOG("snd_pcm_hw_params_malloc failed\n");
+    RKMEDIA_LOGI("snd_pcm_hw_params_malloc failed\n");
     return -1;
   }
   pcm_handle = AlsaCommonOpenSetHwParams(device.c_str(), SND_PCM_STREAM_CAPTURE,
@@ -282,7 +288,7 @@ int AlsaCaptureStream::Open() {
   if (!pcm_handle)
     goto err;
   if ((status = snd_pcm_hw_params(pcm_handle, hwparams)) < 0) {
-    LOG("cannot set parameters (%s)\n", snd_strerror(status));
+    RKMEDIA_LOGI("cannot set parameters (%s)\n", snd_strerror(status));
     goto err;
   }
 #ifndef NDEBUG
@@ -294,12 +300,13 @@ int AlsaCaptureStream::Open() {
     snd_pcm_hw_params_get_periods(hwparams, &periods, NULL);
     snd_pcm_hw_params_get_period_size(hwparams, &period_size, NULL);
     snd_pcm_hw_params_get_buffer_size(hwparams, &bufsize);
-    LOG("ALSA: period size = %ld, periods = %u, buffer size = %lu\n",
-        period_size, periods, bufsize);
+    RKMEDIA_LOGI("ALSA: period size = %ld, periods = %u, buffer size = %lu\n",
+                 period_size, periods, bufsize);
   } while (0);
 #endif
   if ((status = snd_pcm_prepare(pcm_handle)) < 0) {
-    LOG("cannot prepare audio interface for use (%s)\n", snd_strerror(status));
+    RKMEDIA_LOGI("cannot prepare audio interface for use (%s)\n",
+                 snd_strerror(status));
     goto err;
   }
   /* Switch to blocking mode for capture */
@@ -311,7 +318,7 @@ int AlsaCaptureStream::Open() {
   return 0;
 
 err:
-  LOG("AlsaCaptureStream::Open() failed\n");
+  RKMEDIA_LOGI("AlsaCaptureStream::Open() failed\n");
   if (hwparams)
     snd_pcm_hw_params_free(hwparams);
   if (pcm_handle) {
@@ -328,7 +335,7 @@ int AlsaCaptureStream::Close() {
     snd_pcm_drop(alsa_handle);
     snd_pcm_close(alsa_handle);
     alsa_handle = NULL;
-    LOG("audio capture close done\n");
+    RKMEDIA_LOGI("audio capture close done\n");
     return 0;
   }
   return -1;
@@ -356,12 +363,12 @@ int AlsaCaptureStream::IoCtrl(unsigned long int request, ...) {
     bVqeEnable = *((int *)arg);
     if (bVqeEnable) {
       if (pstVqeHandle) {
-        LOG("already enabled\n");
+        RKMEDIA_LOGI("already enabled\n");
         return -1;
       }
       if (stVqeConfig.u32VQEMode == VQE_MODE_BUTT ||
           stVqeConfig.u32VQEMode == VQE_MODE_AO) {
-        LOG("wrong u32VQEMode\n");
+        RKMEDIA_LOGI("wrong u32VQEMode\n");
         return -1;
       }
       pstVqeHandle = RK_AUDIO_VQE_Init(alsa_sample_info, layout, &stVqeConfig);
@@ -371,7 +378,8 @@ int AlsaCaptureStream::IoCtrl(unsigned long int request, ...) {
     break;
   case S_VQE_ATTR:
     if (bVqeEnable) {
-      LOG("bVqeEnable already enable, please disable it before set attr");
+      RKMEDIA_LOGI(
+          "bVqeEnable already enable, please disable it before set attr");
       return -1;
     }
     stVqeConfig = *((VQE_CONFIG_S *)arg);

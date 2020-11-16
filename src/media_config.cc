@@ -44,13 +44,13 @@ static int ParseMediaConfigFps(std::map<std::string, std::string> &params,
   char *den = NULL;
 
   if (value.empty()) {
-    LOG("ERROR: MediaCfg: fps: KEY_FPS is null!\n");
+    RKMEDIA_LOGE("MediaCfg: fps: KEY_FPS is null!\n");
     return -1;
   }
   num = strtok((char *)value.c_str(), "/");
   den = strtok(NULL, "/");
   if (!num || !den || (strlen(num) > 2) || (strlen(den) > 2)) {
-    LOG("ERROR: MediaCfg: fps: KEY_FPS=%s is invalid!\n", value.c_str());
+    RKMEDIA_LOGE("MediaCfg: fps: KEY_FPS=%s is invalid!\n", value.c_str());
     return -1;
   }
   vid_cfg.frame_rate = std::atoi(num);
@@ -58,13 +58,13 @@ static int ParseMediaConfigFps(std::map<std::string, std::string> &params,
 
   value = params[KEY_FPS_IN];
   if (value.empty()) {
-    LOG("ERROR: MediaCfg: fps: KEY_FPS_IN is null!\n");
+    RKMEDIA_LOGE("MediaCfg: fps: KEY_FPS_IN is null!\n");
     return -1;
   }
   num = strtok((char *)value.c_str(), "/");
   den = strtok(NULL, "/");
   if (!num || !den || (strlen(num) > 2) || (strlen(den) > 2)) {
-    LOG("ERROR: MediaCfg: fps: KEY_FPS_IN(%s) is null!\n", value.c_str());
+    RKMEDIA_LOGE("MediaCfg: fps: KEY_FPS_IN(%s) is null!\n", value.c_str());
     return -1;
   }
 
@@ -78,20 +78,20 @@ bool ParseMediaConfigFromMap(std::map<std::string, std::string> &params,
                              MediaConfig &mc) {
   std::string value = params[KEY_OUTPUTDATATYPE];
   if (value.empty()) {
-    LOG("miss %s\n", KEY_OUTPUTDATATYPE);
+    RKMEDIA_LOGI("miss %s\n", KEY_OUTPUTDATATYPE);
     return false;
   }
   bool image_in = string_start_withs(value, IMAGE_PREFIX);
   bool video_in = string_start_withs(value, VIDEO_PREFIX);
   bool audio_in = string_start_withs(value, AUDIO_PREFIX);
   if (!image_in && !video_in && !audio_in) {
-    LOG("unsupport outtype %s\n", value.c_str());
+    RKMEDIA_LOGI("unsupport outtype %s\n", value.c_str());
     return false;
   }
   ImageInfo info;
   CodecType codec_type = StringToCodecType(value.c_str());
   if (codec_type == CODEC_TYPE_NONE) {
-    LOG("ERROR: unsupport outtype %s\n", value.c_str());
+    RKMEDIA_LOGE("unsupport outtype %s\n", value.c_str());
     return false;
   }
 
@@ -176,8 +176,8 @@ std::vector<EncROIRegion> StringToRoiRegions(const std::string &str_regions) {
       break;
     const char *end = strstr(start, ")");
     if (!end) {
-      LOG("ERROR: RoiRegions string is invalid! end error! Value:%s\n",
-          str_regions.c_str());
+      RKMEDIA_LOGE("RoiRegions string is invalid! end error! Value:%s\n",
+                   str_regions.c_str());
       break;
     }
 
@@ -193,15 +193,15 @@ std::vector<EncROIRegion> StringToRoiRegions(const std::string &str_regions) {
     }
 
     if (commas_cnt != 8) {
-      LOG("ERROR: RoiRegions string is invalid! Value:%s\n",
-          str_regions.c_str());
+      RKMEDIA_LOGE("RoiRegions string is invalid! Value:%s\n",
+                   str_regions.c_str());
       break;
     }
     int x, y, w, h, intra, quality, qp_area_idx, area_map_en, abs_qp_en;
     int r = sscanf(start, "(%d,%d,%d,%d,%d,%d,%d,%d,%d)", &x, &y, &w, &h,
                    &intra, &quality, &qp_area_idx, &area_map_en, &abs_qp_en);
     if (r != 9) {
-      LOG("ERROR: Fail to sscanf(ret=%d) : %m\n", r);
+      RKMEDIA_LOGE("Fail to sscanf(ret=%d) : %m\n", r);
       ret.clear();
       return ret;
     }
@@ -283,7 +283,7 @@ std::string to_param_string(const MediaConfig &mc,
   bool video_in = string_start_withs(out_type, VIDEO_PREFIX);
   bool audio_in = string_start_withs(out_type, AUDIO_PREFIX);
   if (!image_in && !video_in && !audio_in) {
-    LOG("unsupport outtype %s\n", out_type.c_str());
+    RKMEDIA_LOGI("unsupport outtype %s\n", out_type.c_str());
     return ret;
   }
 
@@ -310,12 +310,12 @@ std::string get_video_encoder_config_string(const ImageInfo &info,
                                             const VideoEncoderCfg &cfg) {
   if (!info.width || !info.height || (info.pix_fmt >= PIX_FMT_NB) ||
       (info.pix_fmt <= PIX_FMT_NONE)) {
-    LOG("ERROR: %s image info is wrong!\n", __func__);
+    RKMEDIA_LOGE("%s image info is wrong!\n", __func__);
     return NULL;
   }
 
   if (StringToCodecType(cfg.type) < 0) {
-    LOG("ERROR: %s not support enc type:%s!\n", __func__, cfg.type);
+    RKMEDIA_LOGE("%s not support enc type:%s!\n", __func__, cfg.type);
     return NULL;
   }
 
@@ -323,16 +323,16 @@ std::string get_video_encoder_config_string(const ImageInfo &info,
       strcmp(cfg.rc_quality, KEY_HIGHER) && strcmp(cfg.rc_quality, KEY_HIGH) &&
       strcmp(cfg.rc_quality, KEY_MEDIUM) && strcmp(cfg.rc_quality, KEY_LOW) &&
       strcmp(cfg.rc_quality, KEY_LOWER) && strcmp(cfg.rc_quality, KEY_LOWEST)) {
-    LOG("ERROR: %s rc_quality is invalid!"
-        "should be [KEY_LOWEST, KEY_HIGHEST]\n",
-        __func__);
+    RKMEDIA_LOGE("%s rc_quality is invalid!"
+                 "should be [KEY_LOWEST, KEY_HIGHEST]\n",
+                 __func__);
     return NULL;
   }
 
   if (cfg.rc_mode && strcmp(cfg.rc_mode, KEY_VBR) &&
       strcmp(cfg.rc_mode, KEY_CBR) && strcmp(cfg.rc_mode, KEY_AVBR) &&
       strcmp(cfg.rc_mode, KEY_FIXQP)) {
-    LOG("ERROR: %s rc_mode(%s) is invalid!\n", __func__, cfg.rc_mode);
+    RKMEDIA_LOGE("%s rc_mode(%s) is invalid!\n", __func__, cfg.rc_mode);
     return NULL;
   }
 
@@ -351,7 +351,7 @@ std::string get_video_encoder_config_string(const ImageInfo &info,
     vid_cfg.frame_rate = vid_cfg.frame_in_rate = cfg.fps;
   else {
     vid_cfg.frame_rate = vid_cfg.frame_in_rate = 30;
-    LOG("INFO: VideoEnc: frame rate use defalut value:30\n");
+    RKMEDIA_LOGI("INFO: VideoEnc: frame rate use defalut value:30\n");
   }
 
   vid_cfg.gop_size = cfg.gop;
@@ -370,7 +370,8 @@ std::string get_video_encoder_config_string(const ImageInfo &info,
       vid_cfg.bit_rate_max = wh_product * vid_cfg.frame_rate * num / den / 15;
     else
       vid_cfg.bit_rate_max = wh_product * vid_cfg.frame_rate * num / den / 8;
-    LOG("INFO: VideoEnc: maxbps use defalut value:%d\n", vid_cfg.bit_rate);
+    RKMEDIA_LOGI("INFO: VideoEnc: maxbps use defalut value:%d\n",
+                 vid_cfg.bit_rate);
   }
 
   vid_cfg.rc_quality = cfg.rc_quality;
@@ -407,9 +408,9 @@ int video_encoder_set_rc_quality(std::shared_ptr<Flow> &enc_flow,
       strcmp(rc_quality, KEY_HIGH) && strcmp(rc_quality, KEY_MEDIUM) &&
       strcmp(rc_quality, KEY_LOW) && strcmp(rc_quality, KEY_LOWER) &&
       strcmp(rc_quality, KEY_LOWEST)) {
-    LOG("ERROR: %s rc_quality:%s is invalid! "
-        "should be [KEY_LOWEST, KEY_HIGHEST]\n",
-        __func__, rc_quality);
+    RKMEDIA_LOGE("%s rc_quality:%s is invalid! "
+                 "should be [KEY_LOWEST, KEY_HIGHEST]\n",
+                 __func__, rc_quality);
     return -EINVAL;
   }
 
@@ -431,7 +432,7 @@ int video_encoder_set_rc_mode(std::shared_ptr<Flow> &enc_flow,
 
   if (strcmp(rc_mode, KEY_VBR) && strcmp(rc_mode, KEY_CBR) &&
       strcmp(rc_mode, KEY_AVBR) && strcmp(rc_mode, KEY_FIXQP)) {
-    LOG("ERROR: %s rc_mode(%s) is invalid!\n", __func__, rc_mode);
+    RKMEDIA_LOGE("%s rc_mode(%s) is invalid!\n", __func__, rc_mode);
     return -EINVAL;
   }
 
@@ -457,17 +458,17 @@ int video_encoder_set_qp(std::shared_ptr<Flow> &enc_flow, VideoEncoderQp &qps) {
       (qps.qp_min < 0) || (qps.qp_min > 48) || (qps.qp_min_i < 0) ||
       (qps.qp_min_i > 48) || (qps.qp_min > qps.qp_max) ||
       (qps.qp_min_i > qps.qp_max_i)) {
-    LOG("ERROR: qp range error. qp_min:[0, 48]; qp_max:[8, 51]\n");
+    RKMEDIA_LOGE("qp range error. qp_min:[0, 48]; qp_max:[8, 51]\n");
     return -EINVAL;
   }
 
   if ((qps.qp_init > qps.qp_max) || (qps.qp_init < qps.qp_min)) {
-    LOG("ERROR: qp_init should be within [qp_min, qp_max]\n");
+    RKMEDIA_LOGE("qp_init should be within [qp_min, qp_max]\n");
     return -EINVAL;
   }
 
   if (!qps.qp_step || (qps.qp_step > (qps.qp_max - qps.qp_min))) {
-    LOG("ERROR: qp_step should be within (0, qp_max - qp_min]\n");
+    RKMEDIA_LOGE("qp_step should be within (0, qp_max - qp_min]\n");
     return -EINVAL;
   }
 
@@ -485,7 +486,7 @@ int jpeg_encoder_set_qfactor(std::shared_ptr<Flow> &enc_flow, int qfactor) {
     return -EINVAL;
 
   if ((qfactor > 99) || (qfactor < 1)) {
-    LOG("ERROR: %s: qfactor should be within [1, 99]\n", __func__);
+    RKMEDIA_LOGE("%s: qfactor should be within [1, 99]\n", __func__);
     return -EINVAL;
   }
 
@@ -513,8 +514,8 @@ int video_encoder_set_fps(std::shared_ptr<Flow> &enc_flow, uint8_t out_num,
 
   if (!out_den || !out_num || (out_den > 16) || (out_num > 120) ||
       (in_den > 16) || (in_num > 120)) {
-    LOG("ERROR: fps(%d/%d) is invalid! num:[1,120], den:[1, 16].\n", out_num,
-        out_den);
+    RKMEDIA_LOGE("fps(%d/%d) is invalid! num:[1,120], den:[1, 16].\n", out_num,
+                 out_den);
     return -EINVAL;
   }
 
@@ -565,7 +566,7 @@ int video_encoder_set_osd_region(std::shared_ptr<Flow> &enc_flow,
 
   if (region_data->enable &&
       ((region_data->width % 16) || (region_data->height % 16))) {
-    LOG("ERROR: osd region size must be a multiple of 16x16.");
+    RKMEDIA_LOGE("osd region size must be a multiple of 16x16.");
     return -EINVAL;
   }
 
@@ -712,7 +713,8 @@ int video_encoder_set_avc_profile(std::shared_ptr<Flow> &enc_flow,
     return -EINVAL;
 
   if ((profile_idc != 66) && (profile_idc != 77) && (profile_idc != 100)) {
-    LOG("ERROR: %s profile_idc:%d is invalid!"
+    RKMEDIA_LOGE(
+        "%s profile_idc:%d is invalid!"
         "Only supprot: 66:Baseline, 77:Main Profile, 100: High Profile\n",
         __func__, profile_idc);
     return -EINVAL;
@@ -734,7 +736,7 @@ int video_encoder_set_userdata(std::shared_ptr<Flow> &enc_flow, void *data,
     return -EINVAL;
 
   if (!data && len) {
-    LOG("ERROR: invalid userdata size!\n");
+    RKMEDIA_LOGE("invalid userdata size!\n");
     return -EINVAL;
   }
 

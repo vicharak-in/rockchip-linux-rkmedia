@@ -87,17 +87,17 @@ static const char *lookup_drm_connector_type_name(unsigned int type) {
 }
 
 #define DUMP_IDS(type, size, ids)                                              \
-  LOG("\t%s:", #type);                                                         \
+  RKMEDIA_LOGI("\t%s:", #type);                                                \
   for (uint32_t i = 0; i < size; i++)                                          \
-    LOG("%c%d", i == 0 ? '\t' : ',', ids[i]);                                  \
-  LOG("\n");
+    RKMEDIA_LOGI("%c%d", i == 0 ? '\t' : ',', ids[i]);                         \
+  RKMEDIA_LOGI("\n");
 
 void dump_suitable_ids(struct resources *res) {
 #define DUMP_SUITABLE_IDS(type)                                                \
   DUMP_IDS(type, ids.count_##type##s, ids.type##_ids)
 
   struct drm_ids &ids = res->ids;
-  LOG("suitable ids: \n");
+  RKMEDIA_LOGI("suitable ids: \n");
   DUMP_SUITABLE_IDS(connector)
   DUMP_SUITABLE_IDS(encoder)
   DUMP_SUITABLE_IDS(crtc)
@@ -868,7 +868,7 @@ DRMDevice::DRMDevice(const std::string &drm_path)
 {
 #if 1
   fd = open(drm_path.c_str(), O_RDWR | O_CLOEXEC);
-  LOGD("open %s = %d\n", drm_path.c_str(), fd);
+  RKMEDIA_LOGD("open %s = %d\n", drm_path.c_str(), fd);
 #else
   int drm_fd = open(drm_path.c_str(), O_RDWR | O_CLOEXEC);
   if (drm_fd >= 0) {
@@ -886,7 +886,7 @@ DRMDevice::DRMDevice(const std::string &drm_path)
 DRMDevice::~DRMDevice() {
   if (fd >= 0) {
     close(fd);
-    LOGD("close %s = %d\n", path.c_str(), fd);
+    RKMEDIA_LOGD("close %s = %d\n", path.c_str(), fd);
     fd = -1;
   }
 }
@@ -895,12 +895,12 @@ struct resources *DRMDevice::get_resources() {
   if (fd < 0)
     return nullptr;
   if (drmSetClientCap(fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1)) {
-    LOG("Failed to set universal planes cap %m\n");
+    RKMEDIA_LOGI("Failed to set universal planes cap %m\n");
     return nullptr;
   }
   // many features need atomic cap
   if (drmSetClientCap(fd, DRM_CLIENT_CAP_ATOMIC, 1)) {
-    LOG("Failed set drm atomic cap %m\n");
+    RKMEDIA_LOGI("Failed set drm atomic cap %m\n");
     return nullptr;
   }
   int i;
@@ -910,7 +910,7 @@ struct resources *DRMDevice::get_resources() {
   res->drm_fd = -1;
   res->res = drmModeGetResources(fd);
   if (!res->res) {
-    LOG("drmModeGetResources failed: %m\n");
+    RKMEDIA_LOGI("drmModeGetResources failed: %m\n");
     goto error;
   }
   res->crtcs =
@@ -938,7 +938,8 @@ struct resources *DRMDevice::get_resources() {
       (_res)->type##s[i].type =                                                \
           drmModeGet##Type(fd, (_res)->__res->type##s[i]);                     \
       if (!(_res)->type##s[i].type) {                                          \
-        LOG("could not get %s %i: %m\n", #type, (_res)->__res->type##s[i]);    \
+        RKMEDIA_LOGI("could not get %s %i: %m\n", #type,                       \
+                     (_res)->__res->type##s[i]);                               \
       } else if ((_res)->ids.type##_ids) {                                     \
         (_res)->ids.type##_ids[(_res)->ids.count_##type##s++] =                \
             (_res)->__res->type##s[i];                                         \
@@ -962,7 +963,7 @@ struct resources *DRMDevice::get_resources() {
                        lookup_drm_connector_type_name(conn->connector_type),
                        conn->connector_type_id);
     if (ret < 0) {
-      LOG("asprintf failed\n");
+      RKMEDIA_LOGI("asprintf failed\n");
     }
   }
 
@@ -974,8 +975,8 @@ struct resources *DRMDevice::get_resources() {
       obj->props = drmModeObjectGetProperties(fd, obj->type->type##_id,        \
                                               DRM_MODE_OBJECT_##Type);         \
       if (!obj->props) {                                                       \
-        LOG("could not get %s %i properties: %m\n", #type,                     \
-            obj->type->type##_id);                                             \
+        RKMEDIA_LOGI("could not get %s %i properties: %m\n", #type,            \
+                     obj->type->type##_id);                                    \
         continue;                                                              \
       }                                                                        \
       obj->props_info = (drmModePropertyRes **)calloc(                         \
@@ -995,7 +996,7 @@ struct resources *DRMDevice::get_resources() {
 
   res->plane_res = drmModeGetPlaneResources(fd);
   if (!res->plane_res) {
-    LOG("drmModeGetPlaneResources failed: %m\n");
+    RKMEDIA_LOGI("drmModeGetPlaneResources failed: %m\n");
     goto error;
   }
   res->planes = (struct plane *)calloc(res->plane_res->count_planes,

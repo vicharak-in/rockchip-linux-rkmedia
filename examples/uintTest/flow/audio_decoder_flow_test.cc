@@ -171,12 +171,12 @@ std::shared_ptr<easymedia::Flow> create_file_reader_flow(std::string path) {
   PARAM_STRING_APPEND_TO(flow_param, KEY_MEM_SIZE_PERTIME, 1152);
   PARAM_STRING_APPEND_TO(flow_param, KEY_FPS, 6000);
   PARAM_STRING_APPEND_TO(flow_param, KEY_LOOP_TIME, 0);
-  LOG("\n#FileRead flow param:\n%s\n", flow_param.c_str());
+  RKMEDIA_LOGI("\n#FileRead flow param:\n%s\n", flow_param.c_str());
 
   auto audio_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
   if (!audio_read_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
 
@@ -220,9 +220,9 @@ create_audio_enc_flow(SampleInfo &info, CodecType codec_type,
   auto audio_enc_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
   if (!audio_enc_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
   return audio_enc_flow;
 }
@@ -242,11 +242,11 @@ static void file_decoder_alsa(CodecType codec_type, std::string in_file_path,
   audio_decoder->AddDownFlow(alsa_output, 0, 0);
 
   signal(SIGINT, sigterm_handler);
-  LOG("%s initial finish\n", __func__);
+  RKMEDIA_LOGI("%s initial finish\n", __func__);
   while (!quit) {
     easymedia::msleep(100);
   }
-  LOG("%s deinitial finish\n", __func__);
+  RKMEDIA_LOGI("%s deinitial finish\n", __func__);
 }
 
 static void file_decoder_file(CodecType codec_type, const char *in_file_path,
@@ -261,11 +261,11 @@ static void file_decoder_file(CodecType codec_type, const char *in_file_path,
   audio_decoder->AddDownFlow(file_write, 0, 0);
 
   signal(SIGINT, sigterm_handler);
-  LOG("%s initial finish\n", __func__);
+  RKMEDIA_LOGI("%s initial finish\n", __func__);
   while (!quit) {
     easymedia::msleep(100);
   }
-  LOG("%s deinitial finish\n", __func__);
+  RKMEDIA_LOGI("%s deinitial finish\n", __func__);
 }
 
 static void alsa_encoder_decoder_file(CodecType codec_type,
@@ -300,11 +300,11 @@ static void alsa_encoder_decoder_file(CodecType codec_type,
   audio_decoder->AddDownFlow(file_write, 0, 0);
 
   signal(SIGINT, sigterm_handler);
-  LOG("%s initial finish\n", __func__);
+  RKMEDIA_LOGI("%s initial finish\n", __func__);
   while (!quit) {
     easymedia::msleep(100);
   }
-  LOG("%s deinitial finish\n", __func__);
+  RKMEDIA_LOGI("%s deinitial finish\n", __func__);
 }
 
 static void file_alsa(std::string in_file_path, std::string out_alsa_path) {
@@ -316,11 +316,11 @@ static void file_alsa(std::string in_file_path, std::string out_alsa_path) {
   file_read->AddDownFlow(alsa_output, 0, 0);
 
   signal(SIGINT, sigterm_handler);
-  LOG("%s initial finish\n", __func__);
+  RKMEDIA_LOGI("%s initial finish\n", __func__);
   while (!quit) {
     easymedia::msleep(100);
   }
-  LOG("%s deinitial finish\n", __func__);
+  RKMEDIA_LOGI("%s deinitial finish\n", __func__);
 }
 static void audio_decoder_usage() {
   printf("\n\n/Usage:./audio_decoder_test <index> <codecType> [inFilePath] "

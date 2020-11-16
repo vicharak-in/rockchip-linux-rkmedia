@@ -151,12 +151,12 @@ RockFaceRecognize::RockFaceRecognize(const char *param)
     return;
   }
   if (params[KEY_INPUTDATATYPE].empty()) {
-    LOG("lost input pixel format!\n");
+    RKMEDIA_LOGI("lost input pixel format!\n");
     return;
   } else {
     pixel_fmt_ = StrToRockFacePixelFMT(params[KEY_INPUTDATATYPE].c_str());
     if (pixel_fmt_ >= ROCKFACE_PIXEL_FORMAT_MAX) {
-      LOG("input pixel format not support yet!\n");
+      RKMEDIA_LOGI("input pixel format not support yet!\n");
       return;
     }
   }
@@ -175,7 +175,7 @@ RockFaceRecognize::RockFaceRecognize(const char *param)
   if (!db_path.empty())
     db_manager_ = std::make_shared<FaceDBManager>(db_path);
   else {
-    LOG("lost db path.\n");
+    RKMEDIA_LOGI("lost db path.\n");
     return;
   }
 
@@ -195,7 +195,7 @@ RockFaceRecognize::RockFaceRecognize(const char *param)
   ret = rockface_set_licence(face_handle_, license_path.c_str());
   if (ret != ROCKFACE_RET_SUCCESS) {
     authorized_result_.status = FAILURE;
-    LOG("rockface_set_licence failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("rockface_set_licence failed, ret = %d\n", ret);
   } else
     authorized_result_.status = SUCCESS;
 
@@ -215,7 +215,7 @@ RockFaceRecognize::RockFaceRecognize(const char *param)
   if (thread_running_) {
     thread_ = std::make_shared<std::thread>(ThrFunc, this);
     if (!thread_) {
-      LOG("new thread failed.\n");
+      RKMEDIA_LOGI("new thread failed.\n");
       return;
     }
   }
@@ -270,7 +270,8 @@ int RockFaceRecognize::SendInput(std::shared_ptr<MediaBuffer> input) {
         if (face_array.size() == 1) {
           request->SetType(RequestType::REGISTER);
         } else
-          LOG("there are muti faces(%d) in the image, drop the frame.\n",
+          RKMEDIA_LOGI(
+              "there are muti faces(%d) in the image, drop the frame.\n",
               face_array.size());
         tobe_registered_count_--;
       }
@@ -299,7 +300,7 @@ int RockFaceRecognize::MatchFeature(rockface_feature_t *feature,
     rockface_ret_t ret =
         rockface_feature_compare(feature, &iter.feature, &similarity);
     if (ret != ROCKFACE_RET_SUCCESS) {
-      LOG("rockface_feature_compare failed, ret = %d\n", ret);
+      RKMEDIA_LOGI("rockface_feature_compare failed, ret = %d\n", ret);
       continue;
     }
     if (similarity < *out_similarity) {
@@ -332,7 +333,7 @@ bool RockFaceRecognize::CheckFaceReturn(rockface_ret_t ret,
     check = false;
   }
   if (!check) {
-    LOG("%s run failed, ret = %d\n", fun_name, ret);
+    RKMEDIA_LOGI("%s run failed, ret = %d\n", fun_name, ret);
     if (is_abort)
       abort();
   }
@@ -551,7 +552,7 @@ int RockFaceRecognize::IoCtrl(unsigned long int request, ...) {
   case S_NN_INFO: {
     FaceRegArg *arg = va_arg(vl, FaceRegArg *);
     if (!arg) {
-      LOG("FaceRegArg params error.\n");
+      RKMEDIA_LOGI("FaceRegArg params error.\n");
       break;
     }
     if (arg->type == USER_ADD_CAM) {

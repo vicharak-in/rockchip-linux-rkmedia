@@ -38,10 +38,11 @@ static void dump_output(const std::shared_ptr<easymedia::MediaBuffer> &out) {
             PixFmtToString(info.pix_fmt), info.width, info.height,
             info.vir_width, info.vir_height);
     ssize_t count = write(output_file_fd, out_image->GetPtr(),
-          CalPixFmtSize(out_image->GetPixelFormat(), out_image->GetVirWidth(),
-                        out_image->GetVirHeight()));
+                          CalPixFmtSize(out_image->GetPixelFormat(),
+                                        out_image->GetVirWidth(),
+                                        out_image->GetVirHeight()));
     if (count < 0) {
-      LOG("dump_output: write output_file_fd failed\n");
+      RKMEDIA_LOGI("dump_output: write output_file_fd failed\n");
     }
   }
 }

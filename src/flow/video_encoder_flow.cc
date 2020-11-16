@@ -14,6 +14,11 @@
 #include "move_detection_flow.h"
 #endif
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 4
+
 // When the resolution is 2688x1520,
 // the average encoding takes 12ms.
 //
@@ -83,50 +88,52 @@ bool encode(Flow *f, MediaBufferVector &input_vector) {
     enc->QueryChange(VideoEncoder::kMoveDetectionFlow, &smartp_enable,
                      sizeof(int));
     if (!smartp_enable) {
-      LOG("INFO: VEnc Flow: Wait for smartp configuration to take effect\n");
+      RKMEDIA_LOGI(
+          "INFO: VEnc Flow: Wait for smartp configuration to take effect\n");
     } else {
-      LOGD("VEnc Flow: LookForMdResult start!\n");
+      RKMEDIA_LOGD("VEnc Flow: LookForMdResult start!\n");
 
       MediaConfig mcfg = vf->GetConfig();
       int fps = mcfg.vid_cfg.frame_rate;
       if (fps <= 0) {
-        LOG("ERROR: VEnc Flow: smartp must config fps correctly!");
+        RKMEDIA_LOGE("VEnc Flow: smartp must config fps correctly!");
         fps = 30;
       } else if (fps > 60)
-        LOG("WARN: VEnc Flow: smartp may error in high fps:%d!", fps);
+        RKMEDIA_LOGW("VEnc Flow: smartp may error in high fps:%d!", fps);
 
       int maximum_timeout = 1000000 / fps - ENC_CONST_MAX_TIME;
       md_info =
           vf->md_flow->LookForMdResult(src->GetAtomicClock(), maximum_timeout);
       if (md_info) {
 #ifndef NDEBUG
-        LOGD("VEnc Flow: get md info(cnt=%d): %p, %zuBytes\n",
-             md_info->GetValidSize() / sizeof(INFO_LIST), md_info.get(),
-             md_info->GetValidSize());
+        RKMEDIA_LOGD("VEnc Flow: get md info(cnt=%d): %p, %zuBytes\n",
+                     md_info->GetValidSize() / sizeof(INFO_LIST), md_info.get(),
+                     md_info->GetValidSize());
 #endif
         if (md_info->GetSize() >= sizeof(INFO_LIST)) {
 #ifndef NDEBUG
           INFO_LIST *info = (INFO_LIST *)md_info->GetPtr();
           while (info->flag) {
-            LOGD("VEnc Flow: mdinfo: flag:%d, upleft:<%d, %d>, downright:<%d, "
-                 "%d>\n",
-                 info->flag, info->up_left[0], info->up_left[1],
-                 info->down_right[0], info->down_right[1]);
+            RKMEDIA_LOGD(
+                "VEnc Flow: mdinfo: flag:%d, upleft:<%d, %d>, downright:<%d, "
+                "%d>\n",
+                info->flag, info->up_left[0], info->up_left[1],
+                info->down_right[0], info->down_right[1]);
             info += 1;
           }
 #endif
           src->SetRelatedSPtr(md_info);
         }
       } else
-        LOG("ERROR: VEnc Flow: fate error get null md result\n");
+        RKMEDIA_LOGE("VEnc Flow: fate error get null md result\n");
 
-      LOGD("VEnc Flow: LookForMdResult end!\n\n");
+      RKMEDIA_LOGD("VEnc Flow: LookForMdResult end!\n\n");
     }
   }
 #endif // RK_MOVE_DETECTION
 
   if (0 != enc->Process(src, dst, extra_dst)) {
-    LOG("encoder failed\n");
+    RKMEDIA_LOGI("encoder failed\n");
     return false;
   }
 
@@ -152,14 +159,14 @@ VideoEncoderFlow::VideoEncoderFlow(const char *param)
   std::list<std::string> separate_list;
   std::map<std::string, std::string> params;
 
-  LOGD("VEnc Flow: dump param:%s\n", param);
+  RKMEDIA_LOGD("VEnc Flow: dump param:%s\n", param);
   if (!ParseWrapFlowParams(param, params, separate_list)) {
     SetError(-EINVAL);
     return;
   }
   std::string &codec_name = params[KEY_NAME];
   if (codec_name.empty()) {
-    LOG("missing codec name\n");
+    RKMEDIA_LOGI("missing codec name\n");
     SetError(-EINVAL);
     return;
   }
@@ -177,7 +184,8 @@ VideoEncoderFlow::VideoEncoderFlow(const char *param)
     return;
   }
   if (!REFLECTOR(Encoder)::IsMatch(ccodec_name, rule.c_str())) {
-    LOG("Unsupport for video encoder %s : [%s]\n", ccodec_name, rule.c_str());
+    RKMEDIA_LOGI("Unsupport for video encoder %s : [%s]\n", ccodec_name,
+                 rule.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -209,14 +217,14 @@ VideoEncoderFlow::VideoEncoderFlow(const char *param)
   auto encoder = REFLECTOR(Encoder)::Create<VideoEncoder>(
       ccodec_name, enc_param_str.c_str());
   if (!encoder) {
-    LOG("Fail to create video encoder %s<%s>\n", ccodec_name,
-        enc_param_str.c_str());
+    RKMEDIA_LOGI("Fail to create video encoder %s<%s>\n", ccodec_name,
+                 enc_param_str.c_str());
     SetError(-EINVAL);
     return;
   }
 
   if (!encoder->InitConfig(mc)) {
-    LOG("Fail to init config, %s\n", ccodec_name);
+    RKMEDIA_LOGI("Fail to init config, %s\n", ccodec_name);
     SetError(-EINVAL);
     return;
   }
@@ -240,7 +248,8 @@ VideoEncoderFlow::VideoEncoderFlow(const char *param)
         (regions + i)->qp_area_idx = roi_regions[i].qp_area_idx;
         (regions + i)->area_map_en = roi_regions[i].area_map_en;
         (regions + i)->abs_qp_en = roi_regions[i].abs_qp_en;
-        LOG("VEnc Flow: Roi Regions[%d]: (%d,%d,%d,%d,%d,%d,%d,%d,%d)\n", i,
+        RKMEDIA_LOGI(
+            "VEnc Flow: Roi Regions[%d]: (%d,%d,%d,%d,%d,%d,%d,%d,%d)\n", i,
             roi_regions[i].x, roi_regions[i].y, roi_regions[i].w,
             roi_regions[i].h, roi_regions[i].intra, roi_regions[i].quality,
             roi_regions[i].qp_area_idx, roi_regions[i].area_map_en,
@@ -273,7 +282,7 @@ VideoEncoderFlow::VideoEncoderFlow(const char *param)
   sm.mode_when_full = InputMode::DROPFRONT;
   sm.input_maxcachenum.push_back(3);
   if (!InstallSlotMap(sm, "VideoEncoderFlow", 40)) {
-    LOG("Fail to InstallSlotMap, %s\n", ccodec_name);
+    RKMEDIA_LOGI("Fail to InstallSlotMap, %s\n", ccodec_name);
     SetError(-EINVAL);
     return;
   }
@@ -318,11 +327,11 @@ int VideoEncoderFlow::Control(unsigned long int request, ...) {
 #ifdef RK_MOVE_DETECTION
   if (request == VideoEncoder::kMoveDetectionFlow) {
     if (value->GetSize() != sizeof(void **)) {
-      LOG("ERROR: VEnc Flow: move detect config falied!\n");
+      RKMEDIA_LOGE("VEnc Flow: move detect config falied!\n");
       return -1;
     }
     md_flow = *((MoveDetectionFlow **)value->GetPtr());
-    LOGD("VEnc Flow: md_flow:%p\n", md_flow);
+    RKMEDIA_LOGD("VEnc Flow: md_flow:%p\n", md_flow);
   }
 #endif // RK_MOVE_DETECTION
 
@@ -361,7 +370,7 @@ void VideoEncoderFlow::Dump(std::string &dump_info) {
     else if (imgcfg.codec_type == CODEC_TYPE_H265)
       dump_info.append("  CodecType: H265\r\n");
     else {
-      LOG("ERROR: VEnc Flow: config fatal error!\n");
+      RKMEDIA_LOGE("VEnc Flow: config fatal error!\n");
       return;
     }
     sprintf(str_line, "  Input: %d(%d)x%d(%d) fmt:%s\r\n",
@@ -412,7 +421,7 @@ void VideoEncoderFlow::Dump(std::string &dump_info) {
       dump_info.append(str_line);
     }
   } else {
-    LOG("ERROR: VEnc Flow: Dump: to do...!\n");
+    RKMEDIA_LOGE("VEnc Flow: Dump: to do...!\n");
     return;
   }
 

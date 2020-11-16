@@ -32,13 +32,13 @@ static int mixer_control(const char *device, SUB_DEVICE subdev, OPS ops,
   handle = NULL;
 
   if ((ret = snd_mixer_open(&handle, 0)) < 0) {
-    LOG("snd_mixer_open failed\n");
+    RKMEDIA_LOGI("snd_mixer_open failed\n");
     goto exit;
   }
 
   ret = snd_mixer_attach(handle, device);
   if (ret < 0) {
-    LOG("snd_mixer_attach failed\n");
+    RKMEDIA_LOGI("snd_mixer_attach failed\n");
     goto exit;
   }
   snd_mixer_selem_register(handle, NULL, NULL);
@@ -56,7 +56,7 @@ static int mixer_control(const char *device, SUB_DEVICE subdev, OPS ops,
   }
 
   if (!elem) {
-    LOG("snd_mixer_find_selem Err\n");
+    RKMEDIA_LOGI("snd_mixer_find_selem Err\n");
     ret = -ENOENT;
     goto exit;
   }

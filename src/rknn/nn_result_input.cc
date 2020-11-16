@@ -50,7 +50,7 @@ NNResultInput::NNResultInput(const char *param) {
     return;
   }
 
-  cache_size_  = 10;
+  cache_size_ = 10;
   const std::string &cache_size_str = params[KEY_CACHE_SIZE];
   if (!cache_size_str.empty())
     cache_size_ = std::stoi(cache_size_str);

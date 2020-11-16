@@ -10,6 +10,11 @@
 #include "media_type.h"
 #include "sound.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 14
+
 namespace easymedia {
 static bool decode(Flow *f, MediaBufferVector &input_vector);
 
@@ -42,7 +47,7 @@ bool decode(Flow *f, MediaBufferVector &input_vector) {
     dec->SendInput(src);
     dst = dec->FetchOutput();
     if (dst->IsEOF()) {
-      LOG("decode, first EOF.\n");
+      RKMEDIA_LOGI("decode, first EOF.\n");
       return true;
     }
   }
@@ -54,7 +59,7 @@ bool decode(Flow *f, MediaBufferVector &input_vector) {
         break;
       }
       if (dst->IsEOF()) {
-        LOG("decode, second EOF.\n");
+        RKMEDIA_LOGI("decode, second EOF.\n");
         break;
       }
       af->SetOutput(dst, 0);
@@ -73,7 +78,7 @@ AudioDecoderFlow::AudioDecoderFlow(const char *param) {
   }
   std::string &codec_name = params[KEY_NAME];
   if (codec_name.empty()) {
-    LOG("missing codec name\n");
+    RKMEDIA_LOGI("missing codec name\n");
     SetError(-EINVAL);
     return;
   }
@@ -96,14 +101,14 @@ AudioDecoderFlow::AudioDecoderFlow(const char *param) {
   auto decoder = REFLECTOR(Decoder)::Create<AudioDecoder>(
       ccodec_name, dec_param_str.c_str());
   if (!decoder) {
-    LOG("Fail to create audio decoder %s<%s>\n", ccodec_name,
-        dec_param_str.c_str());
+    RKMEDIA_LOGI("Fail to create audio decoder %s<%s>\n", ccodec_name,
+                 dec_param_str.c_str());
     SetError(-EINVAL);
     return;
   }
 
   if (!decoder->InitConfig(mc)) {
-    LOG("Fail to init config, %s\n", ccodec_name);
+    RKMEDIA_LOGI("Fail to init config, %s\n", ccodec_name);
     SetError(-EINVAL);
     return;
   }
@@ -120,7 +125,7 @@ AudioDecoderFlow::AudioDecoderFlow(const char *param) {
   sm.mode_when_full = InputMode::BLOCKING;
   sm.input_maxcachenum.push_back(10);
   if (!InstallSlotMap(sm, "AudioDecoderFlow", 40)) {
-    LOG("Fail to InstallSlotMap for AudioDecoderFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for AudioDecoderFlow\n");
     SetError(-EINVAL);
     return;
   }

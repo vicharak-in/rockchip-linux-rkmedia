@@ -4,11 +4,11 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -60,7 +60,8 @@ MediaBuffer::MemType StringToMemType(const char *s) {
     if (!strcmp(s, KEY_MEM_DRM) || !strcmp(s, KEY_MEM_HARDWARE))
       return MediaBuffer::MemType::MEM_HARD_WARE;
 #endif
-    LOG("warning: %s is not supported or not integrated, fallback to common\n",
+    RKMEDIA_LOGI(
+        "warning: %s is not supported or not integrated, fallback to common\n",
         s);
   }
   return MediaBuffer::MemType::MEM_COMMON;
@@ -73,7 +74,7 @@ bool ParseImageInfoFromMap(std::map<std::string, std::string> &params,
   CHECK_EMPTY(value, params, type)
   info.pix_fmt = StringToPixFmt(value.c_str());
   if (info.pix_fmt == PIX_FMT_NONE) {
-    LOG("unsupport pix fmt %s\n", value.c_str());
+    RKMEDIA_LOGI("unsupport pix fmt %s\n", value.c_str());
     return false;
   }
   CHECK_EMPTY(value, params, KEY_BUFFER_WIDTH)
@@ -86,7 +87,6 @@ bool ParseImageInfoFromMap(std::map<std::string, std::string> &params,
   info.vir_height = std::stoi(value);
   return true;
 }
-
 
 TestReadFlow::TestReadFlow(const char *param)
     : mtype(MediaBuffer::MemType::MEM_COMMON), read_size(0), fps(0),
@@ -210,7 +210,7 @@ void TestReadFlow::ReadThreadRun() {
     if (read_size) {
       size = fstream->Read(buffer->GetPtr(), 1, read_size);
       if (size != read_size && !fstream->Eof()) {
-        LOG("read get %d != expect %d\n", (int)size, (int)read_size);
+        RKMEDIA_LOGI("read get %d != expect %d\n", (int)size, (int)read_size);
         SetDisable();
         break;
       }
@@ -281,7 +281,7 @@ TestWriteFlow::TestWriteFlow(const char *param) {
 
   std::string &name = params[KEY_NAME];
   if (!InstallSlotMap(sm, name, 0)) {
-    LOG("Fail to InstallSlotMap, %s\n", name.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap, %s\n", name.c_str());
     return;
   }
 }
@@ -313,8 +313,7 @@ const char *FACTORY(TestWriteFlow)::OutPutDataType() { return ""; }
 
 static char optstr[] = "?i:o:w:h:t:";
 
-int GetRandom()
-{
+int GetRandom() {
   srand((int)time(0));
   return rand() % 33;
 }
@@ -326,19 +325,19 @@ int InputFlowEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loop) {
     auto param = flow->GetEventParam(msg);
     if (param == nullptr)
       continue;
-    printf("InputFlowEventProc flow %p msg id %d param %d\n",
-           flow.get(), param->GetId(), param->GetParam());
+    printf("InputFlowEventProc flow %p msg id %d param %d\n", flow.get(),
+           param->GetId(), param->GetParam());
     auto params = param->GetParams();
     if (params)
       printf("params -------------- %s\n", (char *)params);
     // TODO
     switch (param->GetId()) {
-      case MSG_FLOW_EVENT_INFO_EOS:
-        loop = false;
-        quit = true;
+    case MSG_FLOW_EVENT_INFO_EOS:
+      loop = false;
+      quit = true;
       break;
-      default:
-        std::this_thread::sleep_for(std::chrono::milliseconds(GetRandom()));
+    default:
+      std::this_thread::sleep_for(std::chrono::milliseconds(GetRandom()));
       break;
     }
   }
@@ -352,8 +351,8 @@ int EncFlowEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loop) {
     auto param = flow->GetEventParam(msg);
     if (param == nullptr)
       continue;
-    printf("InputFlowEventProc flow %p msg id %d param %d\n",
-           flow.get(), param->GetId(), param->GetParam());
+    printf("InputFlowEventProc flow %p msg id %d param %d\n", flow.get(),
+           param->GetId(), param->GetParam());
     // TODO
     std::this_thread::sleep_for(std::chrono::milliseconds(GetRandom()));
   }
@@ -367,8 +366,8 @@ int OutPutFlowEventProc(std::shared_ptr<easymedia::Flow> flow, bool &loop) {
     auto param = flow->GetEventParam(msg);
     if (param == nullptr)
       continue;
-    printf("OutPutFlowEventProc flow %p msg id %d param %d\n",
-           flow.get(), param->GetId(), param->GetParam());
+    printf("OutPutFlowEventProc flow %p msg id %d param %d\n", flow.get(),
+           param->GetId(), param->GetParam());
     // TODO
     std::this_thread::sleep_for(std::chrono::milliseconds(GetRandom()));
   }
@@ -416,7 +415,8 @@ int main(int argc, char **argv) {
     case '?':
     default:
       printf("usage example: \n");
-      printf("flow_event_test -i input.yuv -o output.h264 -w 320 -h 240 -t 0\n");
+      printf(
+          "flow_event_test -i input.yuv -o output.h264 -w 320 -h 240 -t 0\n");
       exit(0);
     }
   }
@@ -535,4 +535,3 @@ int main(int argc, char **argv) {
   enc_flow_.reset();
   input_flow_.reset();
 }
-

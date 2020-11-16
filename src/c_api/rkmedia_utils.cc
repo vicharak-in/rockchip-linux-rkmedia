@@ -54,7 +54,7 @@ std::string ImageTypeToString(IMAGE_TYPE_E type) {
   case IMAGE_TYPE_JPEG:
     return IMAGE_JPEG;
   default:
-    LOG("ERROR: %s: not support image type:%d", __func__, type);
+    RKMEDIA_LOGE("%s: not support image type:%d", __func__, type);
     return "";
   }
 }
@@ -105,7 +105,7 @@ IMAGE_TYPE_E StringToImageType(std::string type) {
   else if (type == IMAGE_JPEG)
     return IMAGE_TYPE_JPEG;
   else
-    LOG("ERROR: %s: unknown image type:%s", __func__, type.c_str());
+    RKMEDIA_LOGE("%s: unknown image type:%s", __func__, type.c_str());
   return IMAGE_TYPE_UNKNOW;
 }
 

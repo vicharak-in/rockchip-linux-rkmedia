@@ -84,7 +84,7 @@ public:
   static const uint32_t kGopModeChange = (1 << 12);
   static const uint32_t kProfileChange = (1 << 13);
   static const uint32_t kUserDataChange = (1 << 14);
-  //enable fps/bps statistics.
+  // enable fps/bps statistics.
   static const uint32_t kEnableStatistics = (1 << 31);
   static const uint32_t kResolutionChange = (1 << 15);
 
@@ -92,6 +92,7 @@ public:
   virtual ~VideoEncoder() = default;
   void RequestChange(uint32_t change, std::shared_ptr<ParameterBuffer> value);
   virtual void QueryChange(uint32_t change, void *value, int32_t size);
+
 protected:
   bool HasChangeReq() { return !change_list.empty(); }
   std::pair<uint32_t, std::shared_ptr<ParameterBuffer>> PeekChange();
@@ -113,6 +114,7 @@ public:
   AudioEncoder() : codec_type(CODEC_TYPE_NONE) {}
   virtual ~AudioEncoder() = default;
   virtual int GetNbSamples() { return 0; }
+
 protected:
   CodecType codec_type;
 

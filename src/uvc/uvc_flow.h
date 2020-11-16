@@ -16,18 +16,16 @@ extern "C" {
 #include <uvc/uvc_video.h>
 }
 
-
 #include "buffer.h"
-#include "media_type.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
-#include "utils.h"
-#include "image.h"
+#include "media_type.h"
 #include "mpp_inc.h"
-
+#include "utils.h"
 
 namespace easymedia {
-bool do_uvc(Flow *f,MediaBufferVector &input_vector);
+bool do_uvc(Flow *f, MediaBufferVector &input_vector);
 
 class UvcFlow : public Flow {
 public:
@@ -38,12 +36,11 @@ public:
 
 private:
   uint32_t uvc_event_code;
-  //std::string model_identifier;
+  // std::string model_identifier;
   uint32_t uvc_width;
   uint32_t uvc_height;
   std::string uvc_format;
-  friend bool do_uvc(Flow *f,MediaBufferVector &input_vector);
-
+  friend bool do_uvc(Flow *f, MediaBufferVector &input_vector);
 };
 
 } // namespace easymedia

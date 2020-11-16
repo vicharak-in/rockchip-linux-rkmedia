@@ -108,8 +108,7 @@ void FileReadFlow::ReadThreadRun() {
   size_t alloc_size = read_size;
   bool is_image = (info.pix_fmt != PIX_FMT_NONE);
   if (!alloc_size && is_image) {
-    alloc_size = CalPixFmtSize(info.pix_fmt,
-      info.width, info.height, 16);
+    alloc_size = CalPixFmtSize(info.pix_fmt, info.width, info.height, 16);
   }
   while (loop) {
     if (fstream->Eof()) {
@@ -137,7 +136,7 @@ void FileReadFlow::ReadThreadRun() {
     if (read_size) {
       size = fstream->Read(buffer->GetPtr(), 1, read_size);
       if (size != read_size && !fstream->Eof()) {
-        LOG("read get %d != expect %d\n", (int)size, (int)read_size);
+        RKMEDIA_LOGI("read get %d != expect %d\n", (int)size, (int)read_size);
         SetDisable();
         break;
       }
@@ -222,8 +221,7 @@ std::string FileWriteFlow::GenFilePath(time_t curtime) {
   return ostr.str();
 }
 
-FileWriteFlow::FileWriteFlow(const char *param)
-    : file_index(0) {
+FileWriteFlow::FileWriteFlow(const char *param) : file_index(0) {
   std::map<std::string, std::string> params;
   if (!parse_media_param_map(param, params)) {
     SetError(-EINVAL);
@@ -233,7 +231,7 @@ FileWriteFlow::FileWriteFlow(const char *param)
   std::string value;
   file_prefix = params[KEY_FILE_PREFIX];
   if (file_prefix.empty()) {
-    LOG("FileWriteFlow will use default path\n");
+    RKMEDIA_LOGI("FileWriteFlow will use default path\n");
     CHECK_EMPTY_SETERRNO(value, params, KEY_PATH, EINVAL)
     path = value;
   } else {
@@ -264,7 +262,7 @@ FileWriteFlow::FileWriteFlow(const char *param)
   sm.process = save_buffer;
 
   if (!InstallSlotMap(sm, "FileWriteFlow", 0)) {
-    LOG("Fail to InstallSlotMap for FileWriteFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for FileWriteFlow\n");
     return;
   }
   SetFlowTag("FileWriteFlow");
@@ -283,7 +281,8 @@ bool save_buffer(Flow *f, MediaBufferVector &input_vector) {
 
   if (flow->GetSaveMode() == KEY_SAVE_MODE_SINGLE) {
     flow->fstream->NewStream(flow->GenFilePath());
-    return flow->fstream->WriteAndClose(buffer->GetPtr(), 1, buffer->GetValidSize());
+    return flow->fstream->WriteAndClose(buffer->GetPtr(), 1,
+                                        buffer->GetValidSize());
   } else {
     return flow->fstream->Write(buffer->GetPtr(), 1, buffer->GetValidSize());
   }

@@ -4,10 +4,13 @@
 
 #include "utils.h"
 
+#include <fcntl.h>
+#include <getopt.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <getopt.h>
+#include <sys/inotify.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <sstream>
@@ -16,18 +19,148 @@
 #include "minilogger/log.h"
 #endif
 
-enum {
-  LOG_LEVEL_INFO,
-  LOG_LEVEL_DBG,
-};
+enum { LOG_METHOD_MINILOG, LOG_METHOD_PRINT };
 
-enum {
-  LOG_METHOD_MINILOG,
-  LOG_METHOD_PRINT
-};
-
-static int rkmedia_log_method = LOG_METHOD_PRINT;
+int rkmedia_log_method = LOG_METHOD_PRINT;
 static int rkmedia_log_level = LOG_LEVEL_INFO;
+
+short g_level_list[LOG_MOD_MAX_NUM] = {
+    LOG_LEVEL_INFO, // g_unknow_log_level
+    LOG_LEVEL_INFO, // g_vb_log_level
+    LOG_LEVEL_INFO, // g_sys_log_level
+    LOG_LEVEL_INFO, // g_vdec_log_level
+    LOG_LEVEL_INFO, // g_venc_log_level
+    LOG_LEVEL_INFO, // g_h264e_log_level
+    LOG_LEVEL_INFO, // g_jpege_log_level
+    LOG_LEVEL_INFO, // g_h265e_log_level
+    LOG_LEVEL_INFO, // g_vo_log_level
+    LOG_LEVEL_INFO, // g_vi_log_level
+    LOG_LEVEL_INFO, // g_aio_log_level
+    LOG_LEVEL_INFO, // g_ai_log_level
+    LOG_LEVEL_INFO, // g_ao_log_level
+    LOG_LEVEL_INFO, // g_aenc_log_level
+    LOG_LEVEL_INFO, // g_adec_log_level
+    LOG_LEVEL_INFO, // g_algo_md_log_level
+    LOG_LEVEL_INFO, // g_algo_od_log_level
+    LOG_LEVEL_INFO  // g_rga_log_level
+};
+
+char mod_tag_list[][10] = {"UNKNOW",  "VB",      "SYS",   "VDEC", "VENC",
+                           "H264E",   "JPEGE",   "H265E", "VO",   "VI",
+                           "AIO",     "AI",      "AO",    "AENC", "ADEC",
+                           "ALGO_MD", "ALGO_OD", "RGA"};
+
+#define LOG_FILE_PATH "/tmp/loglevel"
+static bool monitor_log_level_quit = false;
+
+static void read_log_level() {
+  char text[20], module[10];
+  int log_level;
+  int fd = open(LOG_FILE_PATH, O_RDONLY);
+  if (fd == -1)
+    return;
+  int len = read(fd, text, 20);
+  close(fd);
+  if (len < 5) {
+    RKMEDIA_LOGE("cmd too short, example: echo \"all=4\" > /tmp/loglevel\n");
+    return;
+  }
+
+  RKMEDIA_LOGI("text is %s\n", text);
+  sscanf(text, "%[^=]=%d", module, &log_level);
+  RKMEDIA_LOGI("module is %s, log_level is %d\n", module, log_level);
+  if (!strcmp(module, "unknow")) {
+    g_level_list[0] = log_level;
+  } else if (!strcmp(module, "vb")) {
+    g_level_list[1] = log_level;
+  } else if (!strcmp(module, "sys")) {
+    g_level_list[2] = log_level;
+  } else if (!strcmp(module, "vdec")) {
+    g_level_list[3] = log_level;
+  } else if (!strcmp(module, "venc")) {
+    g_level_list[4] = log_level;
+  } else if (!strcmp(module, "h264e")) {
+    g_level_list[5] = log_level;
+  } else if (!strcmp(module, "jpege")) {
+    g_level_list[6] = log_level;
+  } else if (!strcmp(module, "h265e")) {
+    g_level_list[7] = log_level;
+  } else if (!strcmp(module, "vo")) {
+    g_level_list[8] = log_level;
+  } else if (!strcmp(module, "vi")) {
+    g_level_list[9] = log_level;
+  } else if (!strcmp(module, "aio")) {
+    g_level_list[10] = log_level;
+  } else if (!strcmp(module, "ai")) {
+    g_level_list[11] = log_level;
+  } else if (!strcmp(module, "ao")) {
+    g_level_list[12] = log_level;
+  } else if (!strcmp(module, "aenc")) {
+    g_level_list[13] = log_level;
+  } else if (!strcmp(module, "adec")) {
+    g_level_list[14] = log_level;
+  } else if (!strcmp(module, "algo_md")) {
+    g_level_list[15] = log_level;
+  } else if (!strcmp(module, "algo_od")) {
+    g_level_list[16] = log_level;
+  } else if (!strcmp(module, "rga")) {
+    g_level_list[17] = log_level;
+  } else if (!strcmp(module, "all")) {
+    for (int i = 0; i < LOG_MOD_MAX_NUM; i++) {
+      g_level_list[i] = log_level;
+    }
+  } else {
+    RKMEDIA_LOGE("unknow module is %s\n", module);
+  }
+}
+
+static void *monitor_log_level(void *arg) {
+  RKMEDIA_LOGD("#Start %s thread, arg:%p\n", __func__, arg);
+  int fd;
+  int wd;
+  char buf[BUFSIZ];
+  struct inotify_event *event;
+
+  fd = inotify_init();
+  if (fd < 0) {
+    fprintf(stderr, "inotify_init failed\n");
+    return NULL;
+  }
+  wd = inotify_add_watch(fd, LOG_FILE_PATH, IN_CLOSE_WRITE);
+  if (wd < 0) {
+    fprintf(stderr, "inotify_add_watch failed\n");
+    return NULL;
+  }
+  buf[sizeof(buf) - 1] = 0;
+
+  fd_set rfds;
+  int nfds = wd + 1;
+  struct timeval timeout;
+  while (!monitor_log_level_quit) {
+    // The rfds collection must be emptied every time,
+    // otherwise the descriptor changes cannot be detected
+    timeout.tv_sec = 1;
+    FD_ZERO(&rfds);
+    FD_SET(wd, &rfds);
+    select(nfds, &rfds, NULL, NULL, &timeout);
+    // wait for the key event to occur
+    if (FD_ISSET(wd, &rfds)) {
+      int len = read(fd, buf, sizeof(buf) - 1);
+      int nread = 0;
+      while (len > 0) {
+        event = (struct inotify_event *)&buf[nread];
+        read_log_level();
+        nread = nread + sizeof(struct inotify_event) + event->len;
+        len = len - sizeof(struct inotify_event) - event->len;
+      }
+    }
+  }
+  RKMEDIA_LOGI("monitor_log_level quit\n");
+  inotify_rm_watch(fd, wd);
+  close(fd);
+
+  return NULL;
+}
 
 _API void LOG_INIT() {
   char *ptr = NULL;
@@ -46,58 +179,24 @@ _API void LOG_INIT() {
 #endif //#ifdef RKMEDIA_SUPPORT_MINILOG
 
   ptr = getenv("RKMEDIA_LOG_LEVEL");
-  if (ptr && strstr(ptr, "DBG")) {
-    fprintf(stderr, "##RKMEDIA Log level: DBG\n");
+  if (ptr && strstr(ptr, "DBG"))
     rkmedia_log_level = LOG_LEVEL_DBG;
-  } else {
-    fprintf(stderr, "##RKMEDIA Log level: INFO\n");
+  else
     rkmedia_log_level = LOG_LEVEL_INFO;
+  fprintf(stderr, "##RKMEDIA Log level: %d\n", rkmedia_log_level);
+
+  int log_file_fd = open(LOG_FILE_PATH, O_RDONLY | O_CREAT | O_TRUNC);
+  if (log_file_fd != -1) {
+    close(log_file_fd);
+    read_log_level();
+    pthread_t log_level_read_thread;
+    pthread_create(&log_level_read_thread, NULL, monitor_log_level, NULL);
+  } else {
+    RKMEDIA_LOGE("open " LOG_FILE_PATH " fail\n");
   }
 }
 
-static void LogPrintf(const char *prefix, const char *fmt, va_list vl) {
-  char line[1024];
-  if (rkmedia_log_level >= LOG_LEVEL_DBG) {
-#ifdef RKMEDIA_SUPPORT_MINILOG
-    if (rkmedia_log_method == LOG_METHOD_PRINT) {
-#endif
-      fprintf(stderr, "%s", (char *)prefix);
-      vsnprintf(line, sizeof(line), fmt, vl);
-      fprintf(stderr, "%s", line);
-#ifdef RKMEDIA_SUPPORT_MINILOG
-    } else {
-      //minilog_debug("%s", (char *)prefix);
-      vsnprintf(line, sizeof(line), fmt, vl);
-      minilog_debug("%s%s", (char *)prefix, line);
-    }
-#endif
-  }
-}
-
-void LOGD(const char *format, ...) {
-  va_list vl;
-  va_start(vl, format);
-  LogPrintf("Debug - ", format, vl);
-  va_end(vl);
-}
-
-void LOG(const char *format, ...) {
-  do {
-    va_list vl;
-    va_start(vl, format);
-    char line[1024];
-    vsnprintf(line, sizeof(line), format, vl);
-#ifdef RKMEDIA_SUPPORT_MINILOG
-    if (rkmedia_log_method == LOG_METHOD_PRINT)
-#endif
-      fprintf(stderr, "%s", line);
-#ifdef RKMEDIA_SUPPORT_MINILOG
-    else
-      minilog_info("%s", line);
-#endif
-    va_end(vl);
-  } while (0);
-}
+_API void LOG_DEINIT() { monitor_log_level_quit = true; }
 
 namespace easymedia {
 
@@ -156,7 +255,7 @@ int parse_media_param_match(
 bool has_intersection(const char *str, const char *expect,
                       std::list<std::string> *expect_list) {
   std::list<std::string> request;
-  // LOG("request: %s; expect: %s\n", str, expect);
+  // RKMEDIA_LOGI("request: %s; expect: %s\n", str, expect);
 
   if (!expect || (strlen(expect) == 0))
     return true;
@@ -193,8 +292,9 @@ bool string_start_withs(std::string const &fullString,
 bool string_end_withs(std::string const &fullString,
                       std::string const &ending) {
   if (fullString.length() >= ending.length()) {
-    return (0 == fullString.compare(fullString.length() - ending.length(),
-                                    ending.length(), ending));
+    return (0 ==
+            fullString.compare(fullString.length() - ending.length(),
+                               ending.length(), ending));
   } else {
     return false;
   }
@@ -208,10 +308,10 @@ bool string_end_withs(std::string const &fullString,
 bool DumpToFile(std::string path, const char *ptr, size_t len) {
   int fd = open(path.c_str(), O_CREAT | O_WRONLY | O_FSYNC);
   if (fd < 0) {
-    LOG("Fail to open %s\n", path.c_str());
+    RKMEDIA_LOGI("Fail to open %s\n", path.c_str());
     return false;
   }
-  LOGD("dump to %s, size %d\n", path.c_str(), (int)len);
+  RKMEDIA_LOGD("dump to %s, size %d\n", path.c_str(), (int)len);
   write(fd, ptr, len);
   close(fd);
   return true;

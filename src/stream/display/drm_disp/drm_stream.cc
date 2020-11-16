@@ -88,7 +88,7 @@ int DRMStream::Open() {
     return -EINVAL;
   }
   if (device.empty()) {
-    LOG("ERROR: DrmDisp: missing device path\n");
+    RKMEDIA_LOGE("DrmDisp: missing device path\n");
     return -EINVAL;
   }
   dev = std::make_shared<DRMDevice>(device);
@@ -105,53 +105,53 @@ int DRMStream::Open() {
     auto dmc = get_connector_by_id(res, connector_id);
     if (!dmc || dmc->connection != DRM_MODE_CONNECTED ||
         dmc->count_modes <= 0) {
-      LOG("connector[%d] is not ready\n", connector_id);
+      RKMEDIA_LOGI("connector[%d] is not ready\n", connector_id);
       return -1;
     }
     assert(dmc->count_encoders > 0);
     if (!reserve_ids_by_connector(res, connector_id)) {
-      LOG("connector[%d] is unapplicable\n", connector_id);
+      RKMEDIA_LOGI("connector[%d] is unapplicable\n", connector_id);
       return -1;
     }
   } else {
     if (!filter_ids_if_connector_notready(res)) {
-      LOG("non connector is ready\n");
+      RKMEDIA_LOGI("non connector is ready\n");
       return -1;
     }
   }
   // user specify encoder id
   if (DRM_ID_ISVALID(encoder_id) && !reserve_ids_by_encoder(res, encoder_id)) {
-    LOG("encoder[%d] is unapplicable\n", encoder_id);
+    RKMEDIA_LOGI("encoder[%d] is unapplicable\n", encoder_id);
     return -1;
   }
   // user specify crtc id
   if (DRM_ID_ISVALID(crtc_id) && !reserve_ids_by_crtc(res, crtc_id)) {
-    LOG("crtc[%d] is unapplicable\n", crtc_id);
+    RKMEDIA_LOGI("crtc[%d] is unapplicable\n", crtc_id);
     return -1;
   }
   // user specify plane id
   if (DRM_ID_ISVALID(plane_id) && !reserve_ids_by_plane(res, plane_id)) {
-    LOG("plane[%d] is unapplicable\n", plane_id);
+    RKMEDIA_LOGI("plane[%d] is unapplicable\n", plane_id);
     return -1;
   }
   if (!skip_plane_ids.empty() &&
       !filter_ids_by_skip_plane_ids(res, skip_plane_ids)) {
-    LOG("got valid ids overlap in skip_plane_ids\n");
+    RKMEDIA_LOGI("got valid ids overlap in skip_plane_ids\n");
     return -1;
   }
   // user specify exact fps
   if (fps != 0 && !filter_ids_by_fps(res, fps)) {
-    LOG("specified fps [%d] is unacceptable\n", fps);
+    RKMEDIA_LOGI("specified fps [%d] is unacceptable\n", fps);
     return -1;
   }
   drm_fmt = GetDRMFmtByString(data_type.c_str());
   img_info.pix_fmt = StringToPixFmt(data_type.c_str());
   if (!data_type.empty() && !filter_ids_by_data_type(res, data_type)) {
-    LOG("data type [%s] is unacceptable\n", data_type.c_str());
+    RKMEDIA_LOGI("data type [%s] is unacceptable\n", data_type.c_str());
     return -1;
   }
   if (!plane_type.empty() && !filter_ids_by_plane_type(res, plane_type)) {
-    LOG("plane type [%s] is unacceptable\n", plane_type.c_str());
+    RKMEDIA_LOGI("plane type [%s] is unacceptable\n", plane_type.c_str());
     return -1;
   }
   if (img_info.vir_width > 0 && img_info.vir_height > 0) {
@@ -160,12 +160,12 @@ int DRMStream::Open() {
     find_strict_match_wh = find_connector_ids_by_wh(res, ivw, ivh);
     if (find_strict_match_wh) {
       if (!filter_ids_by_wh(res, ivw, ivh)) {
-        LOG("strict widthxheight [%dx%d] is unacceptable\n", ivw, ivh);
+        RKMEDIA_LOGI("strict widthxheight [%dx%d] is unacceptable\n", ivw, ivh);
         assert(0); // should not happen
         return -1;
       }
     } else if (!accept_scale) {
-      LOG("strict widthxheight [%dx%d] is unacceptable\n", ivw, ivh);
+      RKMEDIA_LOGI("strict widthxheight [%dx%d] is unacceptable\n", ivw, ivh);
       return -1;
     }
 #undef ivw
@@ -207,7 +207,8 @@ bool DRMStream::GetAgreeableIDSet() {
       } while (++j < dmc->count_encoders);
       if (j >= dmc->count_encoders)
         continue;
-      LOG("connector's encoder is not ready, try first possible encoder<%d>\n",
+      RKMEDIA_LOGI(
+          "connector's encoder is not ready, try first possible encoder<%d>\n",
           dmc->encoder_id);
     }
     connector_id = connid;
@@ -235,8 +236,8 @@ bool DRMStream::GetAgreeableIDSet() {
   }
   // get mode info
   if (i < ids.count_connectors) {
-//    auto dme = get_encoder_by_id(res, encoder_id);
-//    active = (dme->crtc_id > 0 && dme->crtc_id == crtc_id);
+    //    auto dme = get_encoder_by_id(res, encoder_id);
+    //    active = (dme->crtc_id > 0 && dme->crtc_id == crtc_id);
 
     auto dmc = get_connector_by_id(res, connector_id);
     int idx = -1;
@@ -263,7 +264,8 @@ bool DRMStream::GetAgreeableIDSet() {
 
     SetModeInfo(cur_mode);
   }
-  LOG("conn id : %d, enc id: %d, crtc id: %d, plane id: %d, w/h: %d,%d, fps: "
+  RKMEDIA_LOGI(
+      "conn id : %d, enc id: %d, crtc id: %d, plane id: %d, w/h: %d,%d, fps: "
       "%d\n",
       connector_id, encoder_id, crtc_id, plane_id, img_info.vir_width,
       img_info.vir_height, fps);

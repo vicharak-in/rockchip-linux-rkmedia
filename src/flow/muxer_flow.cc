@@ -39,7 +39,8 @@ static int muxer_buffer_callback(void *handler, uint8_t *buf, int buf_size) {
   sg_buffer_size += buf_size;
   sg_buffer_count++;
   if ((cur_time - sg_last_time) / 1000 > 1000) {
-    LOG("MUXER:: one second output buffer size = %u, count = %u, last_size = "
+    RKMEDIA_LOGI(
+        "MUXER:: one second output buffer size = %u, count = %u, last_size = "
         "%u, \n",
         sg_buffer_size, sg_buffer_count, buf_size);
     sg_buffer_size = 0;
@@ -64,46 +65,48 @@ MuxerFlow::MuxerFlow(const char *param)
 
   std::string &muxer_name = params[KEY_NAME];
   if (muxer_name.empty()) {
-    LOG("missing muxer name\n");
+    RKMEDIA_LOGI("missing muxer name\n");
     SetError(-EINVAL);
     return;
   }
 
   file_path = params[KEY_PATH];
   if (!file_path.empty()) {
-    LOG("Muxer will use internal path\n");
+    RKMEDIA_LOGI("Muxer will use internal path\n");
     is_use_customio = false;
   } else {
     is_use_customio = true;
-    LOG("Muxer:: file_path is null, will use CustomeIO.\n");
+    RKMEDIA_LOGI("Muxer:: file_path is null, will use CustomeIO.\n");
   }
 
   file_prefix = params[KEY_FILE_PREFIX];
   if (file_prefix.empty()) {
-    LOG("Muxer will use default prefix\n");
+    RKMEDIA_LOGI("Muxer will use default prefix\n");
   }
 
   std::string time_str = params[KEY_FILE_TIME];
   if (!time_str.empty()) {
     file_time_en = !!std::stoi(time_str);
-    LOG("Muxer will record video end with time\n");
+    RKMEDIA_LOGI("Muxer will record video end with time\n");
   }
 
   std::string index_str = params[KEY_FILE_INDEX];
   if (!index_str.empty()) {
     file_index = std::stoi(index_str);
-    LOG("Muxer will record video start with index %" PRId64 "\n", file_index);
+    RKMEDIA_LOGI("Muxer will record video start with index %" PRId64 "\n",
+                 file_index);
   }
 
   std::string &duration_str = params[KEY_FILE_DURATION];
   if (!duration_str.empty()) {
     file_duration = std::stoi(duration_str);
-    LOG("Muxer will save video file per %" PRId64 "sec\n", file_duration);
+    RKMEDIA_LOGI("Muxer will save video file per %" PRId64 "sec\n",
+                 file_duration);
   }
 
   output_format = params[KEY_OUTPUTDATATYPE];
   if (output_format.empty() && is_use_customio) {
-    LOG("Muxer:: output_data_type is null, no use customio.\n");
+    RKMEDIA_LOGI("Muxer:: output_data_type is null, no use customio.\n");
     is_use_customio = false;
   }
 
@@ -114,7 +117,7 @@ MuxerFlow::MuxerFlow(const char *param)
     else
       enable_streaming = true;
   }
-  LOG("Muxer:: enable_streaming is %d\n", enable_streaming);
+  RKMEDIA_LOGI("Muxer:: enable_streaming is %d\n", enable_streaming);
 
   ffmpeg_avdictionary = params[KEY_MUXER_FFMPEG_AVDICTIONARY];
 
@@ -132,11 +135,11 @@ MuxerFlow::MuxerFlow(const char *param)
     if (enc_config.type == Type::Video) {
       vid_enc_config = enc_config;
       video_in = true;
-      LOG("Found video encode config!\n");
+      RKMEDIA_LOGI("Found video encode config!\n");
     } else if (enc_config.type == Type::Audio) {
       aud_enc_config = enc_config;
       audio_in = true;
-      LOG("Found audio encode config!\n");
+      RKMEDIA_LOGI("Found audio encode config!\n");
     }
   }
 
@@ -159,7 +162,7 @@ MuxerFlow::MuxerFlow(const char *param)
   sm.process = save_buffer;
 
   if (!InstallSlotMap(sm, "MuxerFlow", 0)) {
-    LOG("Fail to InstallSlotMap for MuxerFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for MuxerFlow\n");
     return;
   }
   SetFlowTag("MuxerFlow");
@@ -177,16 +180,16 @@ std::shared_ptr<VideoRecorder> MuxerFlow::NewRecorder(const char *path) {
 
   if (is_use_customio) {
     vrecorder = std::make_shared<VideoRecorder>(param.c_str(), this);
-    LOG("use customio, output foramt is %s.\n", output_format.c_str());
+    RKMEDIA_LOGI("use customio, output foramt is %s.\n", output_format.c_str());
   } else {
     vrecorder = std::make_shared<VideoRecorder>(param.c_str(), nullptr);
   }
 
   if (!vrecorder) {
-    LOG("Create video recoder failed, path:[%s]\n", path);
+    RKMEDIA_LOGI("Create video recoder failed, path:[%s]\n", path);
     return nullptr;
   } else {
-    LOG("Ready to recod new video file path:[%s]\n", path);
+    RKMEDIA_LOGI("Ready to recod new video file path:[%s]\n", path);
   }
 
   return vrecorder;
@@ -249,19 +252,19 @@ int MuxerFlow::Control(unsigned long int request, ...) {
   } break;
   case S_MUXER_FILE_DURATION: {
     int duration = va_arg(vl, int);
-    LOG("Muxer:: file_duration is %d\n", duration);
+    RKMEDIA_LOGI("Muxer:: file_duration is %d\n", duration);
     if (duration)
       file_duration = duration;
   } break;
   case S_MUXER_FILE_PATH: {
     std::string path = va_arg(vl, std::string);
-    LOG("Muxer:: file_path is %s\n", path.c_str());
+    RKMEDIA_LOGI("Muxer:: file_path is %s\n", path.c_str());
     if (!path.empty())
       file_path = path;
   } break;
   case S_MUXER_FILE_PREFIX: {
     std::string prefix = va_arg(vl, std::string);
-    LOG("Muxer:: file_prefix is %s\n", prefix.c_str());
+    RKMEDIA_LOGI("Muxer:: file_prefix is %s\n", prefix.c_str());
     if (!prefix.empty())
       file_prefix = prefix;
   } break;
@@ -369,7 +372,7 @@ bool save_buffer(Flow *f, MediaBufferVector &input_vector) {
         memcpy(flow->video_extra->GetPtr(), extra_ptr, extra_size);
         flow->video_extra->SetValidSize(extra_size);
       } else
-        LOG("ERROR: Muxer Flow: Intra Frame without sps pps\n");
+        RKMEDIA_LOGE("Muxer Flow: Intra Frame without sps pps\n");
     }
 
     if (!recorder->Write(flow, vid_buffer)) {
@@ -396,7 +399,7 @@ VideoRecorder::VideoRecorder(const char *param, Flow *f)
   muxer =
       easymedia::REFLECTOR(Muxer)::Create<easymedia::Muxer>("ffmpeg", param);
   if (!muxer) {
-    LOG("Create muxer ffmpeg failed\n");
+    RKMEDIA_LOGI("Create muxer ffmpeg failed\n");
     exit(EXIT_FAILURE);
   }
   if (muxer_flow != nullptr)
@@ -426,23 +429,23 @@ bool VideoRecorder::Write(MuxerFlow *f, std::shared_ptr<MediaBuffer> buffer) {
   if (flow->video_in && flow->video_extra && vid_stream_id == -1) {
     if (!muxer->NewMuxerStream(flow->vid_enc_config, flow->video_extra,
                                vid_stream_id)) {
-      LOG("NewMuxerStream failed for video\n");
+      RKMEDIA_LOGI("NewMuxerStream failed for video\n");
     } else {
-      LOG("Video: create video stream finished!\n");
+      RKMEDIA_LOGI("Video: create video stream finished!\n");
     }
 
     if (flow->audio_in) {
       if (!muxer->NewMuxerStream(flow->aud_enc_config, nullptr,
                                  aud_stream_id)) {
-        LOG("NewMuxerStream failed for audio\n");
+        RKMEDIA_LOGI("NewMuxerStream failed for audio\n");
       } else {
-        LOG("Audio: create audio stream finished!\n");
+        RKMEDIA_LOGI("Audio: create audio stream finished!\n");
       }
     }
 
     auto header = muxer->WriteHeader(vid_stream_id);
     if (!header) {
-      LOG("WriteHeader on video stream return nullptr\n");
+      RKMEDIA_LOGI("WriteHeader on video stream return nullptr\n");
       ClearStream();
       return false;
     }
@@ -450,13 +453,13 @@ bool VideoRecorder::Write(MuxerFlow *f, std::shared_ptr<MediaBuffer> buffer) {
 
   if (buffer->GetType() == Type::Video && vid_stream_id != -1) {
     if (nullptr == muxer->Write(buffer, vid_stream_id)) {
-      LOG("Write on video stream return nullptr\n");
+      RKMEDIA_LOGI("Write on video stream return nullptr\n");
       ClearStream();
       return false;
     }
   } else if (buffer->GetType() == Type::Audio && aud_stream_id != -1) {
     if (nullptr == muxer->Write(buffer, aud_stream_id)) {
-      LOG("Write on audio stream return nullptr\n");
+      RKMEDIA_LOGI("Write on audio stream return nullptr\n");
       ClearStream();
       return false;
     }

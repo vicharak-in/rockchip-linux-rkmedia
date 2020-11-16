@@ -25,8 +25,8 @@ public:
   virtual ~MoveDetectionFlow();
   static const char *GetFlowName() { return "move_detec"; }
   int Control(unsigned long int request, ...);
-  std::shared_ptr<MediaBuffer> LookForMdResult(
-    int64_t ustimestamp, int approximation);
+  std::shared_ptr<MediaBuffer> LookForMdResult(int64_t ustimestamp,
+                                               int approximation);
 
 protected:
   ROI_INFO *roi_in;

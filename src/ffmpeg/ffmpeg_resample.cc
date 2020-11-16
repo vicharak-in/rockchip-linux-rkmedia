@@ -9,8 +9,8 @@ extern "C" {
 #define __STDC_CONSTANT_MACROS
 #include <libavutil/avassert.h>
 #include <libavutil/channel_layout.h>
-#include <libavutil/opt.h>
 #include <libavutil/mathematics.h>
+#include <libavutil/opt.h>
 #include <libavutil/timestamp.h>
 #include <libswresample/swresample.h>
 }
@@ -32,8 +32,7 @@ public:
                       std::shared_ptr<MediaBuffer> &output) override;
 
 private:
-  int Resample(std::shared_ptr<SampleBuffer> src,
-               SampleInfo dst_info,
+  int Resample(std::shared_ptr<SampleBuffer> src, SampleInfo dst_info,
                std::shared_ptr<SampleBuffer> &dst);
   int channels;
   int sample_rate;
@@ -56,8 +55,8 @@ ResampleFilter::ResampleFilter(const char *param) : swr_ctx(NULL) {
       std::pair<const std::string, std::string &>(KEY_SAMPLE_FMT, s_format));
   req_list.push_back(
       std::pair<const std::string, std::string &>(KEY_CHANNELS, s_channels));
-  req_list.push_back(
-      std::pair<const std::string, std::string &>(KEY_SAMPLE_RATE, s_sample_rate));
+  req_list.push_back(std::pair<const std::string, std::string &>(
+      KEY_SAMPLE_RATE, s_sample_rate));
   parse_media_param_match(param, params, req_list);
   if (!s_channels.empty())
     channels = std::atoi(s_channels.c_str());
@@ -91,7 +90,7 @@ int ResampleFilter::Process(std::shared_ptr<MediaBuffer> input,
   std::shared_ptr<SampleBuffer> dst;
   SampleInfo dst_info = {format, channels, sample_rate, 0};
   if (!SampleInfoIsValid(dst_info)) {
-    LOG("check resample parameter failed\n");
+    RKMEDIA_LOGI("check resample parameter failed\n");
     return -1;
   }
 
@@ -114,31 +113,31 @@ int ResampleFilter::Resample(std::shared_ptr<SampleBuffer> src,
   AVSampleFormat src_sample_fmt = SampleFmtToAVSamFmt(src_info.fmt);
   int src_sample_rate = src_info.sample_rate;
   int src_nb_samples = src_info.nb_samples;
-  uint8_t *src_data[src_nb_channels] = { NULL };
+  uint8_t *src_data[src_nb_channels] = {NULL};
 
   int dst_nb_channels = dst_info.channels;
   AVSampleFormat dst_sample_fmt = SampleFmtToAVSamFmt(dst_info.fmt);
   int dst_sample_rate = dst_info.sample_rate;
   int dst_nb_samples = 0;
-  uint8_t *dst_data[dst_nb_channels] = { NULL };
+  uint8_t *dst_data[dst_nb_channels] = {NULL};
 
   src_ch_layout = av_get_default_channel_layout(src_nb_channels);
   dst_ch_layout = av_get_default_channel_layout(dst_nb_channels);
   if (src_ch_layout == 0 || dst_ch_layout == 0) {
-    LOG("swr_alloc don't support channels %d, %d\n", src_nb_channels,
-        dst_nb_channels);
+    RKMEDIA_LOGI("swr_alloc don't support channels %d, %d\n", src_nb_channels,
+                 dst_nb_channels);
     return -1;
   }
 
   if (src_nb_samples <= 0) {
-    LOG("src_nb_samples error \n");
+    RKMEDIA_LOGI("src_nb_samples error \n");
     return -1;
   }
 
   if (!swr_ctx) {
     swr_ctx = swr_alloc();
     if (!swr_ctx) {
-      LOG("swr_alloc error \n");
+      RKMEDIA_LOGI("swr_alloc error \n");
       return -1;
     }
     /* set options */
@@ -151,60 +150,66 @@ int ResampleFilter::Resample(std::shared_ptr<SampleBuffer> src,
     av_opt_set_sample_fmt(swr_ctx, "out_sample_fmt",
                           (AVSampleFormat)dst_sample_fmt, 0);
     swr_init(swr_ctx);
-    #if DEBUG_FILE
+#if DEBUG_FILE
     static int id = 0;
     id++;
-    std::string file_in = std::string("/tmp/in") + std::to_string(id) + std::string(".pcm");
-    std::string file_out = std::string("/tmp/out") + std::to_string(id) + std::string(".pcm");
-    infile.open(file_in.c_str(),  std::ios::out|std::ios::trunc|std::ios::binary);
-    outfile.open(file_out.c_str(),  std::ios::out|std::ios::trunc|std::ios::binary);
+    std::string file_in =
+        std::string("/tmp/in") + std::to_string(id) + std::string(".pcm");
+    std::string file_out =
+        std::string("/tmp/out") + std::to_string(id) + std::string(".pcm");
+    infile.open(file_in.c_str(),
+                std::ios::out | std::ios::trunc | std::ios::binary);
+    outfile.open(file_out.c_str(),
+                 std::ios::out | std::ios::trunc | std::ios::binary);
     assert(infile.is_open() && outfile.is_open());
-    LOG("Resample：%lld,%d,%d -> %lld,%d,%d \n",
-         src_ch_layout, src_sample_rate, src_sample_fmt,
-         dst_ch_layout, dst_sample_rate, dst_sample_fmt);
-    #endif
+    RKMEDIA_LOGI("Resample：%lld,%d,%d -> %lld,%d,%d \n", src_ch_layout,
+                 src_sample_rate, src_sample_fmt, dst_ch_layout,
+                 dst_sample_rate, dst_sample_fmt);
+#endif
   }
 
-  int64_t inpts = av_rescale(src->GetUSTimeStamp(),
-                             (int64_t)src_sample_rate * dst_sample_rate,
-                             AV_TIME_BASE);
+  int64_t inpts =
+      av_rescale(src->GetUSTimeStamp(),
+                 (int64_t)src_sample_rate * dst_sample_rate, AV_TIME_BASE);
   int64_t outpts = swr_next_pts(swr_ctx, inpts);
   outpts = ROUNDED_DIV(outpts, src_sample_rate);
 
-  dst_nb_samples = av_rescale_rnd(
-      swr_get_delay(swr_ctx, src_sample_rate) + src_nb_samples,
-      dst_sample_rate, src_sample_rate, AV_ROUND_UP);
+  dst_nb_samples =
+      av_rescale_rnd(swr_get_delay(swr_ctx, src_sample_rate) + src_nb_samples,
+                     dst_sample_rate, src_sample_rate, AV_ROUND_UP);
   if (dst_nb_samples <= 0) {
-    LOG("av_rescale_rnd error \n");
+    RKMEDIA_LOGI("av_rescale_rnd error \n");
     return -1;
   }
 
   int size = av_samples_get_buffer_size(NULL, dst_nb_channels, dst_nb_samples,
-                                          dst_sample_fmt, 1);
+                                        dst_sample_fmt, 1);
   if (size < 0)
     return size;
 
-  dst = std::make_shared<easymedia::SampleBuffer>(
-      MediaBuffer::Alloc2(size), dst_info);
+  dst = std::make_shared<easymedia::SampleBuffer>(MediaBuffer::Alloc2(size),
+                                                  dst_info);
   if (!dst) {
-    LOG("Alloc audio frame buffer failed:%d!\n", size);
+    RKMEDIA_LOGI("Alloc audio frame buffer failed:%d!\n", size);
     return -1;
   }
-  av_samples_fill_arrays(dst_data, &dst_linesize, (const uint8_t *)dst->GetPtr(), dst_nb_channels,
+  av_samples_fill_arrays(dst_data, &dst_linesize,
+                         (const uint8_t *)dst->GetPtr(), dst_nb_channels,
                          dst_nb_samples, dst_sample_fmt, 1);
-  av_samples_fill_arrays(src_data, &src_linesize, (const uint8_t *)src->GetPtr(), src_nb_channels,
+  av_samples_fill_arrays(src_data, &src_linesize,
+                         (const uint8_t *)src->GetPtr(), src_nb_channels,
                          src_nb_samples, src_sample_fmt, 1);
   ret = swr_convert(swr_ctx, dst_data, dst_nb_samples,
                     (const uint8_t **)src_data, src_nb_samples);
   if (ret <= 0) {
-    LOG("swr_convert error \n");
+    RKMEDIA_LOGI("swr_convert error \n");
     return -1;
   }
 
   int resampled_data_size = av_samples_get_buffer_size(
       &dst_linesize, dst_nb_channels, ret, (AVSampleFormat)dst_sample_fmt, 1);
   if (resampled_data_size <= 0) {
-    LOG("av_samples_get_buffer_size error \n");
+    RKMEDIA_LOGI("av_samples_get_buffer_size error \n");
     return -1;
   }
   dst->SetSamples(ret);
@@ -212,10 +217,11 @@ int ResampleFilter::Resample(std::shared_ptr<SampleBuffer> src,
   dst->SetUSTimeStamp(av_rescale(outpts, AV_TIME_BASE, dst_sample_rate));
 
 #if DEBUG_FILE
-  infile.write((const char*)src->GetPtr(), src->GetValidSize());
-  outfile.write((const char*)dst->GetPtr(), dst->GetValidSize());
-  LOG("diff pts: %lldus\n", dst->GetUSTimeStamp() - src->GetUSTimeStamp());
-  LOG("%d -> %d\n", src_nb_samples, ret);
+  infile.write((const char *)src->GetPtr(), src->GetValidSize());
+  outfile.write((const char *)dst->GetPtr(), dst->GetValidSize());
+  RKMEDIA_LOGI("diff pts: %lldus\n",
+               dst->GetUSTimeStamp() - src->GetUSTimeStamp());
+  RKMEDIA_LOGI("%d -> %d\n", src_nb_samples, ret);
 #endif
   return resampled_data_size;
 }
@@ -225,7 +231,5 @@ const char *FACTORY(ResampleFilter)::ExpectedInputDataType() {
   return AUDIO_PCM;
 }
 
-const char *FACTORY(ResampleFilter)::OutPutDataType() {
-  return AUDIO_PCM;
-}
+const char *FACTORY(ResampleFilter)::OutPutDataType() { return AUDIO_PCM; }
 } // namespace easymedia

@@ -9,8 +9,8 @@ namespace easymedia {
 
 class ThroughGuard : public Filter {
 public:
-   ThroughGuard(const char *param);
-  virtual ~ ThroughGuard() = default;
+  ThroughGuard(const char *param);
+  virtual ~ThroughGuard() = default;
   static const char *GetFilterName() { return "through_guard"; }
   virtual int Process(std::shared_ptr<MediaBuffer> input,
                       std::shared_ptr<MediaBuffer> &output) override;
@@ -20,8 +20,7 @@ private:
   int allow_through_count;
 };
 
-ThroughGuard::ThroughGuard(const char *param)
-    : allow_through_count(0) {
+ThroughGuard::ThroughGuard(const char *param) : allow_through_count(0) {
   std::map<std::string, std::string> params;
   if (!parse_media_param_map(param, params)) {
     SetError(-EINVAL);
@@ -35,9 +34,9 @@ ThroughGuard::ThroughGuard(const char *param)
 }
 
 int ThroughGuard::Process(std::shared_ptr<MediaBuffer> input,
-                        std::shared_ptr<MediaBuffer> &output) {
+                          std::shared_ptr<MediaBuffer> &output) {
   if (allow_through_count > 0) {
-    LOG("Process allow through count %d\n", allow_through_count);
+    RKMEDIA_LOGI("Process allow through count %d\n", allow_through_count);
     output = input;
     allow_through_count--;
     return 0;

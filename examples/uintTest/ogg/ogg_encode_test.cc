@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     assert(!alsa_device.empty());
     start_time = easymedia::gettimeofday();
   }
-  LOG("alsa_device: %s\n", alsa_device.c_str());
+  RKMEDIA_LOGI("alsa_device: %s\n", alsa_device.c_str());
 
   MediaConfig pcm_config;
   AudioConfig &aud_cfg = pcm_config.aud_cfg;
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     PARAM_STRING_APPEND(params, KEY_SAMPLE_FMT, fmt_str);
     PARAM_STRING_APPEND_TO(params, KEY_CHANNELS, sample_info.channels);
     PARAM_STRING_APPEND_TO(params, KEY_SAMPLE_RATE, sample_info.sample_rate);
-    LOG("params:\n%s\n", params.c_str());
+    RKMEDIA_LOGI("params:\n%s\n", params.c_str());
   } else if (easymedia::string_end_withs(input_path, ".pcm")) {
     stream_name = "file_read_stream";
     PARAM_STRING_APPEND(params, KEY_PATH, input_path);

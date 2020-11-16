@@ -25,7 +25,7 @@
 static bool quit = false;
 
 static void sigterm_handler(int sig) {
-  LOG("signal %d\n", sig);
+  RKMEDIA_LOGI("signal %d\n", sig);
   quit = true;
 }
 
@@ -130,7 +130,7 @@ std::shared_ptr<easymedia::Flow> create_file_read_flow(std::string aud_in_path,
   auto file_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), param.c_str());
   if (!file_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
   return file_flow;
@@ -146,18 +146,20 @@ std::shared_ptr<easymedia::Flow> create_file_write_flow(std::string path) {
   auto save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), param.c_str());
   if (!save_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   }
   return save_flow;
 }
 
 void usage(char *name) {
-  LOG("\nUsage: %s -i alsa:default -o /tmp/aec_out.pcm -p AEC -r 8000", name);
-  LOG("\nUsage: %s -i /tmp/in.pcm -o /tmp/aec_out.pcm -p AEC -r 8000", name);
-  LOG("\nNOTICE: process: -p [AEC | ANR]\n");
-  LOG("\nNOTICE: samplerate AEC: -r [8000 | 16000]\n");
-  LOG("\nNOTICE: samplerate ANR: -r [8000 | 16000 | 32000 | 48000]\n");
+  RKMEDIA_LOGI("\nUsage: %s -i alsa:default -o /tmp/aec_out.pcm -p AEC -r 8000",
+               name);
+  RKMEDIA_LOGI("\nUsage: %s -i /tmp/in.pcm -o /tmp/aec_out.pcm -p AEC -r 8000",
+               name);
+  RKMEDIA_LOGI("\nNOTICE: process: -p [AEC | ANR]\n");
+  RKMEDIA_LOGI("\nNOTICE: samplerate AEC: -r [8000 | 16000]\n");
+  RKMEDIA_LOGI("\nNOTICE: samplerate ANR: -r [8000 | 16000 | 32000 | 48000]\n");
   exit(EXIT_FAILURE);
 }
 
@@ -186,11 +188,11 @@ int main(int argc, char **argv) {
     switch (c) {
     case 'i':
       aud_in_path = optarg;
-      LOG("audio input path: %s\n", aud_in_path.c_str());
+      RKMEDIA_LOGI("audio input path: %s\n", aud_in_path.c_str());
       break;
     case 'o':
       output_path = optarg;
-      LOG("output file path: %s\n", output_path.c_str());
+      RKMEDIA_LOGI("output file path: %s\n", output_path.c_str());
       break;
     case 'r':
       sample_rate = atoi(optarg);
@@ -198,10 +200,10 @@ int main(int argc, char **argv) {
     case 'p':
       process = optarg;
       if ((process.compare("AEC") != 0) && (process.compare("ANR") != 0)) {
-        LOG("sorry, process %S not supported\n", process.c_str());
+        RKMEDIA_LOGI("sorry, process %S not supported\n", process.c_str());
         usage(argv[0]);
       }
-      LOG("process: %s\n", process.c_str());
+      RKMEDIA_LOGI("process: %s\n", process.c_str());
       break;
     case '?':
     default:
@@ -211,7 +213,7 @@ int main(int argc, char **argv) {
   }
   if ((process.compare("AEC") == 0) && sample_rate != 8000 &&
       sample_rate != 16000) {
-    LOG("sorry, sample_rate %d not supported\n", sample_rate);
+    RKMEDIA_LOGI("sorry, sample_rate %d not supported\n", sample_rate);
     usage(argv[0]);
   }
   if (process.compare("AEC") == 0)
@@ -228,7 +230,7 @@ int main(int argc, char **argv) {
   if (aud_in_path.find("alsa:") == 0) {
     alsa_device = aud_in_path.substr(aud_in_path.find(':') + 1);
     assert(!alsa_device.empty());
-    LOG("alsa_device: %s\n", alsa_device.c_str());
+    RKMEDIA_LOGI("alsa_device: %s\n", alsa_device.c_str());
   }
 
   std::shared_ptr<easymedia::Flow> audio_source_flow;
@@ -238,14 +240,14 @@ int main(int argc, char **argv) {
       sample_info.fmt = SAMPLE_FMT_S16P;
     audio_source_flow = create_alsa_flow(alsa_device, sample_info, true);
     if (!audio_source_flow) {
-      LOG("Create flow alsa_capture_flow failed\n");
+      RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
       exit(EXIT_FAILURE);
     }
   } else {
     // if file source
     audio_source_flow = create_file_read_flow(aud_in_path, sample_info);
     if (!audio_source_flow) {
-      LOG("Create flow create_file_read_flow failed\n");
+      RKMEDIA_LOGI("Create flow create_file_read_flow failed\n");
       exit(EXIT_FAILURE);
     }
   }
@@ -254,7 +256,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> filter_flow =
       create_audio_filter_flow(sample_info, process);
   if (!filter_flow) {
-    LOG("Create flow audio_filter_flow failed\n");
+    RKMEDIA_LOGI("Create flow audio_filter_flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -262,7 +264,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<easymedia::Flow> audio_sink_flow =
       create_file_write_flow(output_path);
   if (!audio_sink_flow) {
-    LOG("Create flow create_file_write_flow failed\n");
+    RKMEDIA_LOGI("Create flow create_file_write_flow failed\n");
     exit(EXIT_FAILURE);
   }
   audio_source_flow->AddDownFlow(filter_flow, 0, 0);

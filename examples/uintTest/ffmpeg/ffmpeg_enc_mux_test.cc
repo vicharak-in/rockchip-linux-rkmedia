@@ -27,17 +27,16 @@ extern "C" {
 #include "buffer.h"
 #include "encoder.h"
 #include "key_string.h"
-#include "muxer.h"
 #include "media_type.h"
+#include "muxer.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846 /* pi */
 #endif
 
-static const int aac_sample_rates[] = {
-  96000, 88200, 64000, 48000, 44100, 32000,
-  24000, 22050, 16000, 12000, 11025, 8000, 0
-};
+static const int aac_sample_rates[] = {96000, 88200, 64000, 48000, 44100,
+                                       32000, 24000, 22050, 16000, 12000,
+                                       11025, 8000,  0};
 
 static int free_memory(void *buffer) {
   assert(buffer);
@@ -45,22 +44,24 @@ static int free_memory(void *buffer) {
   return 0;
 }
 
-std::shared_ptr<easymedia::MediaBuffer> adts_get_extradata(SampleInfo sample_info) {
+std::shared_ptr<easymedia::MediaBuffer>
+adts_get_extradata(SampleInfo sample_info) {
   size_t dsi_size = 2;
-  char *ptr = (char*)malloc(dsi_size);
+  char *ptr = (char *)malloc(dsi_size);
   assert(ptr);
 
   uint32_t sample_rate_idx = 0;
   for (; aac_sample_rates[sample_rate_idx] != 0; sample_rate_idx++)
-      if (sample_info.sample_rate == aac_sample_rates[sample_rate_idx])
-        break;
+    if (sample_info.sample_rate == aac_sample_rates[sample_rate_idx])
+      break;
 
   uint32_t object_type = 2; // AAC LC by default
   ptr[0] = (object_type << 3) | (sample_rate_idx >> 1);
   ptr[1] = ((sample_rate_idx & 1) << 7) | (sample_info.channels << 3);
 
   std::shared_ptr<easymedia::MediaBuffer> extra_data =
-      std::make_shared<easymedia::MediaBuffer>(ptr, dsi_size, -1, ptr, free_memory);
+      std::make_shared<easymedia::MediaBuffer>(ptr, dsi_size, -1, ptr,
+                                               free_memory);
   extra_data->SetValidSize(dsi_size);
   return extra_data;
 }
@@ -69,8 +70,7 @@ template <typename Encoder>
 int encode(std::shared_ptr<easymedia::Muxer> mux,
            std::shared_ptr<easymedia::Stream> file_write,
            std::shared_ptr<Encoder> encoder,
-           std::shared_ptr<easymedia::MediaBuffer> src,
-           int stream_no) {
+           std::shared_ptr<easymedia::MediaBuffer> src, int stream_no) {
   auto enc = encoder;
   int ret = enc->SendInput(src);
   if (ret < 0) {
@@ -103,7 +103,8 @@ int encode(std::shared_ptr<easymedia::Muxer> mux,
 }
 
 std::shared_ptr<easymedia::AudioEncoder>
-initAudioEncoder(std::string EncoderName, std::string EncType, SampleInfo& sample) {
+initAudioEncoder(std::string EncoderName, std::string EncType,
+                 SampleInfo &sample) {
   std::string param;
   PARAM_STRING_APPEND(param, KEY_OUTPUTDATATYPE, EncType);
   auto aud_enc = easymedia::REFLECTOR(Encoder)::Create<easymedia::AudioEncoder>(
@@ -126,10 +127,9 @@ initAudioEncoder(std::string EncoderName, std::string EncType, SampleInfo& sampl
   return aud_enc;
 }
 
-std::shared_ptr<easymedia::VideoEncoder> initVideoEncoder(std::string EncoderName,
-                                                          std::string SrcFormat,
-                                                          std::string OutFormat,
-                                                          int w, int h) {
+std::shared_ptr<easymedia::VideoEncoder>
+initVideoEncoder(std::string EncoderName, std::string SrcFormat,
+                 std::string OutFormat, int w, int h) {
   std::string param;
   PARAM_STRING_APPEND(param, KEY_OUTPUTDATATYPE, OutFormat);
   // If not rkmpp, then it is ffmpeg
@@ -223,11 +223,9 @@ initVideoBuffer(std::string &EncoderName, ImageInfo &image_info) {
   // need to know rkmpp needs DRM managed memory,
   // but ffmpeg software encoder doesn't need.
   easymedia::MediaBuffer::MemType MemType =
-      EncoderName == "rkmpp"
-          ? easymedia::MediaBuffer::MemType::MEM_HARD_WARE
-          : easymedia::MediaBuffer::MemType::MEM_COMMON;
-  auto &&src_mb = easymedia::MediaBuffer::Alloc2(
-      len, MemType);
+      EncoderName == "rkmpp" ? easymedia::MediaBuffer::MemType::MEM_HARD_WARE
+                             : easymedia::MediaBuffer::MemType::MEM_COMMON;
+  auto &&src_mb = easymedia::MediaBuffer::Alloc2(len, MemType);
   assert(src_mb.GetSize() > 0);
   auto src_buffer =
       std::make_shared<easymedia::ImageBuffer>(src_mb, image_info);
@@ -240,7 +238,7 @@ std::shared_ptr<easymedia::Muxer> initMuxer(std::string &output_path) {
   easymedia::REFLECTOR(Muxer)::DumpFactories();
   std::string param;
 
-  char* cut = strrchr((char*)output_path.c_str(), '.');
+  char *cut = strrchr((char *)output_path.c_str(), '.');
   if (cut) {
     std::string output_data_type = cut + 1;
     if (output_data_type == "mp4") {
@@ -251,8 +249,8 @@ std::shared_ptr<easymedia::Muxer> initMuxer(std::string &output_path) {
   }
 
   PARAM_STRING_APPEND(param, KEY_PATH, output_path);
-  return easymedia::REFLECTOR(Muxer)::Create<easymedia::Muxer>(
-      "ffmpeg", param.c_str());
+  return easymedia::REFLECTOR(Muxer)::Create<easymedia::Muxer>("ffmpeg",
+                                                               param.c_str());
 }
 
 std::shared_ptr<easymedia::Stream> initFileWrite(std::string &output_path) {
@@ -261,12 +259,12 @@ std::shared_ptr<easymedia::Stream> initFileWrite(std::string &output_path) {
   PARAM_STRING_APPEND(params, KEY_PATH, output_path.c_str());
   PARAM_STRING_APPEND(params, KEY_OPEN_MODE, "we"); // write and close-on-exec
 
-  return easymedia::REFLECTOR(Stream)::
-      Create<easymedia::Stream>(stream_name.c_str(), params.c_str());
+  return easymedia::REFLECTOR(Stream)::Create<easymedia::Stream>(
+      stream_name.c_str(), params.c_str());
 }
 
-std::shared_ptr<easymedia::Stream>
-initAudioCapture(std::string device, SampleInfo& sample_info) {
+std::shared_ptr<easymedia::Stream> initAudioCapture(std::string device,
+                                                    SampleInfo &sample_info) {
   std::string stream_name = "alsa_capture_stream";
   std::string params;
 
@@ -296,8 +294,8 @@ int main(int argc, char **argv) {
   int w = 0, h = 0;
   std::string vid_input_format;
   std::string vid_enc_format;
-  std::string vid_enc_codec_name = "rkmpp";   // rkmpp, ffmpeg_vid
-  std::string aud_enc_format = AUDIO_AAC; // test mp2, aac
+  std::string vid_enc_codec_name = "rkmpp"; // rkmpp, ffmpeg_vid
+  std::string aud_enc_format = AUDIO_AAC;   // test mp2, aac
   std::string aud_input_format = AUDIO_PCM_FLTP;
   std::string aud_enc_codec_name = "ffmpeg_aud";
 
@@ -334,7 +332,7 @@ int main(int argc, char **argv) {
       if (cut) {
         cut[0] = 0;
         char *sub = optarg;
-        if (!strcmp(sub,"aud")) {
+        if (!strcmp(sub, "aud")) {
           sub = cut + 1;
           char *subsub = strchr(sub, '_');
           if (subsub) {
@@ -343,7 +341,7 @@ int main(int argc, char **argv) {
             aud_enc_format = subsub + 1;
           }
           break;
-        } else if (!strcmp(sub,"vid")) {
+        } else if (!strcmp(sub, "vid")) {
           optarg = cut + 1;
         } else {
           exit(EXIT_FAILURE);
@@ -389,12 +387,15 @@ int main(int argc, char **argv) {
     case '?':
     default:
       printf("usage example: \n");
-      printf("ffmpeg_enc_mux_test -t video_audio -i input.yuv -o output.mp4 -w 320 -h 240 -e "
+      printf("ffmpeg_enc_mux_test -t video_audio -i input.yuv -o output.mp4 -w "
+             "320 -h 240 -e "
              "nv12_h264 -c rkmpp\n");
-      printf("ffmpeg_enc_mux_test -t audio -i alsa:default -o output.aac -e aud:fltp_aac "
+      printf("ffmpeg_enc_mux_test -t audio -i alsa:default -o output.aac -e "
+             "aud:fltp_aac "
              "-c aud:ffmpeg_aud\n");
-      printf("ffmpeg_enc_mux_test -t audio -i alsa:default -o output.mp2 -e aud:s16le_mp2 "
-              "-c aud:ffmpeg_aud\n");
+      printf("ffmpeg_enc_mux_test -t audio -i alsa:default -o output.mp2 -e "
+             "aud:s16le_mp2 "
+             "-c aud:ffmpeg_aud\n");
       exit(0);
     }
   }
@@ -461,9 +462,9 @@ int main(int argc, char **argv) {
   int aud_stream_no = -1;
   auto mux = initMuxer(output_path);
   if (!mux) {
-    fprintf(stderr,
-        "Init Muxer failed and then init file write stream."
-        "output_path = %s\n", output_path.c_str());
+    fprintf(stderr, "Init Muxer failed and then init file write stream."
+                    "output_path = %s\n",
+            output_path.c_str());
 
     file_write = initFileWrite(output_path);
     if (!file_write) {
@@ -481,8 +482,10 @@ int main(int argc, char **argv) {
     assert(input_file_fd >= 0);
     unlink(output_path.c_str());
 
-    vid_enc = initVideoEncoder(vid_enc_codec_name, vid_input_format, vid_enc_format, w, h);
-    src_buffer = initVideoBuffer(vid_enc_codec_name, vid_enc->GetConfig().img_cfg.image_info);
+    vid_enc = initVideoEncoder(vid_enc_codec_name, vid_input_format,
+                               vid_enc_format, w, h);
+    src_buffer = initVideoBuffer(vid_enc_codec_name,
+                                 vid_enc->GetConfig().img_cfg.image_info);
     if (vid_enc_codec_name == "rkmpp") {
       size_t dst_len = CalPixFmtSize(vid_enc->GetConfig().img_cfg.image_info);
       dst_buffer = easymedia::MediaBuffer::Alloc(
@@ -494,22 +497,23 @@ int main(int argc, char **argv) {
     vid_enc->GetConfig().img_cfg.image_info.pix_fmt =
         StringToPixFmt(vid_enc_format.c_str());
 
-    if (mux && !mux->NewMuxerStream(vid_enc->GetConfig(), vid_enc->GetExtraData(),
+    if (mux &&
+        !mux->NewMuxerStream(vid_enc->GetConfig(), vid_enc->GetExtraData(),
                              vid_stream_no)) {
       fprintf(stderr, "NewMuxerStream failed for video\n");
       exit(EXIT_FAILURE);
     }
 
     vinterval_per_frame =
-      1000000LL /* us */ / vid_enc->GetConfig().vid_cfg.frame_rate;
+        1000000LL /* us */ / vid_enc->GetConfig().vid_cfg.frame_rate;
 
     // TODO SrcFormat and OutFormat use the same variable
     vid_enc->GetConfig().vid_cfg.image_cfg.image_info.pix_fmt =
         StringToPixFmt(std::string("image:").append(vid_input_format).c_str());
     // Since the input is packed yuv images, no padding buffer,
     // we want to read actual pixel size
-    video_frame_len =
-        CalPixFmtSize(vid_enc->GetConfig().vid_cfg.image_cfg.image_info.pix_fmt, w, h);
+    video_frame_len = CalPixFmtSize(
+        vid_enc->GetConfig().vid_cfg.image_cfg.image_info.pix_fmt, w, h);
   }
 
   // 2. audio stream.
@@ -534,14 +538,15 @@ int main(int argc, char **argv) {
     auto &audio_info = aud_enc->GetConfig().aud_cfg.sample_info;
     sample_info = audio_info;
 
-    if (mux && !mux->NewMuxerStream(aud_enc->GetConfig(), aud_enc->GetExtraData(),
+    if (mux &&
+        !mux->NewMuxerStream(aud_enc->GetConfig(), aud_enc->GetExtraData(),
                              aud_stream_no)) {
       fprintf(stderr, "NewMuxerStream failed for audio\n");
       exit(EXIT_FAILURE);
     }
-    ainterval_per_frame =
-        1000000LL /* us */ * aud_enc->GetConfig().aud_cfg.sample_info.nb_samples /
-        aud_enc->GetConfig().aud_cfg.sample_info.sample_rate;
+    ainterval_per_frame = 1000000LL /* us */ *
+                          aud_enc->GetConfig().aud_cfg.sample_info.nb_samples /
+                          aud_enc->GetConfig().aud_cfg.sample_info.sample_rate;
   }
 
   if (mux && !(mux->WriteHeader(aud_stream_no))) {
@@ -551,7 +556,7 @@ int main(int argc, char **argv) {
   }
 
   // for ffmpeg, WriteHeader once, this call only dump info
-  //mux->WriteHeader(aud_stream_no);
+  // mux->WriteHeader(aud_stream_no);
 
   int64_t audio_duration = 10 * 1000 * 1000;
 
@@ -559,10 +564,12 @@ int main(int argc, char **argv) {
     if (stream_type.find("video") != stream_type.npos &&
         vid_index * vinterval_per_frame < aud_index * ainterval_per_frame) {
       // video
-      ssize_t read_len = read(input_file_fd, src_buffer->GetPtr(), video_frame_len);
+      ssize_t read_len =
+          read(input_file_fd, src_buffer->GetPtr(), video_frame_len);
       if (read_len < 0) {
         // if 0 Continue to drain all encoded buffer
-        fprintf(stderr, "%s read len %zu\n", vid_enc_codec_name.c_str(), read_len);
+        fprintf(stderr, "%s read len %zu\n", vid_enc_codec_name.c_str(),
+                read_len);
         break;
       } else if (read_len == 0 && vid_enc_codec_name == "rkmpp") {
         // rkmpp process does not accept empty buffer
@@ -586,7 +593,8 @@ int main(int argc, char **argv) {
           continue;
         }
         size_t out_len = dst_buffer->GetValidSize();
-        fprintf(stderr, "vframe %d encoded, type %s, out %zu bytes\n", vid_index,
+        fprintf(stderr, "vframe %d encoded, type %s, out %zu bytes\n",
+                vid_index,
                 dst_buffer->GetUserFlag() & easymedia::MediaBuffer::kIntra
                     ? "I frame"
                     : "P frame",
@@ -594,8 +602,8 @@ int main(int argc, char **argv) {
         if (mux)
           mux->Write(dst_buffer, vid_stream_no);
       } else if (vid_enc_codec_name == "ffmpeg_vid") {
-        if (0 > encode<easymedia::VideoEncoder>(mux, file_write, vid_enc, src_buffer,
-                                                vid_stream_no)) {
+        if (0 > encode<easymedia::VideoEncoder>(mux, file_write, vid_enc,
+                                                src_buffer, vid_stream_no)) {
           fprintf(stderr, "Encode video frame %d failed\n", vid_index);
           break;
         }
@@ -605,11 +613,13 @@ int main(int argc, char **argv) {
       if (first_audio_time == 0)
         first_audio_time = easymedia::gettimeofday();
 
-      if (first_audio_time > 0 && easymedia::gettimeofday() - first_audio_time > audio_duration)
+      if (first_audio_time > 0 &&
+          easymedia::gettimeofday() - first_audio_time > audio_duration)
         break;
 
-      size_t read_samples = audio_capture->Read(
-          aud_buffer->GetPtr(), aud_buffer->GetSampleSize(), sample_info.nb_samples);
+      size_t read_samples =
+          audio_capture->Read(aud_buffer->GetPtr(), aud_buffer->GetSampleSize(),
+                              sample_info.nb_samples);
       if (!read_samples && errno != EAGAIN) {
         exit(EXIT_FAILURE); // fatal error
       }
@@ -618,7 +628,8 @@ int main(int argc, char **argv) {
                                  aud_index * ainterval_per_frame);
       aud_index++;
 
-      if (0 > encode<easymedia::AudioEncoder>(mux, file_write, aud_enc, aud_buffer, aud_stream_no)) {
+      if (0 > encode<easymedia::AudioEncoder>(mux, file_write, aud_enc,
+                                              aud_buffer, aud_stream_no)) {
         fprintf(stderr, "Encode audio frame %d failed\n", aud_index);
         break;
       }
@@ -627,11 +638,13 @@ int main(int argc, char **argv) {
 
   if (stream_type.find("video") != stream_type.npos) {
     src_buffer->SetValidSize(0);
-    if (0 > encode<easymedia::VideoEncoder>(mux, file_write, vid_enc, src_buffer, vid_stream_no)) {
+    if (0 > encode<easymedia::VideoEncoder>(mux, file_write, vid_enc,
+                                            src_buffer, vid_stream_no)) {
       fprintf(stderr, "Drain video frame %d failed\n", vid_index);
     }
     aud_buffer->SetSamples(0);
-    if (0 > encode<easymedia::AudioEncoder>(mux, file_write, aud_enc, aud_buffer, aud_stream_no)) {
+    if (0 > encode<easymedia::AudioEncoder>(mux, file_write, aud_enc,
+                                            aud_buffer, aud_stream_no)) {
       fprintf(stderr, "Drain audio frame %d failed\n", aud_index);
     }
   }

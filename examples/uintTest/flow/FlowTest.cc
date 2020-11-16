@@ -36,11 +36,11 @@ private:
   std::shared_ptr<MediaBuffer> buffer_;
   friend bool do_src(Flow *f, MediaBufferVector &input_vector) {
     MockSourceFlow *flow = static_cast<MockSourceFlow *>(f);
-    LOG("Do src %s\n", flow->GetName().c_str());
+    RKMEDIA_LOGI("Do src %s\n", flow->GetName().c_str());
     int i = 0;
     for (auto in : input_vector) {
       flow->SetOutput(in, i++);
-      LOG("Doing in %s %p\n", flow->GetName().c_str(), in.get());
+      RKMEDIA_LOGI("Doing in %s %p\n", flow->GetName().c_str(), in.get());
     }
     // Do nothing
     return true;
@@ -94,9 +94,10 @@ void MockSourceFlow::ReadThreadRun() {
   while (loop_) {
     if (1) { // if (buffer_.use_count() == 1) {
       SendInput(buffer_, 0);
-      LOG("%s fake sending input %p\n", GetName().c_str(), buffer_.get());
+      RKMEDIA_LOGI("%s fake sending input %p\n", GetName().c_str(),
+                   buffer_.get());
     } else {
-      LOG("buffer in use %ld\n", buffer_.use_count());
+      RKMEDIA_LOGI("buffer in use %ld\n", buffer_.use_count());
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(33));
   }
@@ -123,14 +124,15 @@ private:
 
   friend bool do_io(Flow *f, MediaBufferVector &input_vector) {
     MockIOFlow *flow = static_cast<MockIOFlow *>(f);
-    LOG("Do IO %s size input %u\n", flow->GetName().c_str(),
-        input_vector.size());
+    RKMEDIA_LOGI("Do IO %s size input %u\n", flow->GetName().c_str(),
+                 input_vector.size());
     for (auto in : input_vector) {
       if (!in) {
         return false;
       }
       for (int i = 0; i < flow->GetOutCnt(); i++) {
-        LOG("Doing %p in %s for %d\n", in.get(), flow->GetName().c_str(), i);
+        RKMEDIA_LOGI("Doing %p in %s for %d\n", in.get(),
+                     flow->GetName().c_str(), i);
         flow->SetOutput(in, i);
       }
     }
@@ -173,7 +175,7 @@ MockIOFlow::MockIOFlow(const char *param) {
     sm.output_slots.push_back(i);
   sm.process = do_io;
   if (!InstallSlotMap(sm, name_, -1)) {
-    LOG("Fail to InstallSlotMap, %s\n", name_.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap, %s\n", name_.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -198,14 +200,14 @@ private:
   std::string name_;
   Model thread_model_;
   friend bool do_out(Flow *f, MediaBufferVector &input_vector) {
-    LOG("Do OUT\n");
+    RKMEDIA_LOGI("Do OUT\n");
     MockSinkFlow *flow = static_cast<MockSinkFlow *>(f);
     auto &in = input_vector[0];
     if (!in) {
       return false;
     }
     // Do nothing
-    LOG("Doing %p in %s\n", in.get(), flow->GetName().c_str());
+    RKMEDIA_LOGI("Doing %p in %s\n", in.get(), flow->GetName().c_str());
     return true;
   }
 };
@@ -234,7 +236,7 @@ MockSinkFlow::MockSinkFlow(const char *param) {
   sm.input_maxcachenum.push_back(input_maxcachenum);
   sm.process = do_out;
   if (!InstallSlotMap(sm, name_, -1)) {
-    LOG("Fail to InstallSlotMap, %s\n", name_.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap, %s\n", name_.c_str());
     SetError(-EINVAL);
     return;
   }

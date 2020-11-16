@@ -29,7 +29,7 @@
     static std::shared_ptr<T> Create(const char *request,                      \
                                      const char *param = nullptr) {            \
       if (!IsDerived<T, PRODUCT>::Result) {                                    \
-        LOG("The template class type is not derived of required type\n");      \
+        printf("The template class type is not derived of required type\n");   \
         return nullptr;                                                        \
       }                                                                        \
                                                                                \
@@ -41,13 +41,13 @@
       if (it != factories.end()) {                                             \
         const PRODUCT##Factory *f = it->second;                                \
         if (!T::Compatible(f)) {                                               \
-          LOG("%s is not compatible with the template\n", request);            \
+          printf("%s is not compatible with the template\n", request);         \
           return nullptr;                                                      \
         }                                                                      \
         return std::static_pointer_cast<T>(                                    \
             const_cast<PRODUCT##Factory *>(f)->NewProduct(param));             \
       }                                                                        \
-      LOG("%s is not Integrated\n", request);                                  \
+      printf("%s is not Integrated\n", request);                               \
       return nullptr;                                                          \
     }                                                                          \
     static void RegisterFactory(std::string identifier,                        \
@@ -80,7 +80,7 @@
                                    const char *rules) {                        \
     auto it = factories.find(identifier);                                      \
     if (it == factories.end()) {                                               \
-      LOG("%s is not Integrated\n", identifier);                               \
+      printf("%s is not Integrated\n", identifier);                            \
       return false;                                                            \
     }                                                                          \
     return it->second->AcceptRules(rules);                                     \

@@ -51,11 +51,11 @@ static int queue_size(AUDIO_QUEUE_S *queue) { return queue->buffer_size; }
 static int queue_write(AUDIO_QUEUE_S *queue, const unsigned char *buffer,
                        int bytes) {
   if ((buffer == NULL) || (bytes <= 0)) {
-    LOG("queue_capture_buffer buffer error!");
+    RKMEDIA_LOGI("queue_capture_buffer buffer error!");
     return -1;
   }
   if (queue->buffer_size + bytes > RK_AUDIO_BUFFER_MAX_SIZE) {
-    LOG("unexpected cap buffer size too big!! return!");
+    RKMEDIA_LOGI("unexpected cap buffer size too big!! return!");
     return -1;
   }
 
@@ -66,11 +66,11 @@ static int queue_write(AUDIO_QUEUE_S *queue, const unsigned char *buffer,
 
 static int queue_read(AUDIO_QUEUE_S *queue, unsigned char *buffer, int bytes) {
   if ((buffer == NULL) || (bytes <= 0)) {
-    LOG("queue_capture_buffer buffer error!");
+    RKMEDIA_LOGI("queue_capture_buffer buffer error!");
     return -1;
   }
   if ((queue->roffset + bytes) > queue->buffer_size) {
-    LOG("queue_read  error!");
+    RKMEDIA_LOGI("queue_read  error!");
     return -1;
   }
   memcpy(buffer, queue->buffer + queue->roffset, bytes);
@@ -93,18 +93,18 @@ int AI_TALKVQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   if (!(sample_info.fmt == SAMPLE_FMT_S16 &&
         (sample_info.sample_rate == 8000 ||
          sample_info.sample_rate == 16000))) {
-    LOG("check failed: sample_info.fmt == SAMPLE_FMT_S16 && \
+    RKMEDIA_LOGI("check failed: sample_info.fmt == SAMPLE_FMT_S16 && \
 			(sample_info.sample_rate == 8000 || sample_info.sample_rate == 16000))");
     return -1;
   }
   if (sample_info.channels != 2) {
-    LOG("check failed: aec channels must equal 2");
+    RKMEDIA_LOGI("check failed: aec channels must equal 2");
     return -1;
   }
   if (handle->layout != AI_LAYOUT_MIC_REF &&
       handle->layout != AI_LAYOUT_REF_MIC) {
-    LOG("check failed: enAiLayout must be AI_LAYOUT_MIC_REF or "
-        "AI_LAYOUT_REF_MIC\n");
+    RKMEDIA_LOGI("check failed: enAiLayout must be AI_LAYOUT_MIC_REF or "
+                 "AI_LAYOUT_REF_MIC\n");
     return -1;
   }
 
@@ -113,11 +113,11 @@ int AI_TALKVQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   state.swFrameLen =
       ALGO_FRAME_TIMS_MS * sample_info.sample_rate / 1000; // hard code 20ms
   state.pathPara = config->stAiTalkConfig.aParamFilePath;
-  LOG("AEC: param file = %s\n", state.pathPara);
+  RKMEDIA_LOGI("AEC: param file = %s\n", state.pathPara);
   AEC_DumpVersion();
   handle->ap_handle = AEC_Init(&state, AEC_TX_TYPE);
   if (!handle->ap_handle) {
-    LOG("AEC: init failed\n");
+    RKMEDIA_LOGI("AEC: init failed\n");
     return -1;
   }
   return 0;
@@ -170,7 +170,8 @@ int AI_RECORDVQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   if (!(sample_info.channels == 1 && sample_info.fmt == SAMPLE_FMT_S16 &&
         (sample_info.sample_rate >= 8000 &&
          sample_info.sample_rate <= 48000))) {
-    LOG("check failed: (sample_info.channels == 1 && sample_info.fmt == SAMPLE_FMT_S16 && \
+    RKMEDIA_LOGI(
+        "check failed: (sample_info.channels == 1 && sample_info.fmt == SAMPLE_FMT_S16 && \
 		 (sample_info.sample_rate >= 8000 && sample_info.sample_rate <= 48000))");
     return -1;
   }
@@ -185,7 +186,7 @@ int AI_RECORDVQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   ANR_DumpVersion();
   handle->ap_handle = ANR_Init(&state);
   if (!handle->ap_handle) {
-    LOG("ANR: init failed\n");
+    RKMEDIA_LOGI("ANR: init failed\n");
     return -1;
   }
   return 0;
@@ -208,7 +209,7 @@ int AO_VQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   if (!(sample_info.fmt == SAMPLE_FMT_S16 &&
         (sample_info.sample_rate == 8000 ||
          sample_info.sample_rate == 16000))) {
-    LOG("check failed: sample_info.fmt == SAMPLE_FMT_S16 && \
+    RKMEDIA_LOGI("check failed: sample_info.fmt == SAMPLE_FMT_S16 && \
 		 (sample_info.sample_rate == 8000 || sample_info.sample_rate == 16000))");
     return -1;
   }
@@ -218,10 +219,10 @@ int AO_VQE_Init(AUDIO_VQE_S *handle, VQE_CONFIG_S *config) {
   state.swFrameLen =
       ALGO_FRAME_TIMS_MS * sample_info.sample_rate / 1000; // hard code 20ms
   state.pathPara = config->stAoConfig.aParamFilePath;
-  LOG("AEC: param file = %s\n", state.pathPara);
+  RKMEDIA_LOGI("AEC: param file = %s\n", state.pathPara);
   handle->ap_handle = AEC_Init(&state, AEC_RX_TYPE);
   if (!handle->ap_handle) {
-    LOG("AEC: init failed\n");
+    RKMEDIA_LOGI("AEC: init failed\n");
     return -1;
   }
   return 0;
@@ -351,8 +352,8 @@ int RK_AUDIO_VQE_Handle(AUDIO_VQE_S *handle, void *buffer, int bytes) {
     queue_tune(handle->out_queue);
     return 0;
   } else {
-    LOG("%s: queue size %d less than %d\n", __func__,
-        queue_size(handle->out_queue), bytes);
+    RKMEDIA_LOGI("%s: queue size %d less than %d\n", __func__,
+                 queue_size(handle->out_queue), bytes);
     return -1;
   }
 }

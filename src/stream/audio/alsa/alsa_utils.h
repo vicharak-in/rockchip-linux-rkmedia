@@ -21,9 +21,9 @@ extern "C" {
 #include "sound.h"
 
 typedef enum rk_AI_LAYOUT_E {
-  AI_LAYOUT_NORMAL = 0,   /* Normal      */
-  AI_LAYOUT_MIC_REF,        /* MIC + REF, do clear ref*/
-  AI_LAYOUT_REF_MIC,        /* REF + MIC, do clear ref*/
+  AI_LAYOUT_NORMAL = 0, /* Normal      */
+  AI_LAYOUT_MIC_REF,    /* MIC + REF, do clear ref*/
+  AI_LAYOUT_REF_MIC,    /* REF + MIC, do clear ref*/
   AI_LAYOUT_BUTT
 } AI_LAYOUT_E;
 
@@ -41,8 +41,8 @@ int ParseAlsaParams(const char *param,
                     AI_LAYOUT_E &layout);
 #ifdef AUDIO_ALGORITHM_ENABLE
 int ParseVQEParams(const char *param,
-                    std::map<std::string, std::string> &params,
-                    bool *bVqeEnable, VQE_CONFIG_S *stVqeConfig);
+                   std::map<std::string, std::string> &params, bool *bVqeEnable,
+                   VQE_CONFIG_S *stVqeConfig);
 #endif
 
 snd_pcm_t *AlsaCommonOpenSetHwParams(const char *device,

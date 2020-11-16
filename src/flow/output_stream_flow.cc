@@ -53,7 +53,7 @@ OutPutStreamFlow::OutPutStreamFlow(const char *param) {
   auto stream =
       REFLECTOR(Stream)::Create<Stream>(stream_name, stream_param.c_str());
   if (!stream) {
-    LOG("Fail to create stream %s\n", stream_name);
+    RKMEDIA_LOGI("Fail to create stream %s\n", stream_name);
     SetError(-EINVAL);
     return;
   }
@@ -63,7 +63,7 @@ OutPutStreamFlow::OutPutStreamFlow(const char *param) {
   std::string tag = "OutputStreamFlow:";
   tag.append(stream_name);
   if (!InstallSlotMap(sm, tag, -1)) {
-    LOG("Fail to InstallSlotMap for %s\n", tag.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap for %s\n", tag.c_str());
     SetError(-EINVAL);
     return;
   }

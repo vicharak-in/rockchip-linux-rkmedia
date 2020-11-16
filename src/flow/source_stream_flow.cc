@@ -8,6 +8,11 @@
 #include "stream.h"
 #include "utils.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 9
+
 namespace easymedia {
 
 class SourceStreamFlow : public Flow {
@@ -46,7 +51,7 @@ SourceStreamFlow::SourceStreamFlow(const char *param)
   const std::string &stream_param = separate_list.back();
   stream = REFLECTOR(Stream)::Create<Stream>(stream_name, stream_param.c_str());
   if (!stream) {
-    LOG("Create stream %s failed\n", stream_name);
+    RKMEDIA_LOGI("Create stream %s failed\n", stream_name);
     SetError(-EINVAL);
     return;
   }
@@ -71,8 +76,8 @@ SourceStreamFlow::~SourceStreamFlow() {
   StopAllThread();
   int stop = 1;
   if (stream && Control(S_STREAM_OFF, &stop))
-    LOG("Fail to stop source stream\n");
-  LOG("\n#SourceStreamFlow[%s]: stream off....\n", GetFlowTag());
+    RKMEDIA_LOGI("Fail to stop source stream\n");
+  RKMEDIA_LOGI("\n#SourceStreamFlow[%s]: stream off....\n", GetFlowTag());
   if (read_thread) {
     source_start_cond_mtx->lock();
     loop = false;
@@ -81,9 +86,11 @@ SourceStreamFlow::~SourceStreamFlow() {
     read_thread->join();
     delete read_thread;
   }
-  LOG("\n#SourceStreamFlow[%s]: read thread exit sucessfully!\n", GetFlowTag());
+  RKMEDIA_LOGI("\n#SourceStreamFlow[%s]: read thread exit sucessfully!\n",
+               GetFlowTag());
   stream.reset();
-  LOG("\n#SourceStreamFlow[%s]: stream reset sucessfully!\n", GetFlowTag());
+  RKMEDIA_LOGI("\n#SourceStreamFlow[%s]: stream reset sucessfully!\n",
+               GetFlowTag());
 }
 
 void SourceStreamFlow::ReadThreadRun() {

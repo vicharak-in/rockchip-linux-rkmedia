@@ -167,7 +167,7 @@ RtspServerFlow::RtspServerFlow(const char *param) {
       sm.input_maxcachenum.push_back(0);
     markname = "rtsp " + channel_name + std::to_string(in_idx);
     if (!InstallSlotMap(sm, markname, 0)) {
-      LOG("Fail to InstallSlotMap, %s\n", markname.c_str());
+      RKMEDIA_LOGI("Fail to InstallSlotMap, %s\n", markname.c_str());
       goto err;
     }
   } else {

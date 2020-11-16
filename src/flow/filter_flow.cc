@@ -64,7 +64,8 @@ FilterFlow::FilterFlow(const char *param)
   std::string &&rule = gen_datatype_rule(params);
   if (!rule.empty()) {
     if (!REFLECTOR(Filter)::IsMatch(filter_name, rule.c_str())) {
-      LOG("Unsupport for filter %s : [%s]\n", filter_name, rule.c_str());
+      RKMEDIA_LOGI("Unsupport for filter %s : [%s]\n", filter_name,
+                   rule.c_str());
       SetError(-EINVAL);
       return;
     }
@@ -84,7 +85,8 @@ FilterFlow::FilterFlow(const char *param)
     auto filter =
         REFLECTOR(Filter)::Create<Filter>(filter_name, param_str.c_str());
     if (!filter) {
-      LOG("Fail to create filter %s<%s>\n", filter_name, param_str.c_str());
+      RKMEDIA_LOGI("Fail to create filter %s<%s>\n", filter_name,
+                   param_str.c_str());
       SetError(-EINVAL);
       return;
     }
@@ -101,7 +103,7 @@ FilterFlow::FilterFlow(const char *param)
   std::string tag = "FilterFlow:";
   tag.append(filter_name);
   if (!InstallSlotMap(sm, tag, -1)) {
-    LOG("Fail to InstallSlotMap for %s\n", tag.c_str());
+    RKMEDIA_LOGI("Fail to InstallSlotMap for %s\n", tag.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -111,7 +113,7 @@ FilterFlow::FilterFlow(const char *param)
     if (input_pix_fmt != PIX_FMT_NONE &&
         !ParseImageInfoFromMap(params, out_img_info, false)) {
       if (filters.size() > 1) {
-        LOG("missing out image info for multi filters\n");
+        RKMEDIA_LOGI("missing out image info for multi filters\n");
         SetError(-EINVAL);
         return;
       }
@@ -119,21 +121,20 @@ FilterFlow::FilterFlow(const char *param)
     // Create buffer pool with vir_height and vir_width.
     std::string &mem_type = params[KEY_MEM_TYPE];
     std::string &mem_cnt = params[KEY_MEM_CNT];
-    if ((input_pix_fmt != PIX_FMT_NONE) &&
-      (out_img_info.vir_height > 0) &&
-      (out_img_info.vir_width > 0) &&
-      (!mem_type.empty()) && (!mem_cnt.empty())) {
-      LOG("%s: Enable BufferPool! memtype:%s, memcnt:%s\n",
-        tag.c_str(), mem_type.c_str(), mem_cnt.c_str());
+    if ((input_pix_fmt != PIX_FMT_NONE) && (out_img_info.vir_height > 0) &&
+        (out_img_info.vir_width > 0) && (!mem_type.empty()) &&
+        (!mem_cnt.empty())) {
+      RKMEDIA_LOGI("%s: Enable BufferPool! memtype:%s, memcnt:%s\n",
+                   tag.c_str(), mem_type.c_str(), mem_cnt.c_str());
 
       int m_cnt = std::stoi(mem_cnt);
       if (m_cnt <= 0) {
-        LOG("ERROR: %s: mem_cnt %s invalid!\n", tag.c_str(), mem_cnt.c_str());
+        RKMEDIA_LOGE("%s: mem_cnt %s invalid!\n", tag.c_str(), mem_cnt.c_str());
         SetError(-EINVAL);
         return;
       }
       size_t m_size = CalPixFmtSize(out_img_info);
-      MediaBuffer::MemType m_type =  StringToMemType(mem_type.c_str());
+      MediaBuffer::MemType m_type = StringToMemType(mem_type.c_str());
 
       buffer_pool = std::make_shared<BufferPool>(m_cnt, m_size, m_type);
     }
@@ -169,7 +170,7 @@ bool do_filters(Flow *f, MediaBufferVector &input_vector) {
         if (flow->buffer_pool) {
           auto mb = flow->buffer_pool->GetBuffer();
           if (!mb) {
-            LOG("ERROR: buffer_pool get null buffer!\n");
+            RKMEDIA_LOGE("buffer_pool get null buffer!\n");
             return false;
           }
           out_buffer = std::make_shared<ImageBuffer>(*(mb.get()), info);

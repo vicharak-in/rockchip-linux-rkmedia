@@ -14,38 +14,37 @@
 
 namespace easymedia {
 
-
 bool do_uvc(Flow *f, MediaBufferVector &input_vector) {
   UvcFlow *flow = (UvcFlow *)f;
   auto img_buf = input_vector[0];
-  //printf("do_uvc:++++++");
+  // printf("do_uvc:++++++");
   if (!img_buf || img_buf->GetType() != Type::Image)
     return false;
 
   auto img = std::static_pointer_cast<ImageBuffer>(img_buf);
   MppFrameFormat ifmt = ConvertToMppPixFmt(img->GetPixelFormat());
   assert(ifmt == MPP_FMT_YUV420SP);
-   //LOG("ifmt: %d,size: %d\n", ifmt, (int)img_buf->GetValidSize());
+  // RKMEDIA_LOGI("ifmt: %d,size: %d\n", ifmt, (int)img_buf->GetValidSize());
   if (ifmt < 0) {
-    LOG("ERROR:no support frame format,only nv12,uvc_width:%d",flow->uvc_width);
+    RKMEDIA_LOGE("no support frame format,only nv12,uvc_width:%d",
+                 flow->uvc_width);
     return false;
   }
   mpi_enc_set_format(ifmt);
 
-  uvc_read_camera_buffer(img_buf->GetPtr(), img_buf->GetFD(), img_buf->GetValidSize(),
-                           NULL, 0);
+  uvc_read_camera_buffer(img_buf->GetPtr(), img_buf->GetFD(),
+                         img_buf->GetValidSize(), NULL, 0);
 
   return true;
 }
 
 UvcFlow::UvcFlow(const char *param)
-           : uvc_event_code(-1), uvc_width(640), uvc_height(480),
-             uvc_format("mjpeg") {
+    : uvc_event_code(-1), uvc_width(640), uvc_height(480), uvc_format("mjpeg") {
   std::list<std::string> separate_list;
   std::map<std::string, std::string> params;
 
   if (!ParseWrapFlowParams(param, params, separate_list)) {
-    LOG("ERROR: UVC: flow param error!\n");
+    RKMEDIA_LOGE("UVC: flow param error!\n");
     SetError(-EINVAL);
     return;
   }
@@ -59,7 +58,7 @@ UvcFlow::UvcFlow(const char *param)
   }
 
   if (!REFLECTOR(Flow)::IsMatch("uvc_flow", rule.c_str())) {
-    LOG("ERROR: Unsupport for uvc_flow : [%s]\n", rule.c_str());
+    RKMEDIA_LOGE("Unsupport for uvc_flow : [%s]\n", rule.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -67,7 +66,7 @@ UvcFlow::UvcFlow(const char *param)
   const std::string &md_param_str = separate_list.back();
   std::map<std::string, std::string> uvc_params;
   if (!parse_media_param_map(md_param_str.c_str(), uvc_params)) {
-    LOG("ERROR: UVC: uvc param error!\n");
+    RKMEDIA_LOGE("UVC: uvc param error!\n");
     SetError(-EINVAL);
     return;
   }
@@ -82,10 +81,10 @@ UvcFlow::UvcFlow(const char *param)
   CHECK_EMPTY_SETERRNO(value, uvc_params, KEY_UVC_FORMAT, 0)
   uvc_format = value;
 
-  LOG("UVC: param: uvc_event_code=%d\n", uvc_event_code);
-  LOG("UVC: param: uvc_width=%d\n", uvc_width);
-  LOG("UVC: param: uvc_height=%d\n", uvc_height);
-  LOG("UVC: param: uvc_format=%s\n", uvc_format.c_str());
+  RKMEDIA_LOGI("UVC: param: uvc_event_code=%d\n", uvc_event_code);
+  RKMEDIA_LOGI("UVC: param: uvc_width=%d\n", uvc_width);
+  RKMEDIA_LOGI("UVC: param: uvc_height=%d\n", uvc_height);
+  RKMEDIA_LOGI("UVC: param: uvc_format=%s\n", uvc_format.c_str());
 
   SlotMap sm;
   sm.thread_model = Model::ASYNCCOMMON;
@@ -104,23 +103,19 @@ UvcFlow::UvcFlow(const char *param)
     SetError(-EINVAL);
     return;
   }
-  if(uvc_event_code) {
-     uvc_control_run(UVC_CONTROL_LOOP_ONCE);
-  }
-  else
-  {
+  if (uvc_event_code) {
+    uvc_control_run(UVC_CONTROL_LOOP_ONCE);
+  } else {
     uvc_control_run(UVC_CONTROL_CHECK_STRAIGHT);
   }
 }
 
-UvcFlow:: ~UvcFlow() {
+UvcFlow::~UvcFlow() {
   AutoPrintLine apl(__func__);
   StopAllThread();
-  if(uvc_event_code) {
-     uvc_control_join(UVC_CONTROL_LOOP_ONCE);
-  }
-  else
-  {
+  if (uvc_event_code) {
+    uvc_control_join(UVC_CONTROL_LOOP_ONCE);
+  } else {
     uvc_control_join(UVC_CONTROL_CHECK_STRAIGHT);
   }
 }
@@ -128,9 +123,9 @@ UvcFlow:: ~UvcFlow() {
 int UvcFlow::Control(unsigned long int request, ...) {
   va_list ap;
   va_start(ap, request);
-  //auto value = va_arg(ap, std::shared_ptr<ParameterBuffer>);
+  // auto value = va_arg(ap, std::shared_ptr<ParameterBuffer>);
   va_end(ap);
-  //assert(value);
+  // assert(value);
   return 0;
 }
 

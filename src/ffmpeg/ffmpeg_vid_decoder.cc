@@ -18,7 +18,7 @@ FFMpegDecoder::FFMpegDecoder(const char *param)
 
   int ret = parse_media_param_match(param, params, req_list);
   if (ret == 0 || input_data_type.empty()) {
-    LOG("missing %s\n", KEY_INPUTDATATYPE);
+    RKMEDIA_LOGI("missing %s\n", KEY_INPUTDATATYPE);
     return;
   }
   if (!split_mode.empty())
@@ -26,7 +26,7 @@ FFMpegDecoder::FFMpegDecoder(const char *param)
   if (!input_data_type.empty()) {
     codec_id = CodecTypeToAVCodecID(StringToCodecType(input_data_type.c_str()));
   }
-  LOG("codec_id = %d.\n", codec_id);
+  RKMEDIA_LOGI("codec_id = %d.\n", codec_id);
 }
 
 bool FFMpegDecoder::Init() {
@@ -36,21 +36,21 @@ bool FFMpegDecoder::Init() {
   }
   codec = avcodec_find_decoder(codec_id);
   if (!codec) {
-    LOG("Codec not found,\n");
+    RKMEDIA_LOGI("Codec not found,\n");
     return false;
   }
 
   if (need_split) {
     parser = av_parser_init(codec->id);
     if (!parser) {
-      LOG("parser not found\n");
+      RKMEDIA_LOGI("parser not found\n");
       return false;
     }
   }
 
   ffmpeg_context = avcodec_alloc_context3(codec);
   if (!ffmpeg_context) {
-    LOG("Could not allocate video codec context.\n");
+    RKMEDIA_LOGI("Could not allocate video codec context.\n");
     return false;
   }
 
@@ -60,7 +60,7 @@ bool FFMpegDecoder::Init() {
 
   /* open it */
   if (avcodec_open2(ffmpeg_context, codec, NULL) < 0) {
-    LOG("Could not open codec\n");
+    RKMEDIA_LOGI("Could not open codec\n");
     return false;
   }
   return true;
@@ -101,7 +101,7 @@ int FFMpegDecoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
       if (pkt->size) {
         ret = avcodec_send_packet(ffmpeg_context, pkt);
         if (ret < 0) {
-          LOG("%d: Error sending a packet for decoding\n", __LINE__);
+          RKMEDIA_LOGI("%d: Error sending a packet for decoding\n", __LINE__);
           return ret;
         }
         if (ret == 0)
@@ -113,7 +113,7 @@ int FFMpegDecoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
     pkt->size = data_size;
     ret = avcodec_send_packet(ffmpeg_context, pkt);
     if (ret < 0) {
-      LOG("Error sending a packet for decoding\n");
+      RKMEDIA_LOGI("Error sending a packet for decoding\n");
       return ret;
     }
     one_frame_flag = 1;
@@ -128,15 +128,15 @@ std::shared_ptr<MediaBuffer> FFMpegDecoder::FetchOutput() {
   int ret, size;
   auto frame = av_frame_alloc();
   if (!frame) {
-    LOG("create frame failed .\n");
+    RKMEDIA_LOGI("create frame failed .\n");
     return nullptr;
   }
   ret = avcodec_receive_frame(ffmpeg_context, frame);
   if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-    LOG("Error during decoding %d\n", ret);
+    RKMEDIA_LOGI("Error during decoding %d\n", ret);
     return nullptr;
   } else if (ret < 0) {
-    LOG("Error during decoding\n");
+    RKMEDIA_LOGI("Error during decoding\n");
     return nullptr;
   }
 

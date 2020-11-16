@@ -107,7 +107,7 @@ void DrawFilter::DoHwDrawRect(OsdRegionData *region_data, int enable) {
   Flow *flow = (Flow *)draw_handler_;
   if (region_data->enable &&
       ((region_data->width % 16) || (region_data->height % 16))) {
-    LOG("ERROR: osd region size must be a multiple of 16x16.");
+    RKMEDIA_LOGE("osd region size must be a multiple of 16x16.");
     return;
   }
   if (enable) {
@@ -203,7 +203,7 @@ void DrawFilter::DoDraw(std::shared_ptr<ImageBuffer> &buffer,
     if (info_result.type == NNRESULT_TYPE_FACE) {
       rockface_det_t face_det = info_result.face_info.base;
       Rect rect_face = {face_det.box.left, face_det.box.top, face_det.box.right,
-                 face_det.box.bottom};
+                        face_det.box.bottom};
       DoDrawRect(buffer, rect_face);
     }
 #endif
@@ -211,7 +211,7 @@ void DrawFilter::DoDraw(std::shared_ptr<ImageBuffer> &buffer,
     if (info_result.type == NNRESULT_TYPE_OBJECT_DETECT) {
       rockx_object_t object_det = info_result.object_info;
       Rect rect_rockx = {object_det.box.left, object_det.box.top,
-                         object_det.box.right,object_det.box.bottom};
+                         object_det.box.right, object_det.box.bottom};
       DoDrawRect(buffer, rect_rockx);
     }
 #endif
@@ -325,26 +325,26 @@ void draw_rect(std::shared_ptr<ImageBuffer> &buffer, Rect &rect, int thick) {
   int img_h = buffer->GetHeight();
 
   if (rect.right > img_w - thick) {
-    // LOG("draw_rect right > img_w\n");
+    // RKMEDIA_LOGI("draw_rect right > img_w\n");
     rect.right = img_w - thick;
   }
   if (rect.left < 0) {
-    // LOG("draw_rect letf < 0\n");
+    // RKMEDIA_LOGI("draw_rect letf < 0\n");
     rect.left = 0;
   }
   if (rect.bottom > img_h - thick) {
-    // LOG("draw_rect bottom > img_h\n");
+    // RKMEDIA_LOGI("draw_rect bottom > img_h\n");
     rect.bottom = img_h - thick;
   }
   if (rect.top < 0) {
-    // LOG("draw_rect top < 0\n");
+    // RKMEDIA_LOGI("draw_rect top < 0\n");
     rect.top = 0;
   }
 
   if (info.pix_fmt == PIX_FMT_NV12) {
     draw_nv12_rect(img_data, img_w, img_h, rect, thick, YUV_PIXEL_RED);
   } else {
-    LOG("RockFaceDebug:can't draw rect on this format yet!\n");
+    RKMEDIA_LOGI("RockFaceDebug:can't draw rect on this format yet!\n");
   }
 }
 

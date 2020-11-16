@@ -79,11 +79,11 @@ static void common_reduction(void *userdata,
         ssize_t read_size = (ssize_t)sizeof(j);
         ssize_t ret = read(source->GetReadFd(), &j, sizeof(j));
         if (ret != read_size) {
-          LOG("%s:%d, read from pipe error, %m\n", __func__, __LINE__);
+          RKMEDIA_LOGI("%s:%d, read from pipe error, %m\n", __func__, __LINE__);
         }
       }
     }
-    LOG("call common_reduction.\n");
+    RKMEDIA_LOGI("call common_reduction.\n");
   }
 }
 
@@ -107,9 +107,9 @@ h264_packet_reduction(void *userdata _UNUSED,
     if (!(b->GetUserFlag() & MediaBuffer::kExtraIntra))
       break;
   }
-  LOG("h264 reduction before, num: %d \n", (int)mb_list.size());
+  RKMEDIA_LOGI("h264 reduction before, num: %d \n", (int)mb_list.size());
   mb_list.erase(iter, (++i).base());
-  LOG("h264 reduction after, num: %d \n", (int)mb_list.size());
+  RKMEDIA_LOGI("h264 reduction after, num: %d \n", (int)mb_list.size());
 }
 
 FramedSource *Live555MediaInput::videoSource(CodecType c_type) {
@@ -260,8 +260,8 @@ Source::Source()
     : reduction(nullptr), m_cached_buffers_size(MAX_CACHE_NUMBER),
       m_read_fd_status(false) {
   wakeFds[0] = wakeFds[1] = -1;
-  LOG("Source :: %p wakeFds[0] = %d, wakeFds[1]= %d.\n", this, wakeFds[0],
-      wakeFds[1]);
+  RKMEDIA_LOGI("Source :: %p wakeFds[0] = %d, wakeFds[1]= %d.\n", this,
+               wakeFds[0], wakeFds[1]);
 }
 
 void Source::CloseReadFd() {
@@ -279,15 +279,15 @@ Source::~Source() {
     ::close(wakeFds[1]);
     wakeFds[1] = -1;
   }
-  LOG("~Source::%p remain %d buffers, will auto release\n", this,
-      (int)cached_buffers.size());
+  RKMEDIA_LOGI("~Source::%p remain %d buffers, will auto release\n", this,
+               (int)cached_buffers.size());
 }
 
 bool Source::Init(ListReductionPtr func) {
   // create pipe fds
   int ret = pipe2(wakeFds, O_CLOEXEC);
   if (ret) {
-    LOG("pipe2 failed: %m\n");
+    RKMEDIA_LOGI("pipe2 failed: %m\n");
     return false;
   }
   assert(wakeFds[0] >= 0 && wakeFds[1] >= 0);
@@ -304,7 +304,8 @@ void Source::Push(std::shared_ptr<MediaBuffer> &buffer) {
   int i = 0;
   ssize_t count = write(wakeFds[1], &i, sizeof(i));
   if (count < 0) {
-    LOG("write failed: %s, %p, fd = %d\n", strerror(errno), this, wakeFds[1]);
+    RKMEDIA_LOGI("write failed: %s, %p, fd = %d\n", strerror(errno), this,
+                 wakeFds[1]);
   }
 }
 
@@ -378,8 +379,8 @@ bool VideoFramedSource::readFromList(bool flush _UNUSED) {
   ssize_t read_size = (ssize_t)sizeof(i);
   ssize_t ret = read(fSource.GetReadFd(), &i, sizeof(i));
   if (ret != read_size) {
-    LOG("video %s:%d, fd = %d. read from pipe error, %m\n", __func__, __LINE__,
-        fSource.GetReadFd());
+    RKMEDIA_LOGI("video %s:%d, fd = %d. read from pipe error, %m\n", __func__,
+                 __LINE__, fSource.GetReadFd());
     envir() << __LINE__ << " read from pipe error: " << errno << "\n";
     goto err;
   }
@@ -424,8 +425,8 @@ bool VideoFramedSource::readFromList(bool flush _UNUSED) {
     }
     fFrameSize -= read_size;
     if (fFrameSize > fMaxSize) {
-      LOG("%s : %d, fFrameSize(%d) > fMaxSize(%d)\n", __func__, __LINE__,
-          fFrameSize, fMaxSize);
+      RKMEDIA_LOGI("%s : %d, fFrameSize(%d) > fMaxSize(%d)\n", __func__,
+                   __LINE__, fFrameSize, fMaxSize);
       fNumTruncatedBytes = fFrameSize - fMaxSize;
       fFrameSize = fMaxSize;
     } else {
@@ -466,8 +467,8 @@ bool CommonFramedSource::readFromList(bool flush _UNUSED) {
   ssize_t read_size = (ssize_t)sizeof(i);
   ssize_t ret = read(fSource.GetReadFd(), &i, sizeof(i));
   if (ret != read_size) {
-    LOG("common %s:%d, fd = %d. read from pipe error, %m\n", __func__, __LINE__,
-        fSource.GetReadFd());
+    RKMEDIA_LOGI("common %s:%d, fd = %d. read from pipe error, %m\n", __func__,
+                 __LINE__, fSource.GetReadFd());
     envir() << __LINE__ << " read from pipe error: " << errno << "\n";
     goto err;
   }
@@ -497,8 +498,8 @@ bool CommonFramedSource::readFromList(bool flush _UNUSED) {
 #endif
     assert(fFrameSize > 0);
     if (fFrameSize > fMaxSize) {
-      LOG("%s : %d, fFrameSize(%d) > fMaxSize(%d)\n", __func__, __LINE__,
-          fFrameSize, fMaxSize);
+      RKMEDIA_LOGI("%s : %d, fFrameSize(%d) > fMaxSize(%d)\n", __func__,
+                   __LINE__, fFrameSize, fMaxSize);
       fNumTruncatedBytes = fFrameSize - fMaxSize;
       fFrameSize = fMaxSize;
     } else {

@@ -10,6 +10,11 @@
 #include "ffmpeg_utils.h"
 #include "image.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 4
+
 extern "C" {
 #define __STDC_CONSTANT_MACROS
 #include <libavcodec/avcodec.h>
@@ -78,13 +83,14 @@ bool FFMpegVideoEncoder::InitConfig(const MediaConfig &cfg) {
 
 bool FFMpegVideoEncoder::FFMpegVideoEncoder::Init() {
   if (OutputType_.empty()) {
-    LOG("missing %s\n", KEY_OUTPUTDATATYPE);
+    RKMEDIA_LOGI("missing %s\n", KEY_OUTPUTDATATYPE);
     return false;
   }
   codec_type = StringToCodecType(OutputType_.c_str());
   if (!CodecName_.empty()) {
     if (CodecName_ == "h264_rkmpp") {
-      LOG("EasyMedia using FFmpeg rkmpp hwaccel api is not implemented yet");
+      RKMEDIA_LOGI(
+          "EasyMedia using FFmpeg rkmpp hwaccel api is not implemented yet");
       return false;
     }
     Codec_ = avcodec_find_encoder_by_name(CodecName_.c_str());
@@ -93,13 +99,14 @@ bool FFMpegVideoEncoder::FFMpegVideoEncoder::Init() {
     Codec_ = avcodec_find_encoder(CodecId_);
   }
   if (!Codec_) {
-    LOG("Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
+    RKMEDIA_LOGI(
+        "Fail to find ffmpeg codec, request codec name=%s, or format=%s\n",
         CodecName_.c_str(), OutputType_.c_str());
     return false;
   }
   Context_ = avcodec_alloc_context3(Codec_);
   if (!Context_) {
-    LOG("Fail to avcodec_alloc_context3\n");
+    RKMEDIA_LOGI("Fail to avcodec_alloc_context3\n");
     return false;
   }
 

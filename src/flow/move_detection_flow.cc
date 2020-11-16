@@ -17,6 +17,11 @@
 #include "message.h"
 #include "move_detection_flow.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 15
+
 /* Upper limit of the result stored in the list */
 #define MD_RESULT_MAX_CNT 10
 
@@ -45,12 +50,12 @@ bool md_process(Flow *f, MediaBufferVector &input_vector) {
     return false;
 
   if (src->GetType() != Type::Image) {
-    LOG("ERROR: MD: invalid buffer type:%d\n", src->GetType());
+    RKMEDIA_LOGE("MD: invalid buffer type:%d\n", (int)src->GetType());
     return false;
   }
 
   if (!mdf->roi_in) {
-    LOG("ERROR: MD: process invalid arguments\n");
+    RKMEDIA_LOGE("MD: process invalid arguments\n");
     return false;
   }
 
@@ -58,20 +63,20 @@ bool md_process(Flow *f, MediaBufferVector &input_vector) {
   ImageInfo &image_info = img_buffer->GetImageInfo();
   if ((image_info.width != mdf->ds_width) ||
       (image_info.height != mdf->ds_height)) {
-    LOG("ERROR: MD: input buffer:%dx%d not match mdCtx:%dx%d...\n",
-        image_info.width, image_info.height,
-        mdf->ds_width, mdf->ds_height);
+    RKMEDIA_LOGE("MD: input buffer:%dx%d not match mdCtx:%dx%d...\n",
+                 image_info.width, image_info.height, mdf->ds_width,
+                 mdf->ds_height);
     return false;
   }
 
   if (mdf->update_mask & MD_UPDATE_SENSITIVITY) {
-    LOG("MD: Applying new sensitivity....\n");
+    RKMEDIA_LOGI("MD: Applying new sensitivity....\n");
     move_detection_set_sensitivity(mdf->md_ctx, mdf->Sensitivity);
     mdf->update_mask &= (~MD_UPDATE_SENSITIVITY);
   } else if (mdf->update_mask & MD_UPDATE_ROI_RECTS) {
-    LOG("MD: Applying new roi rects...\n");
+    RKMEDIA_LOGI("MD: Applying new roi rects...\n");
     if (mdf->roi_in) {
-      LOG("MD: free old roi info.\n");
+      RKMEDIA_LOGI("MD: free old roi info.\n");
       free(mdf->roi_in);
     }
 
@@ -110,8 +115,9 @@ bool md_process(Flow *f, MediaBufferVector &input_vector) {
       info_cnt++;
 
   if (info_cnt) {
-    LOGD("[MoveDetection]: Detected movement in %d areas, Total areas cnt: %d\n",
-         info_cnt, mdf->roi_cnt);
+    RKMEDIA_LOGD(
+        "[MoveDetection]: Detected movement in %d areas, Total areas cnt: %d\n",
+        info_cnt, mdf->roi_cnt);
     {
       EventParamPtr param =
           std::make_shared<EventParam>(MSG_FLOW_EVENT_INFO_MOVEDETECTION, 0);
@@ -191,8 +197,8 @@ bool md_process(Flow *f, MediaBufferVector &input_vector) {
     }
   }
 
-  LOGD("[MoveDetection]: insert list time:%lldms\n",
-       src->GetAtomicClock() / 1000);
+  RKMEDIA_LOGD("[MoveDetection]: insert list time:%lldms\n",
+               src->GetAtomicClock() / 1000);
 
   dst->SetValidSize(result_size);
   dst->SetAtomicClock(src->GetAtomicClock());
@@ -200,13 +206,14 @@ bool md_process(Flow *f, MediaBufferVector &input_vector) {
   mdf->InsertMdResult(dst);
 
 #ifndef NDEBUG
-  LOGD("[MoveDetection]: get result cnt:%02d, process call delta:%ld ms, "
-       "elapse %ld ms\n",
-       result_size / sizeof(INFO_LIST),
-       tv0.tv_sec ? ((tv1.tv_sec - tv0.tv_sec) * 1000 +
-                     (tv1.tv_usec - tv0.tv_usec) / 1000)
-                  : 0,
-       (tv2.tv_sec - tv1.tv_sec) * 1000 + (tv2.tv_usec - tv1.tv_usec) / 1000);
+  RKMEDIA_LOGD(
+      "[MoveDetection]: get result cnt:%02d, process call delta:%ld ms, "
+      "elapse %ld ms\n",
+      result_size / sizeof(INFO_LIST),
+      tv0.tv_sec ? ((tv1.tv_sec - tv0.tv_sec) * 1000 +
+                    (tv1.tv_usec - tv0.tv_usec) / 1000)
+                 : 0,
+      (tv2.tv_sec - tv1.tv_sec) * 1000 + (tv2.tv_usec - tv1.tv_usec) / 1000);
 
   tv0.tv_sec = tv1.tv_sec;
   tv0.tv_usec = tv1.tv_usec;
@@ -227,18 +234,18 @@ MoveDetectionFlow::LookForMdResult(int64_t atomic_clock, int timeout_us) {
   AutoDuration ad;
 #endif
 
-  LOGD("#LookForMdResult, target:%.1f, timeout:%.1f\n", atomic_clock / 1000.0,
-       timeout_us / 1000.0);
+  RKMEDIA_LOGD("#LookForMdResult, target:%.1f, timeout:%.1f\n",
+               atomic_clock / 1000.0, timeout_us / 1000.0);
   do {
     // Step1: Lookfor mdinfo first.
     md_results_mtx.lock();
     for (auto &tmp : md_results) {
       clk_delta = abs(atomic_clock - tmp->GetAtomicClock());
-      LOGD("...Compare vs :%.1f\n", tmp->GetAtomicClock() / 1000.0);
+      RKMEDIA_LOGD("...Compare vs :%.1f\n", tmp->GetAtomicClock() / 1000.0);
       // The time stamps of images acquired by multiple image
       // acquisition channels at the same time cannot exceed 1 ms.
       if (clk_delta <= 1000) {
-        LOGD(">>> MD get right result\n");
+        RKMEDIA_LOGD(">>> MD get right result\n");
         right_result = tmp;
         break;
       }
@@ -259,14 +266,15 @@ MoveDetectionFlow::LookForMdResult(int64_t atomic_clock, int timeout_us) {
       std::unique_lock<std::mutex> lck(md_results_mtx);
       if (con_var.wait_for(lck, std::chrono::microseconds(left_time)) ==
           std::cv_status::timeout) {
-        LOG("WARN:MD get closest result, deltaTime=%.1fms.\n",
-            clk_delta_min / 1000.0);
+        RKMEDIA_LOGW("MD get closest result, deltaTime=%.1fms.\n",
+                     clk_delta_min / 1000.0);
         right_result = last_restult;
         break; // stop while
       }
 #ifndef NDEBUG
       else {
-        LOGD("#RetryLookForMdResult target:%.1f\n", atomic_clock / 1000.0);
+        RKMEDIA_LOGD("#RetryLookForMdResult target:%.1f\n",
+                     atomic_clock / 1000.0);
       }
 #endif
     } else
@@ -274,7 +282,7 @@ MoveDetectionFlow::LookForMdResult(int64_t atomic_clock, int timeout_us) {
   } while (1);
 
 #ifndef NDBUEG
-  LOGD("#%s cost:%dms\n", __func__, (int)(ad.Get() / 1000));
+  RKMEDIA_LOGD("#%s cost:%dms\n", __func__, (int)(ad.Get() / 1000));
 #endif
 
   return right_result;
@@ -295,7 +303,7 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   std::list<std::string> separate_list;
   std::map<std::string, std::string> params;
   if (!ParseWrapFlowParams(param, params, separate_list)) {
-    LOG("ERROR: MD: flow param error!\n");
+    RKMEDIA_LOGE("MD: flow param error!\n");
     SetError(-EINVAL);
     return;
   }
@@ -309,7 +317,7 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   }
 
   if (!REFLECTOR(Flow)::IsMatch("move_detec", rule.c_str())) {
-    LOG("ERROR: Unsupport for move_detec : [%s]\n", rule.c_str());
+    RKMEDIA_LOGE("Unsupport for move_detec : [%s]\n", rule.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -317,7 +325,7 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   const std::string &md_param_str = separate_list.back();
   std::map<std::string, std::string> md_params;
   if (!parse_media_param_map(md_param_str.c_str(), md_params)) {
-    LOG("ERROR: MD: md param error!\n");
+    RKMEDIA_LOGE("MD: md param error!\n");
     SetError(-EINVAL);
     return;
   }
@@ -346,25 +354,25 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
     CHECK_EMPTY_SETERRNO(value, md_params, KEY_MD_ROI_RECT, 0)
     rects = StringToImageRect(value);
     if (rects.empty()) {
-      LOG("ERROR: MD: param missing rects\n");
+      RKMEDIA_LOGE("MD: param missing rects\n");
       SetError(-EINVAL);
       return;
     }
 
     if ((int)rects.size() != roi_cnt) {
-      LOG("ERROR: MD: rects cnt != roi cnt.\n");
+      RKMEDIA_LOGE("MD: rects cnt != roi cnt.\n");
       SetError(-EINVAL);
       return;
     }
   }
 
-  LOG("MD: param: sensitivity=%d\n", Sensitivity);
-  LOG("MD: param: is_single_ref=%d\n", is_single_ref);
-  LOG("MD: param: orignale width=%d\n", ori_width);
-  LOG("MD: param: orignale height=%d\n", ori_height);
-  LOG("MD: param: down scale width=%d\n", ds_width);
-  LOG("MD: param: down scale height=%d\n", ds_height);
-  LOG("MD: param: roi_cnt=%d\n", roi_cnt);
+  RKMEDIA_LOGI("MD: param: sensitivity=%d\n", Sensitivity);
+  RKMEDIA_LOGI("MD: param: is_single_ref=%d\n", is_single_ref);
+  RKMEDIA_LOGI("MD: param: orignale width=%d\n", ori_width);
+  RKMEDIA_LOGI("MD: param: orignale height=%d\n", ori_height);
+  RKMEDIA_LOGI("MD: param: down scale width=%d\n", ds_width);
+  RKMEDIA_LOGI("MD: param: down scale height=%d\n", ds_height);
+  RKMEDIA_LOGI("MD: param: roi_cnt=%d\n", roi_cnt);
 
   // We need to create roi_cnt + 1 ROI_IN, and the last one sets
   // the flag to 0 to tell the motion detection interface that
@@ -372,17 +380,17 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   roi_in = (ROI_INFO *)malloc((roi_cnt + 1) * sizeof(ROI_INFO));
   memset(roi_in, 0, (roi_cnt + 1) * sizeof(ROI_INFO));
   for (int i = 0; i < roi_cnt; i++) {
-    if ((rects[i].x < 0) || (rects[i].x > ds_width) ||
-        (rects[i].y < 0) || (rects[i].y > ds_height) ||
-        ((rects[i].x + rects[i].w) > ds_width) ||
+    if ((rects[i].x < 0) || (rects[i].x > ds_width) || (rects[i].y < 0) ||
+        (rects[i].y > ds_height) || ((rects[i].x + rects[i].w) > ds_width) ||
         ((rects[i].y + rects[i].h) > ds_height)) {
-      LOG("ERROR: MD: Invalid new rect:<%d, %d, %d, %d> for Image:%dx%d...\n",
-        rects[i].x, rects[i].y, rects[i].w, rects[i].h, ds_width, ds_height);
+      RKMEDIA_LOGE("MD: Invalid new rect:<%d, %d, %d, %d> for Image:%dx%d...\n",
+                   rects[i].x, rects[i].y, rects[i].w, rects[i].h, ds_width,
+                   ds_height);
       SetError(-EINVAL);
       return;
     }
-    LOG("### ROI RECT[i]:(%d,%d,%d,%d)\n", rects[i].x, rects[i].y, rects[i].w,
-         rects[i].h);
+    RKMEDIA_LOGI("### ROI RECT[i]:(%d,%d,%d,%d)\n", rects[i].x, rects[i].y,
+                 rects[i].w, rects[i].h);
     roi_in[i].flag = 1;
     roi_in[i].up_left[0] = rects[i].y;                 // y
     roi_in[i].up_left[1] = rects[i].x;                 // x
@@ -396,16 +404,16 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   md_ctx = move_detection_init(ori_width, ori_height, ds_width, ds_height,
                                is_single_ref);
   if (!md_ctx) {
-    LOG("ERROR: MD: move_detection_init failed!.\n");
+    RKMEDIA_LOGE("MD: move_detection_init failed!.\n");
     SetError(-EINVAL);
     return;
   }
 
   if ((Sensitivity > 0) && (Sensitivity <= 100)) {
     if (move_detection_set_sensitivity(md_ctx, Sensitivity))
-      LOG("ERROR: MD: cfg sensitivity(%d) failed!\n", Sensitivity);
+      RKMEDIA_LOGE("MD: cfg sensitivity(%d) failed!\n", Sensitivity);
     else
-      LOG("MD: init ctx with sensitivity(%d)...\n", Sensitivity);
+      RKMEDIA_LOGI("MD: init ctx with sensitivity(%d)...\n", Sensitivity);
   }
 
   SlotMap sm;
@@ -415,7 +423,7 @@ MoveDetectionFlow::MoveDetectionFlow(const char *param) {
   sm.mode_when_full = InputMode::DROPFRONT;
   sm.input_maxcachenum.push_back(3);
   if (!InstallSlotMap(sm, "MDFlow", 20)) {
-    LOG("Fail to InstallSlotMap for MDFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for MDFlow\n");
     SetError(-EINVAL);
     return;
   }
@@ -446,13 +454,13 @@ int MoveDetectionFlow::Control(unsigned long int request, ...) {
   case S_MD_ROI_ENABLE: {
     auto value = va_arg(ap, int);
     roi_enable = value ? 1 : 0;
-    LOG("MD: %s roi function!\n", roi_enable ? "Enable" : "Disable");
+    RKMEDIA_LOGI("MD: %s roi function!\n", roi_enable ? "Enable" : "Disable");
     break;
   }
   case S_MD_SENSITIVITY: {
     Sensitivity = va_arg(ap, int);
     if ((Sensitivity < 1) || (Sensitivity > 100)) {
-      LOG("ERROR: MD: invalid sensitivity value!\n");
+      RKMEDIA_LOGE("MD: invalid sensitivity value!\n");
       break;
     }
 
@@ -463,11 +471,11 @@ int MoveDetectionFlow::Control(unsigned long int request, ...) {
     ImageRect *new_rects = va_arg(ap, ImageRect *);
     int new_rects_cnt = va_arg(ap, int);
     assert(new_rects && (new_rects_cnt > 0));
-    LOG("MD: new roi image rects cnt:%d\n", new_rects_cnt);
+    RKMEDIA_LOGI("MD: new roi image rects cnt:%d\n", new_rects_cnt);
     md_roi_mtx.lock();
     if (new_roi.size() > 0) {
       new_roi.clear();
-      LOG("WARN: MD: Over write last rects cfg!\n");
+      RKMEDIA_LOGW("MD: Over write last rects cfg!\n");
     }
 
     for (int i = 0; i < new_rects_cnt; i++) {
@@ -475,15 +483,15 @@ int MoveDetectionFlow::Control(unsigned long int request, ...) {
           (new_rects[i].y < 0) || (new_rects[i].y > ds_height) ||
           ((new_rects[i].x + new_rects[i].w) > ds_width) ||
           ((new_rects[i].y + new_rects[i].h) > ds_height)) {
-        LOG("ERROR: MD: Invalid new rect:<%d, %d, %d, %d> for Image:%dx%d...\n",
-          new_rects[i].x, new_rects[i].y,
-          new_rects[i].w, new_rects[i].h,
-          ds_width, ds_height);
+        RKMEDIA_LOGE(
+            "MD: Invalid new rect:<%d, %d, %d, %d> for Image:%dx%d...\n",
+            new_rects[i].x, new_rects[i].y, new_rects[i].w, new_rects[i].h,
+            ds_width, ds_height);
         ret = -1;
         continue;
       }
-      LOG("MD: ROI RECT[%d]:(%d,%d,%d,%d)\n", i, new_rects[i].x, new_rects[i].y,
-          new_rects[i].w, new_rects[i].h);
+      RKMEDIA_LOGI("MD: ROI RECT[%d]:(%d,%d,%d,%d)\n", i, new_rects[i].x,
+                   new_rects[i].y, new_rects[i].w, new_rects[i].h);
       new_roi.push_back(std::move(new_rects[i]));
     }
     md_roi_mtx.unlock();
@@ -492,7 +500,7 @@ int MoveDetectionFlow::Control(unsigned long int request, ...) {
   }
   default:
     ret = -1;
-    LOG("ERROR: MD: not support type:%d\n", request);
+    RKMEDIA_LOGE("MD: not support type:%d\n", (int)request);
     break;
   }
 

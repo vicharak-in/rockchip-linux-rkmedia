@@ -42,76 +42,76 @@ static int read_yuv_image(void *buf, int fd, ImageInfo &info) {
   buf_v = buf_u + hor_stride * ver_stride / 4;
 
   switch (fmt) {
-    case PIX_FMT_NV12 : {
-      for (row = 0; row < height; row++) {
-        read_size = read(fd, buf_y + row * hor_stride, width);
-        if (read_size != width) {
-          if (read_size == 0)
-            printf("read the end of yuv file.\n");
-          else
-            printf("read ori yuv file luma failed\n");
+  case PIX_FMT_NV12: {
+    for (row = 0; row < height; row++) {
+      read_size = read(fd, buf_y + row * hor_stride, width);
+      if (read_size != width) {
+        if (read_size == 0)
+          printf("read the end of yuv file.\n");
+        else
+          printf("read ori yuv file luma failed\n");
 
-          ret  = -1;
-          goto err;
-        }
+        ret = -1;
+        goto err;
       }
+    }
 
-      for (row = 0; row < height / 2; row++) {
-        read_size = read(fd, buf_u + row * hor_stride, width);
-        if (read_size != width) {
-          printf("read ori yuv file cb failed\n");
-          ret  = -1;
-          goto err;
-        }
+    for (row = 0; row < height / 2; row++) {
+      read_size = read(fd, buf_u + row * hor_stride, width);
+      if (read_size != width) {
+        printf("read ori yuv file cb failed\n");
+        ret = -1;
+        goto err;
       }
-    } break;
-    case PIX_FMT_YUV420P : {
-      for (row = 0; row < height; row++) {
-        read_size = read(fd, buf_y + row * hor_stride, width);
-        if (read_size != width) {
-          if (read_size == 0)
-            printf("read the end of yuv file.\n");
-          else
-            printf("read ori yuv file luma failed\n");
+    }
+  } break;
+  case PIX_FMT_YUV420P: {
+    for (row = 0; row < height; row++) {
+      read_size = read(fd, buf_y + row * hor_stride, width);
+      if (read_size != width) {
+        if (read_size == 0)
+          printf("read the end of yuv file.\n");
+        else
+          printf("read ori yuv file luma failed\n");
 
-          ret  = -1;
-          goto err;
-        }
+        ret = -1;
+        goto err;
       }
+    }
 
-      for (row = 0; row < height / 2; row++) {
-        read_size = read(fd, buf_u + row * hor_stride / 2, width / 2);
-        if (read_size != width / 2) {
-          printf("read ori yuv file cb failed\n");
-          ret  = -1;
-          goto err;
-        }
+    for (row = 0; row < height / 2; row++) {
+      read_size = read(fd, buf_u + row * hor_stride / 2, width / 2);
+      if (read_size != width / 2) {
+        printf("read ori yuv file cb failed\n");
+        ret = -1;
+        goto err;
       }
+    }
 
-      for (row = 0; row < height / 2; row++) {
-        read_size = read(fd, buf_v + row * hor_stride / 2, width / 2);
-        if (read_size != width / 2) {
-          printf("read ori yuv file cr failed\n");
-          ret  = -1;
-          goto err;
-        }
+    for (row = 0; row < height / 2; row++) {
+      read_size = read(fd, buf_v + row * hor_stride / 2, width / 2);
+      if (read_size != width / 2) {
+        printf("read ori yuv file cr failed\n");
+        ret = -1;
+        goto err;
       }
-    } break;
-    case PIX_FMT_ARGB8888 : {
-      for (row = 0; row < height; row++) {
-        read_size = read(fd, buf_y + row * hor_stride * 4, width * 4);
-      }
-    } break;
-    case PIX_FMT_YUYV422 :
-    case PIX_FMT_UYVY422 : {
-      for (row = 0; row < height; row++) {
-        read_size = read(fd, buf_y + row * hor_stride, width * 2);
-      }
-    } break;
-    default : {
-      printf("read image do not support fmt %d\n", fmt);
-      ret = -1;
-    } break;
+    }
+  } break;
+  case PIX_FMT_ARGB8888: {
+    for (row = 0; row < height; row++) {
+      read_size = read(fd, buf_y + row * hor_stride * 4, width * 4);
+    }
+  } break;
+  case PIX_FMT_YUYV422:
+  case PIX_FMT_UYVY422: {
+    for (row = 0; row < height; row++) {
+      read_size = read(fd, buf_y + row * hor_stride, width * 2);
+    }
+  } break;
+  default: {
+    printf("read image do not support fmt %d\n", fmt);
+    ret = -1;
+  } break;
   }
 
 err:
@@ -255,7 +255,7 @@ int main(int argc, char **argv) {
     // if there is extra data, write it first
     ssize_t count = write(output_file_fd, extra_data, extra_data_size);
     if (count < 0) {
-      LOG("write extra data failed\n");
+      RKMEDIA_LOGI("write extra data failed\n");
     }
   }
 
@@ -287,7 +287,7 @@ int main(int argc, char **argv) {
             (int)out_len);
     ssize_t count = write(output_file_fd, dst_buffer->GetPtr(), out_len);
     if (count < 0) {
-      LOG("write dst buffer, failed\n");
+      RKMEDIA_LOGI("write dst buffer, failed\n");
     }
   }
 

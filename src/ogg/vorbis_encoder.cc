@@ -75,18 +75,18 @@ bool VorbisEncoder::InitConfig(const MediaConfig &cfg) {
   int ret =
       vorbis_encode_init_vbr(&vi, si.channels, si.sample_rate, ac.quality);
   if (ret) {
-    LOG("vorbis_encode_init_vbr failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("vorbis_encode_init_vbr failed, ret = %d\n", ret);
     return false;
   }
   vorbis_comment_add_tag(&vc, "Encoder", GetCodecName());
   ret = vorbis_analysis_init(&vd, &vi);
   if (ret) {
-    LOG("vorbis_analysis_init failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("vorbis_analysis_init failed, ret = %d\n", ret);
     return false;
   }
   ret = vorbis_block_init(&vd, &vb);
   if (ret) {
-    LOG("vorbis_block_init failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("vorbis_block_init failed, ret = %d\n", ret);
     return false;
   }
   ogg_packet header;
@@ -95,7 +95,7 @@ bool VorbisEncoder::InitConfig(const MediaConfig &cfg) {
   ret =
       vorbis_analysis_headerout(&vd, &vc, &header, &header_comm, &header_code);
   if (ret) {
-    LOG("vorbis_analysis_headerout failed, ret = %d\n", ret);
+    RKMEDIA_LOGI("vorbis_analysis_headerout failed, ret = %d\n", ret);
     return false;
   }
   std::list<ogg_packet> ogg_packets;
@@ -107,7 +107,7 @@ bool VorbisEncoder::InitConfig(const MediaConfig &cfg) {
     extradata->SetUserFlag(gBufferFlag);
     SetExtraData(extradata);
   } else {
-    LOG("PackOggPackets failed\n");
+    RKMEDIA_LOGI("PackOggPackets failed\n");
     return false;
   }
   return AudioEncoder::InitConfig(cfg);
@@ -118,7 +118,7 @@ int VorbisEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
   auto sample_buffer = std::static_pointer_cast<SampleBuffer>(input);
   SampleInfo &info = sample_buffer->GetSampleInfo();
   if (info.channels != 2 || info.fmt != SAMPLE_FMT_S16) {
-    LOG("libvorbisenc only support s16 with 2ch\n");
+    RKMEDIA_LOGI("libvorbisenc only support s16 with 2ch\n");
     return -1;
   }
 
@@ -126,12 +126,12 @@ int VorbisEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
   int sample_num = sample_buffer->GetSamples();
   if (sample_num == 0) {
     if ((ret = vorbis_analysis_wrote(&vd, 0)) < 0) {
-      LOG("vorbis_analysis_wrote 0 failed, ret = %d\n", ret);
+      RKMEDIA_LOGI("vorbis_analysis_wrote 0 failed, ret = %d\n", ret);
       return -1;
     }
   } else {
     if (cached_ogg_packets.size() > MAX_CACHED_SIZE) {
-      LOG("cached packets must be page out first\n");
+      RKMEDIA_LOGI("cached packets must be page out first\n");
       return -1;
     }
     int i;
@@ -149,7 +149,7 @@ int VorbisEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
 
     /* tell the library how much we actually submitted */
     if ((ret = vorbis_analysis_wrote(&vd, i)) < 0) {
-      LOG("vorbis_analysis_wrote %d failed, ret = %d\n", i, ret);
+      RKMEDIA_LOGI("vorbis_analysis_wrote %d failed, ret = %d\n", i, ret);
       return -1;
     }
   }
@@ -166,8 +166,8 @@ int VorbisEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
         return -1;
       }
       std::shared_ptr<MediaBuffer> buffer =
-        std::make_shared<MediaBuffer>(new_packet->packet, new_packet->bytes, -1, new_packet,
-                     __ogg_packet_free);
+          std::make_shared<MediaBuffer>(new_packet->packet, new_packet->bytes,
+                                        -1, new_packet, __ogg_packet_free);
       if (!buffer) {
         errno = ENOMEM;
         return -1;
@@ -179,13 +179,13 @@ int VorbisEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
       cached_ogg_packets.push_back(buffer);
     }
     if (ret < 0) {
-      LOG("vorbis_bitrate_flushpacket failed\n");
+      RKMEDIA_LOGI("vorbis_bitrate_flushpacket failed\n");
       break;
     }
   }
 
   if (ret < 0) {
-    LOG("error getting available ogg packets, ret = %d\n", ret);
+    RKMEDIA_LOGI("error getting available ogg packets, ret = %d\n", ret);
     return -1;
   }
 

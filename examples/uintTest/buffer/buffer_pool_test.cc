@@ -4,11 +4,11 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -21,11 +21,11 @@ void release_pool_buffer(easymedia::BufferPool *pool) {
   while (i-- > 0) {
     auto mb1 = pool->GetBuffer();
     if (mb1) {
-      LOG("T1: get msg: ptr:%p, fd:%d, size:%zu\n",
-        mb1->GetPtr(), mb1->GetFD(), mb1->GetSize());
+      RKMEDIA_LOGI("T1: get msg: ptr:%p, fd:%d, size:%zu\n", mb1->GetPtr(),
+                   mb1->GetFD(), mb1->GetSize());
       easymedia::usleep(50000);
     } else {
-      LOG("ERROR: T1: get msb failed!\n");
+      RKMEDIA_LOGE("T1: get msb failed!\n");
       pool->DumpInfo();
     }
   }
@@ -34,22 +34,25 @@ void release_pool_buffer(easymedia::BufferPool *pool) {
 int main() {
   LOG_INIT();
 
-  easymedia::BufferPool pool(10, 1024, easymedia::MediaBuffer::MemType::MEM_COMMON);;
+  easymedia::BufferPool pool(10, 1024,
+                             easymedia::MediaBuffer::MemType::MEM_COMMON);
+  ;
 
-  LOG("#001 Dump Info....\n");
+  RKMEDIA_LOGI("#001 Dump Info....\n");
   pool.DumpInfo();
 
-  LOG("--> Alloc 1 buffer from buffer pool\n");
+  RKMEDIA_LOGI("--> Alloc 1 buffer from buffer pool\n");
   auto mb0 = pool.GetBuffer();
-  LOG("--> mb0: ptr:%p, fd:%d, size:%zu\n", mb0->GetPtr(), mb0->GetFD(), mb0->GetSize());
+  RKMEDIA_LOGI("--> mb0: ptr:%p, fd:%d, size:%zu\n", mb0->GetPtr(),
+               mb0->GetFD(), mb0->GetSize());
 
-  LOG("#002 Dump Info....\n");
+  RKMEDIA_LOGI("#002 Dump Info....\n");
   pool.DumpInfo();
 
-  LOG("--> reset mb0\n");
+  RKMEDIA_LOGI("--> reset mb0\n");
   mb0.reset();
 
-  LOG("#003 Dump Info....\n");
+  RKMEDIA_LOGI("#003 Dump Info....\n");
   pool.DumpInfo();
 
   std::thread *thread = new std::thread(release_pool_buffer, &pool);
@@ -59,21 +62,21 @@ int main() {
   while (i-- > 0) {
     mb0 = pool.GetBuffer();
     if (mb0) {
-      LOG("T0: get msg: ptr:%p, fd:%d, size:%zu\n",
-        mb0->GetPtr(), mb0->GetFD(), mb0->GetSize());
+      RKMEDIA_LOGI("T0: get msg: ptr:%p, fd:%d, size:%zu\n", mb0->GetPtr(),
+                   mb0->GetFD(), mb0->GetSize());
       easymedia::usleep(50000);
     } else {
-      LOG("ERROR: T0: get msb failed!\n");
+      RKMEDIA_LOGE("T0: get msb failed!\n");
       pool.DumpInfo();
     }
 
     list.push_back(mb0);
     if (list.size() >= 10) {
-      LOG("--> List size:%zu, sleep 5s....\n", list.size());
+      RKMEDIA_LOGI("--> List size:%zu, sleep 5s....\n", list.size());
       easymedia::usleep(5000000);
       int j = 0;
       while (list.size()) {
-        LOG("--> (%d) Free 1 msg from list, sleep 5s...\n", j++);
+        RKMEDIA_LOGI("--> (%d) Free 1 msg from list, sleep 5s...\n", j++);
         list.pop_front();
         easymedia::usleep(5000000);
       }
@@ -81,7 +84,6 @@ int main() {
   }
 
   thread->join();
-  LOG("===== FINISH ====\n");
+  RKMEDIA_LOGI("===== FINISH ====\n");
   return 0;
 }
-

@@ -4,35 +4,36 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
 #include "buffer.h"
 #include "encoder.h"
-#include "flow.h"
 #include "filter.h"
+#include "flow.h"
+#include "image.h"
 #include "key_string.h"
 #include "media_config.h"
 #include "media_type.h"
 #include "message.h"
 #include "stream.h"
 #include "utils.h"
-#include "image.h"
 
 namespace easymedia {
 
 class SoftProcess : public Filter {
 public:
   SoftProcess(const char *param);
-  virtual ~ SoftProcess() = default;
+  virtual ~SoftProcess() = default;
   static const char *GetFilterName() { return "softprocess"; }
   virtual int Process(std::shared_ptr<MediaBuffer> input,
                       std::shared_ptr<MediaBuffer> &output) override;
+
 private:
 };
 
@@ -45,15 +46,16 @@ SoftProcess::SoftProcess(const char *param) {
 }
 
 int SoftProcess::Process(std::shared_ptr<MediaBuffer> input,
-                        std::shared_ptr<MediaBuffer> &output) {
+                         std::shared_ptr<MediaBuffer> &output) {
   int w = 400;
   int h = 400;
   ImageRect screen_rect;
   srand((unsigned)time(0));
-  screen_rect = { 0, 0, w, h};
+  screen_rect = {0, 0, w, h};
   auto buffer = std::static_pointer_cast<easymedia::ImageBuffer>(input);
-  for(int j = 0; j <  h; j++)
-    memset(((unsigned int *)buffer->GetPtr() + j * buffer->GetWidth()), rand()%255, w);
+  for (int j = 0; j < h; j++)
+    memset(((unsigned int *)buffer->GetPtr() + j * buffer->GetWidth()),
+           rand() % 255, w);
   output = input;
   return 0;
 }
@@ -63,7 +65,6 @@ const char *FACTORY(SoftProcess)::ExpectedInputDataType() {
   return TYPE_ANYTHING;
 }
 const char *FACTORY(SoftProcess)::OutPutDataType() { return TYPE_ANYTHING; }
-
 }
 
 static bool quit = false;
@@ -77,9 +78,11 @@ static char optstr[] = "?:i:o:w:h:f:t:m:a";
 static void print_usage(char *name) {
   printf("usage example for normal mode: \n");
   printf("%s -i /dev/video0 -o /data/photo0/main -w 1920 -h 1080 "
-         "-f nv12 -t jpeg\n", name);
+         "-f nv12 -t jpeg\n",
+         name);
   printf("%s -i /dev/video1 -o /data/photo1/sub -w 1920 -h 1080 "
-         "-f nv12 -t jpeg\n", name);
+         "-f nv12 -t jpeg\n",
+         name);
   printf("#[-f] pix formate support list:\n\tyuyv422\n\tnv12\n");
   printf("#[-a] do aysnc test mode\n");
 }
@@ -92,7 +95,7 @@ int main(int argc, char **argv) {
   std::string pixel_format;
   int video_fps = 30;
   std::string video_enc_type = VIDEO_H264;
-  int test_mode = 0; //0 for normal,1 for stressTest.
+  int test_mode = 0; // 0 for normal,1 for stressTest.
   int test_async_mode = 0;
 
   std::string output_path;
@@ -162,8 +165,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for pixformat
-  if((pixel_format == "yuyv422") || (pixel_format == "nv12"))
+  // add prefix for pixformat
+  if ((pixel_format == "yuyv422") || (pixel_format == "nv12"))
     pixel_format = "image:" + pixel_format;
   else {
     printf("ERROR: image type:%s not support!\n", pixel_format.c_str());
@@ -171,8 +174,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  //add prefix for encoder type
-  if ((video_enc_type =="h264") || (video_enc_type == "h265"))
+  // add prefix for encoder type
+  if ((video_enc_type == "h264") || (video_enc_type == "h265"))
     video_enc_type = "video:" + video_enc_type;
   else if (video_enc_type == "jpeg")
     video_enc_type = "image:" + video_enc_type;
@@ -189,7 +192,7 @@ int main(int argc, char **argv) {
   easymedia::REFLECTOR(Stream)::DumpFactories();
 
   if (strstr(input_path.c_str(), "/dev/video") ||
-    strstr(input_path.c_str(), "rkispp")) {
+      strstr(input_path.c_str(), "rkispp")) {
     printf("INFO: reading yuv frome camera!\n");
     local_file_flag = 0;
   } else {
@@ -200,7 +203,7 @@ int main(int argc, char **argv) {
 RESTART:
 
   if (local_file_flag) {
-    //Reading yuv from file.
+    // Reading yuv from file.
     flow_name = "file_read_flow";
     flow_param = "";
     ImageInfo info;
@@ -214,22 +217,24 @@ RESTART:
 
     flow_param.append(easymedia::to_param_string(info, 1).c_str());
     PARAM_STRING_APPEND(flow_param, KEY_PATH, input_path);
-    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "re"); // read and close-on-exec
+    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                        "re"); // read and close-on-exec
     PARAM_STRING_APPEND_TO(flow_param, KEY_FPS, video_fps);
     PARAM_STRING_APPEND_TO(flow_param, KEY_LOOP_TIME, 0);
-    LOG("\n#FileRead flow param:\n%s\n", flow_param.c_str());
+    RKMEDIA_LOGI("\n#FileRead flow param:\n%s\n", flow_param.c_str());
 
     video_read_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
         flow_name.c_str(), flow_param.c_str());
     if (!video_read_flow) {
-      LOG("Create flow %s failed\n", flow_name.c_str());
+      RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
       exit(EXIT_FAILURE);
     }
   } else {
-    //Reading yuv from camera
+    // Reading yuv from camera
     flow_name = "source_stream";
     flow_param = "";
-    vir_width = UPALIGNTO(video_width, 8);;
+    vir_width = UPALIGNTO(video_width, 8);
+    ;
     vir_height = UPALIGNTO(video_height, 8);
     PARAM_STRING_APPEND(flow_param, KEY_NAME, "v4l2_capture_stream");
     PARAM_STRING_APPEND(flow_param, KEK_THREAD_SYNC_MODEL, KEY_SYNC);
@@ -238,9 +243,12 @@ RESTART:
     stream_param = "";
     PARAM_STRING_APPEND_TO(stream_param, KEY_USE_LIBV4L2, 1);
     PARAM_STRING_APPEND(stream_param, KEY_DEVICE, input_path);
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE, KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
-    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE, KEY_V4L2_M_TYPE(MEMORY_DMABUF));
-    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES, 4); // if not set, default is 2
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_CAP_TYPE,
+                        KEY_V4L2_C_TYPE(VIDEO_CAPTURE));
+    PARAM_STRING_APPEND(stream_param, KEY_V4L2_MEM_TYPE,
+                        KEY_V4L2_M_TYPE(MEMORY_DMABUF));
+    PARAM_STRING_APPEND_TO(stream_param, KEY_FRAMES,
+                           4); // if not set, default is 2
     PARAM_STRING_APPEND(stream_param, KEY_OUTPUTDATATYPE, pixel_format);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_WIDTH, video_width);
     PARAM_STRING_APPEND_TO(stream_param, KEY_BUFFER_HEIGHT, video_height);
@@ -308,9 +316,10 @@ RESTART:
   flow_param = "";
   PARAM_STRING_APPEND(flow_param, KEY_FILE_PREFIX, output_path.c_str());
   PARAM_STRING_APPEND(flow_param, KEY_FILE_SUFFIX, ".jpeg");
-  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "w+"); // read and close-on-exec
+  PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                      "w+"); // read and close-on-exec
   PARAM_STRING_APPEND(flow_param, KEY_SAVE_MODE, "single_frame");
-  //PARAM_STRING_APPEND(flow_param, KEY_SAVE_MODE, "continuous_frame");
+  // PARAM_STRING_APPEND(flow_param, KEY_SAVE_MODE, "continuous_frame");
   printf("\n#FileWrite:\n%s\n", flow_param.c_str());
   video_save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
@@ -335,17 +344,18 @@ RESTART:
     flow_param = easymedia::JoinFlowParam(flow_param, 1, filter_param);
     printf("\n#Rkvirtual Filter flow param:\n%s\n", flow_param.c_str());
     soft_process_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
-      flow_name.c_str(), flow_param.c_str());
+        flow_name.c_str(), flow_param.c_str());
     if (!soft_process_flow) {
-    fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
-    exit(EXIT_FAILURE);
+      fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
+      exit(EXIT_FAILURE);
     }
 
     flow_name = "file_write_flow";
     flow_param = "";
     PARAM_STRING_APPEND(flow_param, KEY_FILE_PREFIX, output_path.c_str());
     PARAM_STRING_APPEND(flow_param, KEY_FILE_SUFFIX, ".yuv");
-    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE, "w+"); // read and close-on-exec
+    PARAM_STRING_APPEND(flow_param, KEY_OPEN_MODE,
+                        "w+"); // read and close-on-exec
     PARAM_STRING_APPEND(flow_param, KEY_SAVE_MODE, "single_frame");
     printf("\n#FileWrite:\n%s\n", flow_param.c_str());
     soft_save_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
@@ -364,16 +374,16 @@ RESTART:
     video_read_flow->AddDownFlow(soft_process_flow, 0, 0);
   }
 
-  LOG("%s initial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s initial finish\n", argv[0]);
 
-  while(!test_mode && !quit) {
-      easymedia::msleep(100);
-      printf("Please enter the number of times you want to take a snap [0-9]\n");
-      char count_c = getchar();
-      if (count_c > '0' && count_c <= '9') {
-        int count = count_c - '0';
-        through_guard_flow->Control(easymedia::S_ALLOW_THROUGH_COUNT, &count);
-      }
+  while (!test_mode && !quit) {
+    easymedia::msleep(100);
+    printf("Please enter the number of times you want to take a snap [0-9]\n");
+    char count_c = getchar();
+    if (count_c > '0' && count_c <= '9') {
+      int count = count_c - '0';
+      through_guard_flow->Control(easymedia::S_ALLOW_THROUGH_COUNT, &count);
+    }
   }
 
   if (test_mode) {
@@ -398,7 +408,7 @@ RESTART:
   video_encoder_flow->RemoveDownFlow(video_save_flow);
   video_encoder_flow.reset();
   video_save_flow.reset();
-  LOG("%s deinitial finish\n", argv[0]);
+  RKMEDIA_LOGI("%s deinitial finish\n", argv[0]);
 
   if (test_mode && !quit) {
     printf("=> Stress Test: resatr\n");
@@ -407,5 +417,3 @@ RESTART:
 
   return 0;
 }
-
-

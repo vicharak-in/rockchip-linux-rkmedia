@@ -116,7 +116,7 @@ bool SetV4L2IoFunction(v4l2_io *vio, bool use_libv4l2) {
 #ifdef HAVE_LIBV4L2
     SET_WRAPPERS(v4l2_);
 #else
-    LOG("libv4l2 is not configured.\n");
+    RKMEDIA_LOGI("libv4l2 is not configured.\n");
     return false;
 #endif
   } else {

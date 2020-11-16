@@ -10,6 +10,11 @@
 #include "image.h"
 #include "key_string.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 3
+
 namespace easymedia {
 
 static bool do_decode(Flow *f, MediaBufferVector &input_vector);
@@ -45,7 +50,7 @@ VideoDecoderFlow::VideoDecoderFlow(const char *param)
   decoder = REFLECTOR(Decoder)::Create<VideoDecoder>(decoder_name,
                                                      decode_param.c_str());
   if (!decoder) {
-    LOG("Create decoder %s failed\n", decoder_name);
+    RKMEDIA_LOGI("Create decoder %s failed\n", decoder_name);
     SetError(-EINVAL);
     return;
   }
@@ -62,7 +67,7 @@ VideoDecoderFlow::VideoDecoderFlow(const char *param)
   sm.output_slots.push_back(0);
   sm.process = do_decode;
   if (!InstallSlotMap(sm, "VideoDecoderFlow", -1)) {
-    LOG("Fail to InstallSlotMap for VideoDecoderFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for VideoDecoderFlow\n");
     SetError(-EINVAL);
     return;
   }
@@ -85,7 +90,7 @@ VideoDecoderFlow::VideoDecoderFlow(const char *param)
 
   is_single_frame_out = false;
   if (!auto_split && (tout < 0)) {
-    LOG("MPP Decoder: Enable single frame output mode!\n");
+    RKMEDIA_LOGI("MPP Decoder: Enable single frame output mode!\n");
     is_single_frame_out = true;
   }
 

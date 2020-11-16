@@ -53,18 +53,18 @@ RockFaceDetect::RockFaceDetect(const char *param) : callback_(nullptr) {
     return;
   }
   if (params[KEY_INPUTDATATYPE].empty()) {
-    LOG("lost input pixel format!\n");
+    RKMEDIA_LOGI("lost input pixel format!\n");
     return;
   } else {
     pixel_fmt_ = StrToRockFacePixelFMT(params[KEY_INPUTDATATYPE].c_str());
     if (pixel_fmt_ >= ROCKFACE_PIXEL_FORMAT_MAX) {
-      LOG("input pixel format not support yet!\n");
+      RKMEDIA_LOGI("input pixel format not support yet!\n");
       return;
     }
   }
   std::string license_path = DEFAULT_LIC_PATH;
   if (params[KEY_PATH].empty()) {
-    LOG("use default license file path:%s\n", license_path.c_str());
+    RKMEDIA_LOGI("use default license file path:%s\n", license_path.c_str());
   } else {
     license_path = params[KEY_PATH];
   }
@@ -96,11 +96,11 @@ RockFaceDetect::RockFaceDetect(const char *param) : callback_(nullptr) {
 
   ret = rockface_init_detector2(face_handle_, FACE_DETECT_DATA_VERSION);
   if (ret != ROCKFACE_RET_SUCCESS) {
-    LOG("rockface_init_detector2 failed. ret = %d\n", ret);
+    RKMEDIA_LOGI("rockface_init_detector2 failed. ret = %d\n", ret);
     return;
   }
   if (authorized_result_.status != SUCCESS)
-    LOG("rockface detect authorize failed.\n");
+    RKMEDIA_LOGI("rockface detect authorize failed.\n");
 }
 
 RockFaceDetect::~RockFaceDetect() {
@@ -136,15 +136,16 @@ bool RockFaceDetect::FaceDetect(std::shared_ptr<easymedia::ImageBuffer> image,
       return false;
     *face_array = det_array;
   }
-  LOGD("rockface_detect cost time %lldus\n", cost_time.GetAndReset());
+  RKMEDIA_LOGD("rockface_detect cost time %lldus\n", cost_time.GetAndReset());
 
   rockface_det_array_t track_array;
-  ret = rockface_autotrack(face_handle_, &input_image, 4, face_array, &track_array,
-                           auto_track);
+  ret = rockface_autotrack(face_handle_, &input_image, 4, face_array,
+                           &track_array, auto_track);
   if (!CheckFaceReturn("rockface_autotrack", ret))
     return false;
   *face_array = track_array;
-  LOGD("rockface_autotrack cost time %lldus\n", cost_time.GetAndReset());
+  RKMEDIA_LOGD("rockface_autotrack cost time %lldus\n",
+               cost_time.GetAndReset());
 
   frame_idx++;
   return true;
@@ -176,11 +177,11 @@ int RockFaceDetect::Process(std::shared_ptr<MediaBuffer> input,
   for (int i = 0; i < face_array.count; i++) {
     rockface_det_t *face = &(face_array.face[i]);
     if (face->score - score_threshod_ < 0) {
-      LOGD("Drop the face, score = %f\n", face->score);
+      RKMEDIA_LOGD("Drop the face, score = %f\n", face->score);
       continue;
     }
-    LOGD("face[%d] rect[%d, %d, %d, %d]\n", i, face->box.left, face->box.top,
-         face->box.right, face->box.bottom);
+    RKMEDIA_LOGD("face[%d] rect[%d, %d, %d, %d]\n", i, face->box.left,
+                 face->box.top, face->box.right, face->box.bottom);
 
     nn_result.face_info.base = *face;
     nn_list.push_back(nn_result);
@@ -205,7 +206,7 @@ bool RockFaceDetect::CheckFaceReturn(const char *fun, int ret) {
     check = false;
   }
   if (!check)
-    LOG("%s run failed, ret = %d\n", fun, ret);
+    RKMEDIA_LOGI("%s run failed, ret = %d\n", fun, ret);
   return check;
 }
 

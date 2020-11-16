@@ -46,15 +46,15 @@ bool OggMuxer::NewMuxerStream(
   int stream_index = stream_number + 1;
   stream_no = -1;
   if ((ret = ogg_stream_init(&os, stream_index))) {
-    LOG("ogg_stream_init failed, ret = %d", ret);
+    RKMEDIA_LOGI("ogg_stream_init failed, ret = %d", ret);
     return false;
   }
 
   if (enc_extra_data) {
     int r = 0;
     if (!(enc_extra_data->GetUserFlag() & MediaBuffer::kBuildinLibvorbisenc)) {
-      LOG("buildin muxer[liboggmuxer] only accept data from encoder "
-          "[libvorbisenc]\n");
+      RKMEDIA_LOGI("buildin muxer[liboggmuxer] only accept data from encoder "
+                   "[libvorbisenc]\n");
       return false;
     }
     void *extradata = enc_extra_data->GetPtr();
@@ -70,7 +70,7 @@ bool OggMuxer::NewMuxerStream(
       r = -1;
     }
     if (r) {
-      LOG("ogg get header failed, ret = %d\n", ret);
+      RKMEDIA_LOGI("ogg get header failed, ret = %d\n", ret);
       ogg_stream_clear(&os);
       streams.erase(stream_no);
       return false;
@@ -91,10 +91,10 @@ static size_t _write_ogg_page(const ogg_page &og,
   if (out) {
     int wlen = out->Write(og.header, 1, og.header_len);
     if (wlen != og.header_len)
-      LOG("write_ogg_page failed, %m\n");
+      RKMEDIA_LOGI("write_ogg_page failed, %m\n");
     wlen = out->Write(og.body, 1, og.body_len);
     if (wlen != og.body_len)
-      LOG("write_ogg_page failed, %m\n");
+      RKMEDIA_LOGI("write_ogg_page failed, %m\n");
   }
   size_t len = (og.header_len + og.body_len);
   void *buffer = malloc(len);
@@ -132,7 +132,7 @@ _gather_data(const std::list<std::pair<void *, size_t>> &pages,
 std::shared_ptr<MediaBuffer> OggMuxer::WriteHeader(int stream_no) {
   auto s = streams.find(stream_no);
   if (s == streams.end()) {
-    LOG("Invalid stream no : %d\n", stream_no);
+    RKMEDIA_LOGI("Invalid stream no : %d\n", stream_no);
     return nullptr;
   }
   ogg_stream_state &os = s->second;
@@ -162,7 +162,7 @@ OggMuxer::Write(std::shared_ptr<MediaBuffer> orig_data, int stream_no) {
   assert(orig_data->GetUserFlag() & MediaBuffer::kBuildinLibvorbisenc);
   auto s = streams.find(stream_no);
   if (s == streams.end()) {
-    LOG("Invalid stream no : %d\n", stream_no);
+    RKMEDIA_LOGI("Invalid stream no : %d\n", stream_no);
     return nullptr;
   }
   ogg_stream_state &os = s->second;
@@ -179,7 +179,7 @@ OggMuxer::Write(std::shared_ptr<MediaBuffer> orig_data, int stream_no) {
 
   int result = ogg_stream_packetin(&os, &op);
   if (result) {
-    LOG("ogg_stream_packetin failed, ret = %d\n", result);
+    RKMEDIA_LOGI("ogg_stream_packetin failed, ret = %d\n", result);
     return nullptr;
   }
 

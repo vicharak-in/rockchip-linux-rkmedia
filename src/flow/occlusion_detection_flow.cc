@@ -16,6 +16,11 @@
 #include "media_type.h"
 #include "message.h"
 
+#ifdef MOD_TAG
+#undef MOD_TAG
+#endif
+#define MOD_TAG 16
+
 /* Upper limit of the result stored in the list */
 #define MD_RESULT_MAX_CNT 10
 
@@ -68,20 +73,20 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
     return false;
 
   if (!odf->roi_in) {
-    LOG("ERROR: OD: process invalid arguments\n");
+    RKMEDIA_LOGE("OD: process invalid arguments\n");
     return false;
   }
 
   if (odf->update_mask & OD_UPDATE_ROI_RECTS) {
-    LOG("OD: Applying new roi rects...\n");
+    RKMEDIA_LOGI("OD: Applying new roi rects...\n");
     if (odf->roi_in) {
-      LOG("OD: free old roi info.\n");
+      RKMEDIA_LOGI("OD: free old roi info.\n");
       free(odf->roi_in);
     }
 
     for (int i = 0; i < (int)odf->new_roi.size(); i++) {
-      LOG("OD: New ROI RECT[%d]:(%d,%d,%d,%d)\n", i, odf->new_roi[i].x,
-          odf->new_roi[i].y, odf->new_roi[i].w, odf->new_roi[i].h);
+      RKMEDIA_LOGI("OD: New ROI RECT[%d]:(%d,%d,%d,%d)\n", i, odf->new_roi[i].x,
+                   odf->new_roi[i].y, odf->new_roi[i].w, odf->new_roi[i].h);
     }
     odf->roi_cnt = (int)odf->new_roi.size();
 
@@ -98,15 +103,15 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
   }
 
   if (odf->update_mask & OD_UPDATE_SENSITIVITY) {
-    LOG("OD: Applying new sensitivity(%d)\n", odf->sensitivity);
+    RKMEDIA_LOGI("OD: Applying new sensitivity(%d)\n", odf->sensitivity);
     if (occlusion_set_sensitivity(odf->detection_ctx, odf->sensitivity))
-      LOG("ERROR: OD: update sensitivity(%d) failed!\n", odf->sensitivity);
+      RKMEDIA_LOGE("OD: update sensitivity(%d) failed!\n", odf->sensitivity);
     odf->update_mask &= (~OD_UPDATE_SENSITIVITY);
   } else if (odf->update_mask & OD_UPDATE_ENABLE) {
-    LOG("OD: Applying new enable flag(%d)\n", odf->roi_enable);
-    if (occlusion_detection_enable_switch(odf->detection_ctx,
-          odf->roi_enable, odf->sensitivity)) {
-      LOG("ERROR: OD: update enable flag(%d) failed!\n", odf->roi_enable);
+    RKMEDIA_LOGI("OD: Applying new enable flag(%d)\n", odf->roi_enable);
+    if (occlusion_detection_enable_switch(odf->detection_ctx, odf->roi_enable,
+                                          odf->sensitivity)) {
+      RKMEDIA_LOGE("OD: update enable flag(%d) failed!\n", odf->roi_enable);
     }
     odf->update_mask &= (~OD_UPDATE_ENABLE);
   }
@@ -116,10 +121,10 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
         (odf->roi_in[i].up_left[0] >= odf->roi_in[i].down_right[0]) ||
         (odf->roi_in[i].down_right[1] > odf->img_width) ||
         (odf->roi_in[i].down_right[0] > odf->img_height)) {
-      LOG("ERROR: OD: invalid roi rect: <%d, %d, %d, %d> from Img(%dx%d)\n",
-          odf->roi_in[i].up_left[1], odf->roi_in[i].up_left[0],
-          odf->roi_in[i].down_right[1], odf->roi_in[i].down_right[0],
-          odf->img_width, odf->img_height);
+      RKMEDIA_LOGE("OD: invalid roi rect: <%d, %d, %d, %d> from Img(%dx%d)\n",
+                   odf->roi_in[i].up_left[1], odf->roi_in[i].up_left[0],
+                   odf->roi_in[i].down_right[1], odf->roi_in[i].down_right[0],
+                   odf->img_width, odf->img_height);
       // disable this rect.
       odf->roi_in[i].flag = 0;
       odf->roi_in[i].occlusion = 0;
@@ -129,8 +134,9 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
     odf->roi_in[i].occlusion = 0;
   }
 
-  if(occlusion_detection(odf->detection_ctx, src->GetPtr(), odf->roi_in, odf->roi_cnt)) {
-    LOG("ERROR: OD: occlusion detection process failed!\n");
+  if (occlusion_detection(odf->detection_ctx, src->GetPtr(), odf->roi_in,
+                          odf->roi_cnt)) {
+    RKMEDIA_LOGE("OD: occlusion detection process failed!\n");
     return false;
   }
 
@@ -143,7 +149,8 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
       info_cnt++;
 
   if (!odf->init_bg_sucess) {
-    LOGD("OD: Background frame negotiation:%d(should > 30)\n", odf->init_bg_interval);
+    RKMEDIA_LOGD("OD: Background frame negotiation:%d(should > 30)\n",
+                 odf->init_bg_interval);
     if (!info_cnt)
       odf->init_bg_interval++;
     else
@@ -151,22 +158,24 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
 
     if (odf->init_bg_interval > 30) {
       odf->init_bg_sucess = 1;
-      LOG("OD: Background frame negotiation sucess!\n");
+      RKMEDIA_LOGI("OD: Background frame negotiation sucess!\n");
     } else {
       if (!odf->init_bg_interval)
         occlusion_refresh_bg(odf->detection_ctx);
-      return true; //not ready yet.
+      return true; // not ready yet.
     }
   }
 
   if (info_cnt) {
-    LOGD("[OcclusionDetection]: Detected occlusion in %d areas, Total areas cnt: %d\n",
-         info_cnt, odf->roi_cnt);
+    RKMEDIA_LOGD("[OcclusionDetection]: Detected occlusion in %d areas, Total "
+                 "areas cnt: %d\n",
+                 info_cnt, odf->roi_cnt);
     {
-      EventParamPtr param =
-          std::make_shared<EventParam>(MSG_FLOW_EVENT_INFO_OCCLUSIONDETECTION, 0);
+      EventParamPtr param = std::make_shared<EventParam>(
+          MSG_FLOW_EVENT_INFO_OCCLUSIONDETECTION, 0);
       int odevent_size = sizeof(OcclusionDetectEvent);
-      OcclusionDetectEvent *odevent = (OcclusionDetectEvent *)malloc(odevent_size);
+      OcclusionDetectEvent *odevent =
+          (OcclusionDetectEvent *)malloc(odevent_size);
       if (!odevent) {
         LOG_NO_MEMORY();
         return false;
@@ -216,13 +225,13 @@ bool od_process(Flow *f, MediaBufferVector &input_vector) {
   }
 
 #ifndef NDEBUG
-  LOGD("[OcclusionDetection]: get info cnt:%02d, process call delta:%ld ms, "
-       "elapse %ld ms\n",
-       info_cnt,
-       tv0.tv_sec ? ((tv1.tv_sec - tv0.tv_sec) * 1000 +
-                     (tv1.tv_usec - tv0.tv_usec) / 1000)
-                  : 0,
-       (tv2.tv_sec - tv1.tv_sec) * 1000 + (tv2.tv_usec - tv1.tv_usec) / 1000);
+  RKMEDIA_LOGD(
+      "[OcclusionDetection]: get info cnt:%02d, process call delta:%ld ms, "
+      "elapse %ld ms\n",
+      info_cnt, tv0.tv_sec ? ((tv1.tv_sec - tv0.tv_sec) * 1000 +
+                              (tv1.tv_usec - tv0.tv_usec) / 1000)
+                           : 0,
+      (tv2.tv_sec - tv1.tv_sec) * 1000 + (tv2.tv_usec - tv1.tv_usec) / 1000);
 
   tv0.tv_sec = tv1.tv_sec;
   tv0.tv_usec = tv1.tv_usec;
@@ -235,14 +244,14 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
   std::list<std::string> separate_list;
   std::map<std::string, std::string> params;
   if (!ParseWrapFlowParams(param, params, separate_list)) {
-    LOG("ERROR: OD: flow param error!\n");
+    RKMEDIA_LOGE("OD: flow param error!\n");
     SetError(-EINVAL);
     return;
   }
 
   std::string key_name = params[KEY_NAME];
   if (key_name != "occlusion_detec") {
-    LOG("ERROR: OD: KEY_NAME:%s not match \"occlusion_detec\"!\n");
+    RKMEDIA_LOGE("OD: KEY_NAME:not match \"occlusion_detec\"!\n");
     SetError(-EINVAL);
     return;
   }
@@ -255,7 +264,7 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
   }
 
   if (!REFLECTOR(Flow)::IsMatch("occlusion_detec", rule.c_str())) {
-    LOG("ERROR: Unsupport for occlusion_detec : [%s]\n", rule.c_str());
+    RKMEDIA_LOGE("Unsupport for occlusion_detec : [%s]\n", rule.c_str());
     SetError(-EINVAL);
     return;
   }
@@ -263,7 +272,7 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
   const std::string &md_param_str = separate_list.back();
   std::map<std::string, std::string> od_params;
   if (!parse_media_param_map(md_param_str.c_str(), od_params)) {
-    LOG("ERROR: OD: md param error!\n");
+    RKMEDIA_LOGE("OD: md param error!\n");
     SetError(-EINVAL);
     return;
   }
@@ -288,28 +297,28 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
     CHECK_EMPTY_SETERRNO(value, od_params, KEY_OD_ROI_RECT, 0)
     rects = StringToImageRect(value);
     if (rects.empty()) {
-      LOG("ERROR: OD: param missing rects\n");
+      RKMEDIA_LOGE("OD: param missing rects\n");
       SetError(-EINVAL);
       return;
     }
 
     if ((int)rects.size() != roi_cnt) {
-      LOG("ERROR: OD: rects cnt != roi cnt.\n");
+      RKMEDIA_LOGE("OD: rects cnt != roi cnt.\n");
       SetError(-EINVAL);
       return;
     }
   }
 
-  LOGD("OD: param: sensitivity=%d\n", sensitivity);
-  LOGD("OD: param: orignale width=%d\n", img_width);
-  LOGD("OD: param: orignale height=%d\n", img_height);
-  LOGD("OD: param: roi_cnt=%d\n", roi_cnt);
+  RKMEDIA_LOGD("OD: param: sensitivity=%d\n", sensitivity);
+  RKMEDIA_LOGD("OD: param: orignale width=%d\n", img_width);
+  RKMEDIA_LOGD("OD: param: orignale height=%d\n", img_height);
+  RKMEDIA_LOGD("OD: param: roi_cnt=%d\n", roi_cnt);
 
   roi_in = (OD_ROI_INFO *)malloc(roi_cnt * sizeof(OD_ROI_INFO));
   memset(roi_in, 0, roi_cnt * sizeof(OD_ROI_INFO));
   for (int i = 0; i < roi_cnt; i++) {
-    LOGD("### ROI RECT[i]:(%d,%d,%d,%d)\n", rects[i].x, rects[i].y, rects[i].w,
-         rects[i].h);
+    RKMEDIA_LOGD("### ROI RECT[i]:(%d,%d,%d,%d)\n", rects[i].x, rects[i].y,
+                 rects[i].w, rects[i].h);
     roi_in[i].flag = 1;
     roi_in[i].up_left[0] = rects[i].y;                 // y
     roi_in[i].up_left[1] = rects[i].x;                 // x
@@ -322,16 +331,16 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
 
   detection_ctx = occlusion_detection_init(img_width, img_height);
   if (!detection_ctx) {
-    LOGD("ERROR: OD: od ctx init failed!\n");
+    RKMEDIA_LOGE("OD: od ctx init failed!\n");
     SetError(-EINVAL);
     return;
   }
 
   if ((sensitivity > 0) && (sensitivity <= 100)) {
     if (occlusion_set_sensitivity(detection_ctx, sensitivity))
-      LOG("ERROR: OD: cfg sensitivity(%d) failed!\n", sensitivity);
+      RKMEDIA_LOGE("OD: cfg sensitivity(%d) failed!\n", sensitivity);
     else
-      LOG("OD: init ctx with sensitivity(%d)...\n", sensitivity);
+      RKMEDIA_LOGI("OD: init ctx with sensitivity(%d)...\n", sensitivity);
   }
 
   SlotMap sm;
@@ -341,7 +350,7 @@ OcclusionDetectionFlow::OcclusionDetectionFlow(const char *param) {
   sm.mode_when_full = InputMode::DROPFRONT;
   sm.input_maxcachenum.push_back(3);
   if (!InstallSlotMap(sm, "ODFlow", 20)) {
-    LOG("Fail to InstallSlotMap for ODFlow\n");
+    RKMEDIA_LOGI("Fail to InstallSlotMap for ODFlow\n");
     SetError(-EINVAL);
     return;
   }
@@ -375,10 +384,10 @@ int OcclusionDetectionFlow::Control(unsigned long int request, ...) {
     ImageRect *new_rects = va_arg(ap, ImageRect *);
     int new_rects_cnt = va_arg(ap, int);
     assert(new_rects && (new_rects_cnt > 0));
-    LOG("OD: new roi image rects cnt:%d\n", new_rects_cnt);
+    RKMEDIA_LOGI("OD: new roi image rects cnt:%d\n", new_rects_cnt);
     for (int i = 0; i < new_rects_cnt; i++) {
-      LOG("OD: ROI RECT[%d]:(%d,%d,%d,%d)\n", i, new_rects[i].x, new_rects[i].y,
-          new_rects[i].w, new_rects[i].h);
+      RKMEDIA_LOGI("OD: ROI RECT[%d]:(%d,%d,%d,%d)\n", i, new_rects[i].x,
+                   new_rects[i].y, new_rects[i].w, new_rects[i].h);
       new_roi.push_back(std::move(new_rects[i]));
     }
 
@@ -387,12 +396,12 @@ int OcclusionDetectionFlow::Control(unsigned long int request, ...) {
   }
   case S_OD_SENSITIVITY: {
     sensitivity = va_arg(ap, int);
-    LOG("OD: new sensitivity=%d!\n", sensitivity);
+    RKMEDIA_LOGI("OD: new sensitivity=%d!\n", sensitivity);
     break;
   }
   default:
     ret = -1;
-    LOG("ERROR: OD: not support type:%d\n", request);
+    RKMEDIA_LOGE("OD: not support type:%ld\n", request);
     break;
   }
 
@@ -402,7 +411,9 @@ int OcclusionDetectionFlow::Control(unsigned long int request, ...) {
 
 DEFINE_FLOW_FACTORY(OcclusionDetectionFlow, Flow)
 // type depends on encoder
-const char *FACTORY(OcclusionDetectionFlow)::ExpectedInputDataType() { return ""; }
+const char *FACTORY(OcclusionDetectionFlow)::ExpectedInputDataType() {
+  return "";
+}
 const char *FACTORY(OcclusionDetectionFlow)::OutPutDataType() { return ""; }
 
 } // namespace easymedia

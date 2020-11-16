@@ -50,15 +50,15 @@ void H264ServerMediaSubsession::startStream(
   }
   if (kSessionIdList.empty())
     fMediaInput.Start(envir());
-  LOG("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
-      clientSessionId);
+  RKMEDIA_LOGI("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
+               clientSessionId);
   kSessionIdList.push_back(clientSessionId);
   // kMutex.unlock();
 }
 void H264ServerMediaSubsession::deleteStream(unsigned clientSessionId,
                                              void *&streamToken) {
   // kMutex.lock();
-  LOG("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
+  RKMEDIA_LOGI("%s - clientSessionId: 0x%08x\n", __func__, clientSessionId);
   kSessionIdList.remove(clientSessionId);
   if (kSessionIdList.empty())
     fMediaInput.Stop(envir());
@@ -68,7 +68,7 @@ void H264ServerMediaSubsession::deleteStream(unsigned clientSessionId,
 
 static void afterPlayingDummy(void *clientData) {
   H264ServerMediaSubsession *subsess = (H264ServerMediaSubsession *)clientData;
-  LOG("%s, set done.\n", __func__);
+  RKMEDIA_LOGI("%s, set done.\n", __func__);
   // Signal the event loop that we're done:
   subsess->afterPlayingDummy1();
 }
@@ -102,7 +102,7 @@ void H264ServerMediaSubsession::checkForAuxSDPLine1() {
   } else if (!fDoneFlag) {
     if (fGetSdpCount-- < 0) {
       setDoneFlag();
-      LOG("%s:%s:%p: get sdp time out.\n", __FILE__, __func__, this);
+      RKMEDIA_LOGI("%s:%s:%p: get sdp time out.\n", __FILE__, __func__, this);
     } else {
       // try again after a brief delay:
       int uSecsToDelay = 100000; // 100 ms
@@ -139,8 +139,8 @@ H264ServerMediaSubsession::getAuxSDPLine(RTPSink *rtpSink,
 FramedSource *
 H264ServerMediaSubsession::createNewStreamSource(unsigned clientSessionId,
                                                  unsigned &estBitrate) {
-  LOG("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
-      clientSessionId);
+  RKMEDIA_LOGI("%s:%s:%p - clientSessionId: 0x%08x\n", __FILE__, __func__, this,
+               clientSessionId);
   estBitrate = fMediaInput.getMaxIdrSize();
   if (estBitrate < fEstimatedKbps)
     estBitrate = fEstimatedKbps;
@@ -148,7 +148,8 @@ H264ServerMediaSubsession::createNewStreamSource(unsigned clientSessionId,
   // Create a framer for the Video Elementary Stream:
   FramedSource *source = H264VideoStreamDiscreteFramer::createNew(
       envir(), fMediaInput.videoSource(CODEC_TYPE_H264));
-  LOG("h264 framedsource : %p, estBitrate = %u \n", source, estBitrate);
+  RKMEDIA_LOGI("h264 framedsource : %p, estBitrate = %u \n", source,
+               estBitrate);
   return source;
 }
 
@@ -156,14 +157,14 @@ RTPSink *H264ServerMediaSubsession::createNewRTPSink(
     Groupsock *rtpGroupsock, unsigned char rtpPayloadTypeIfDynamic,
     FramedSource *inputSource) {
   if (!inputSource) {
-    LOG("inputSource is not ready, can not create new rtp sink\n");
+    RKMEDIA_LOGI("inputSource is not ready, can not create new rtp sink\n");
     return NULL;
   }
   setVideoRTPSinkBufferSize();
   LOG_FILE_FUNC_LINE();
   RTPSink *rtp_sink = H264VideoRTPSink::createNew(envir(), rtpGroupsock,
                                                   rtpPayloadTypeIfDynamic);
-  LOG("h264 rtp sink : %p\n", rtp_sink);
+  RKMEDIA_LOGI("h264 rtp sink : %p\n", rtp_sink);
   return rtp_sink;
 }
 

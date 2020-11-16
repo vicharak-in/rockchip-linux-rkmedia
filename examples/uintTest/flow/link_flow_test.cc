@@ -4,11 +4,11 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
-#include <signal.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -33,7 +33,8 @@ static void SigTermHandler(int sig) {
 
 void PushVideoHandler(unsigned char *buffer, unsigned int buffer_size,
                       int64_t present_time, int nal_type) {
-  printf("PushVideoHandler buffer %p, buffer_size %d present_time %lld nal_type %d\n",
+  printf("PushVideoHandler buffer %p, buffer_size %d present_time %lld "
+         "nal_type %d\n",
          buffer, buffer_size, present_time, nal_type);
 }
 

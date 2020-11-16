@@ -52,7 +52,7 @@ std::shared_ptr<easymedia::Flow> create_flow(const std::string &flow_name,
 static bool quit = false;
 
 static void sigterm_handler(int sig) {
-  LOG("signal %d\n", sig);
+  RKMEDIA_LOGI("signal %d\n", sig);
   quit = true;
 }
 
@@ -123,9 +123,9 @@ create_audio_enc_flow(SampleInfo &info, CodecType codec_type,
   auto audio_enc_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
   if (!audio_enc_flow) {
-    LOG("Create flow %s failed\n", flow_name.c_str());
+    RKMEDIA_LOGI("Create flow %s failed\n", flow_name.c_str());
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
   return audio_enc_flow;
 }
@@ -148,13 +148,15 @@ CodecType parseCodec(std::string args) {
 }
 
 void usage(char *name) {
-  LOG("\nUsage: \t%s -a default -w 1280 -h 720 -c AAC -v /dev/video0 -o "
+  RKMEDIA_LOGI(
+      "\nUsage: \t%s -a default -w 1280 -h 720 -c AAC -v /dev/video0 -o "
       "/tmp/out.mp4\n",
       name);
-  LOG("\n(customIO): \t%s -a default -w 1280 -h 720 -c AAC -v /dev/video0 "
+  RKMEDIA_LOGI(
+      "\n(customIO): \t%s -a default -w 1280 -h 720 -c AAC -v /dev/video0 "
       "-t mpeg -o /tmp/out.mpeg\n",
       name);
-  LOG("\tNOTICE: audio codec : -c [AAC MP2 G711A G711U G726]\n");
+  RKMEDIA_LOGI("\tNOTICE: audio codec : -c [AAC MP2 G711A G711U G726]\n");
   exit(EXIT_FAILURE);
 }
 
@@ -208,19 +210,19 @@ int main(int argc, char **argv) {
       break;
     case 'a':
       aud_in_path = optarg;
-      LOG("audio device path: %s\n", aud_in_path.c_str());
+      RKMEDIA_LOGI("audio device path: %s\n", aud_in_path.c_str());
       break;
     case 'v':
       vid_in_path = optarg;
-      LOG("video device path: %s\n", vid_in_path.c_str());
+      RKMEDIA_LOGI("video device path: %s\n", vid_in_path.c_str());
       break;
     case 't':
       output_type = optarg;
-      LOG("use customIO, output type is %s.\n", output_type.c_str());
+      RKMEDIA_LOGI("use customIO, output type is %s.\n", output_type.c_str());
       break;
     case 'o':
       output_path = optarg;
-      LOG("output file path: %s\n", output_path.c_str());
+      RKMEDIA_LOGI("output file path: %s\n", output_path.c_str());
       break;
     case 'c':
       codec = parseCodec(optarg);
@@ -241,7 +243,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
 
   if (vid_in_path.empty() || aud_in_path.empty()) {
-    LOG("use default video device and audio device!\n");
+    RKMEDIA_LOGI("use default video device and audio device!\n");
   }
 
   // param fixed
@@ -315,18 +317,18 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Create flow %s failed\n", flow_name.c_str());
     exit(EXIT_FAILURE);
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
 
   SampleInfo sample_info = {fmt, channels, sample_rate, nb_samples};
   audio_enc_param = get_audio_enc_param(sample_info, codec, bitrate, quality);
-  LOG("Audio pre enc param: %s\n", audio_enc_param.c_str());
+  RKMEDIA_LOGI("Audio pre enc param: %s\n", audio_enc_param.c_str());
 
   // 1. audio encoder
   std::shared_ptr<easymedia::Flow> audio_enc_flow =
       create_audio_enc_flow(sample_info, codec, audio_enc_param);
   if (!audio_enc_flow) {
-    LOG("Create flow failed\n");
+    RKMEDIA_LOGI("Create flow failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -334,23 +336,23 @@ int main(int argc, char **argv) {
   int read_size = audio_enc_flow->GetInputSize();
   if (read_size > 0) {
     sample_info.nb_samples = read_size / GetSampleSize(sample_info);
-    LOG("codec %s : nm_samples fixed to %d\n", CodecToString(codec).c_str(),
-        sample_info.nb_samples);
+    RKMEDIA_LOGI("codec %s : nm_samples fixed to %d\n",
+                 CodecToString(codec).c_str(), sample_info.nb_samples);
   }
   audio_enc_param = get_audio_enc_param(sample_info, codec, bitrate, quality);
-  LOG("Audio post enc param: %s\n", audio_enc_param.c_str());
+  RKMEDIA_LOGI("Audio post enc param: %s\n", audio_enc_param.c_str());
 
   // 3. alsa capture flow
   std::shared_ptr<easymedia::Flow> audio_source_flow =
       create_alsa_flow(aud_in_path, sample_info);
   if (!audio_source_flow) {
-    LOG("Create flow alsa_capture_flow failed\n");
+    RKMEDIA_LOGI("Create flow alsa_capture_flow failed\n");
     exit(EXIT_FAILURE);
   }
   // 4. set alsa capture volume to max
   int volume;
   audio_source_flow->Control(easymedia::G_ALSA_VOLUME, &volume);
-  LOG("Get capture volume %d\n", volume);
+  RKMEDIA_LOGI("Get capture volume %d\n", volume);
   volume = 100;
   audio_source_flow->Control(easymedia::S_ALSA_VOLUME, &volume);
 
@@ -359,7 +361,7 @@ int main(int argc, char **argv) {
   PARAM_STRING_APPEND(flow_param, KEY_NAME, "muxer_flow");
   if (!output_type.empty()) {
     PARAM_STRING_APPEND(flow_param, KEY_OUTPUTDATATYPE, output_type);
-    LOG("FFmpeg use customIO.\n");
+    RKMEDIA_LOGI("FFmpeg use customIO.\n");
   } else if (!output_path.empty()) {
     PARAM_STRING_APPEND_TO(flow_param, KEY_FILE_DURATION, 30);
     PARAM_STRING_APPEND_TO(flow_param, KEY_FILE_TIME, 1);
@@ -379,7 +381,7 @@ int main(int argc, char **argv) {
   if (!muxer_flow) {
     exit(EXIT_FAILURE);
   } else {
-    LOG("%s flow ready!\n", flow_name.c_str());
+    RKMEDIA_LOGI("%s flow ready!\n", flow_name.c_str());
   }
 
   std::shared_ptr<easymedia::Flow> video_save_flow;

@@ -11,8 +11,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <string>
 #include <linux/videodev2.h>
+#include <string>
 
 #include "rkaiq/common/mediactl/mediactl-priv.h"
 #include "rkaiq/common/mediactl/mediactl.h"

@@ -22,16 +22,16 @@ V4L2Context::V4L2Context(enum v4l2_buf_type cap_type, v4l2_io io_func,
   const char *dev = device.c_str();
   fd = v4l2_open(dev, O_RDWR | O_CLOEXEC, 0);
   if (fd < 0)
-    LOG("ERROR: V4L2-CTX: open %s failed %m\n", dev);
+    RKMEDIA_LOGE("V4L2-CTX: open %s failed %m\n", dev);
   else
-    LOG("#V4L2Ctx: open %s, fd %d\n", dev, fd);
+    RKMEDIA_LOGI("#V4L2Ctx: open %s, fd %d\n", dev, fd);
 }
 
 V4L2Context::~V4L2Context() {
   if (fd >= 0) {
     SetStarted(false);
     v4l2_close(fd);
-    LOG("#V4L2Ctx: close %s, fd %d\n", path.c_str(), fd);
+    RKMEDIA_LOGI("#V4L2Ctx: close %s, fd %d\n", path.c_str(), fd);
   }
 }
 
@@ -42,7 +42,7 @@ bool V4L2Context::SetStarted(bool val) {
   enum v4l2_buf_type cap_type = capture_type;
   unsigned int request = val ? VIDIOC_STREAMON : VIDIOC_STREAMOFF;
   if (IoCtrl(request, &cap_type) < 0) {
-    LOG("ioctl(%d): %m\n", (int)request);
+    RKMEDIA_LOGI("ioctl(%d): %m\n", (int)request);
     return false;
   }
   started = val;
@@ -73,8 +73,8 @@ V4L2Stream::V4L2Stream(const char *param)
   req_list.push_back(
       std::pair<const std::string, std::string &>(KEY_DEVICE, device));
   std::string str_camera_id;
-  req_list.push_back(
-      std::pair<const std::string, std::string &>(KEY_CAMERA_ID, str_camera_id));
+  req_list.push_back(std::pair<const std::string, std::string &>(
+      KEY_CAMERA_ID, str_camera_id));
   req_list.push_back(
       std::pair<const std::string, std::string &>(KEY_SUB_DEVICE, sub_device));
   std::string cap_type;
@@ -92,7 +92,8 @@ V4L2Stream::V4L2Stream(const char *param)
         static_cast<enum v4l2_buf_type>(GetV4L2Type(cap_type.c_str()));
   v4l2_medctl = std::make_shared<V4L2MediaCtl>();
 
-  LOG("#V4l2Stream: camraID:%d, Device:%s\n", camera_id, device.c_str());
+  RKMEDIA_LOGI("#V4l2Stream: camraID:%d, Device:%s\n", camera_id,
+               device.c_str());
 }
 
 int V4L2Stream::Open() {
@@ -107,14 +108,16 @@ int V4L2Stream::Open() {
       !strcmp(device.c_str(), S1_ENTITY_NAME) ||
       !strcmp(device.c_str(), S2_ENTITY_NAME)) {
 #ifdef RKAIQ
-    devname = v4l2_medctl->media_ctl_infos.GetVideoNode(camera_id, device.c_str());
+    devname =
+        v4l2_medctl->media_ctl_infos.GetVideoNode(camera_id, device.c_str());
 #else
-    LOG("ERROR: #V4l2Stream: VideoNode: %s is invalid without librkaiq\n", device.c_str());
+    RKMEDIA_LOGE("#V4l2Stream: VideoNode: %s is invalid without librkaiq\n",
+                 device.c_str());
     return -EINVAL;
 #endif
   } else
     devname = device;
-  LOG("#V4l2Stream: VideoNode:%s\n", devname.c_str());
+  RKMEDIA_LOGI("#V4l2Stream: VideoNode:%s\n", devname.c_str());
   v4l2_ctx = std::make_shared<V4L2Context>(capture_type, vio, devname);
   if (!v4l2_ctx)
     return -ENOMEM;
@@ -130,7 +133,7 @@ int V4L2Stream::Close() {
   if (v4l2_ctx) {
     v4l2_ctx->SetStarted(false);
     v4l2_ctx = nullptr; // release reference
-    LOG("\n#V4L2Stream: v4l2 ctx reset to nullptr!\n");
+    RKMEDIA_LOGI("\n#V4L2Stream: v4l2 ctx reset to nullptr!\n");
   }
   fd = -1;
   return 0;

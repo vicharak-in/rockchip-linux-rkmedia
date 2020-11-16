@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "utils.h"
 #include "rkaiq_media.h"
+#include "utils.h"
 
-static media_entity *media_get_entity_by_name_rk(struct media_device *device, const char *name) {
+static media_entity *media_get_entity_by_name_rk(struct media_device *device,
+                                                 const char *name) {
   return media_get_entity_by_name(device, name, strlen(name));
 }
 
@@ -56,7 +57,7 @@ void RKAiqMedia::GetIsppSubDevs(int id, struct media_device *device,
     if (ispp_info->media_dev_path.empty())
       break;
     if (ispp_info->media_dev_path.compare(devpath) == 0) {
-      printf("ERROR: RKAIQ: isp info of path %s exists!", devpath);
+      RKMEDIA_LOGE("RKAIQ: isp info of path %s exists!", devpath);
       return;
     }
   }
@@ -124,8 +125,8 @@ void RKAiqMedia::GetIsppSubDevs(int id, struct media_device *device,
     }
   }
 
-  LOG("RKAIQ: model(%s): ispp_info(%d): ispp-subdev entity name: %s\n",
-      device->info.model, index, ispp_info->pp_dev_path.c_str());
+  RKMEDIA_LOGI("RKAIQ: model(%s): ispp_info(%d): ispp-subdev entity name: %s\n",
+               device->info.model, index, ispp_info->pp_dev_path.c_str());
 }
 
 void RKAiqMedia::GetIspSubDevs(int id, struct media_device *device,
@@ -140,7 +141,7 @@ void RKAiqMedia::GetIspSubDevs(int id, struct media_device *device,
     if (isp_info->media_dev_path.empty())
       break;
     if (isp_info->media_dev_path.compare(devpath) == 0) {
-      LOG("ERROR: RKAIQ: isp info of path %s exists!", devpath);
+      RKMEDIA_LOGE("RKAIQ: isp info of path %s exists!", devpath);
       return;
     }
   }
@@ -275,11 +276,12 @@ void RKAiqMedia::GetIspSubDevs(int id, struct media_device *device,
     }
   }
 
-  LOG("RKAIQ: model(%s): isp_info(%d): isp-subdev entity name: %s\n",
-      device->info.model, index, isp_info->isp_dev_path.c_str());
+  RKMEDIA_LOGI("RKAIQ: model(%s): isp_info(%d): isp-subdev entity name: %s\n",
+               device->info.model, index, isp_info->isp_dev_path.c_str());
 }
 
-void RKAiqMedia::GetCifSubDevs(int id, struct media_device *device, const char *devpath) {
+void RKAiqMedia::GetCifSubDevs(int id, struct media_device *device,
+                               const char *devpath) {
   media_entity *entity = NULL;
   const char *entity_name = NULL;
   int index = 0;
@@ -294,7 +296,7 @@ void RKAiqMedia::GetCifSubDevs(int id, struct media_device *device, const char *
     if (cif_info->media_dev_path.empty())
       break;
     if (cif_info->media_dev_path.compare(devpath) == 0) {
-      LOG("ERROR: RKAIQ: isp info of path %s exists!", devpath);
+      RKMEDIA_LOGE("RKAIQ: isp info of path %s exists!", devpath);
       return;
     }
   }
@@ -392,7 +394,7 @@ int RKAiqMedia::GetMediaInfo() {
     if (access(sys_path, F_OK))
       continue;
 
-    LOG("RKAIQ: parsing %s\n", sys_path);
+    RKMEDIA_LOGI("RKAIQ: parsing %s\n", sys_path);
 
     device = media_device_new(sys_path);
     if (!device)
@@ -429,69 +431,101 @@ int RKAiqMedia::GetMediaInfo() {
 }
 
 int RKAiqMedia::DumpMediaInfo() {
-  LOG("RKAIQ: DumpMediaInfo:\n");
+  RKMEDIA_LOGI("RKAIQ: DumpMediaInfo:\n");
 
   for (int i = 0; i < MAX_CAM_NUM; i++) {
     cif_info_t *cif = &media_info[i].cif;
     isp_info_t *isp = &media_info[i].isp;
     ispp_info_t *ispp = &media_info[i].ispp;
-    LOG("RKAIQ: ##### Camera index: %d\n", i);
+    RKMEDIA_LOGI("RKAIQ: ##### Camera index: %d\n", i);
     if (isp->linked_sensor)
-      LOG("RKAIQ: \t sensor_name :    %s\n", isp->sensor_name.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t sensor_name :    %s\n", isp->sensor_name.c_str());
     else if (cif->linked_sensor)
-      LOG("RKAIQ: \t sensor_name :    %s\n", cif->sensor_name.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t sensor_name :    %s\n", cif->sensor_name.c_str());
     if (cif->model_idx >= 0) {
-      LOG("RKAIQ: #### cif:\n");
-      LOG("RKAIQ: \t model_idx :         %d\n", cif->model_idx);
-      LOG("RKAIQ: \t linked_sensor :     %d\n", cif->linked_sensor);
-      LOG("RKAIQ: \t media_dev_path :    %s\n", cif->media_dev_path.c_str());
-      LOG("RKAIQ: \t mipi_id0 : 		  %s\n", cif->mipi_id0.c_str());
-      LOG("RKAIQ: \t mipi_id1 : 		  %s\n", cif->mipi_id1.c_str());
-      LOG("RKAIQ: \t mipi_id2 : 		  %s\n", cif->mipi_id2.c_str());
-      LOG("RKAIQ: \t mipi_id3 : 		  %s\n", cif->mipi_id3.c_str());
-      LOG("RKAIQ: \t mipi_dphy_rx_path : %s\n", cif->mipi_dphy_rx_path.c_str());
-      LOG("RKAIQ: \t mipi_csi2_sd_path : %s\n", cif->mipi_csi2_sd_path.c_str());
-      LOG("RKAIQ: \t lvds_sd_path :      %s\n", cif->lvds_sd_path.c_str());
-      LOG("RKAIQ: \t mipi_luma_path :    %s\n", cif->mipi_luma_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: #### cif:\n");
+      RKMEDIA_LOGI("RKAIQ: \t model_idx :         %d\n", cif->model_idx);
+      RKMEDIA_LOGI("RKAIQ: \t linked_sensor :     %d\n", cif->linked_sensor);
+      RKMEDIA_LOGI("RKAIQ: \t media_dev_path :    %s\n",
+                   cif->media_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_id0 : 		  %s\n",
+                   cif->mipi_id0.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_id1 : 		  %s\n",
+                   cif->mipi_id1.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_id2 : 		  %s\n",
+                   cif->mipi_id2.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_id3 : 		  %s\n",
+                   cif->mipi_id3.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_dphy_rx_path : %s\n",
+                   cif->mipi_dphy_rx_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_csi2_sd_path : %s\n",
+                   cif->mipi_csi2_sd_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t lvds_sd_path :      %s\n",
+                   cif->lvds_sd_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_luma_path :    %s\n",
+                   cif->mipi_luma_path.c_str());
     }
     if (isp->model_idx >= 0) {
-      LOG("RKAIQ: #### isp:\n");
-      LOG("RKAIQ: \t model_idx :         %d\n", isp->model_idx);
-      LOG("RKAIQ: \t linked_sensor :     %d\n", isp->linked_sensor);
-      LOG("RKAIQ: \t media_dev_path :    %s\n", isp->media_dev_path.c_str());
-      LOG("RKAIQ: \t isp_dev_path :      %s\n", isp->isp_dev_path.c_str());
-      LOG("RKAIQ: \t csi_dev_path :      %s\n", isp->csi_dev_path.c_str());
-      LOG("RKAIQ: \t mpfbc_dev_path :    %s\n", isp->mpfbc_dev_path.c_str());
-      LOG("RKAIQ: \t main_path :         %s\n", isp->main_path.c_str());
-      LOG("RKAIQ: \t self_path :         %s\n", isp->self_path.c_str());
-      LOG("RKAIQ: \t rawwr0_path :       %s\n", isp->rawwr0_path.c_str());
-      LOG("RKAIQ: \t rawwr1_path :       %s\n", isp->rawwr1_path.c_str());
-      LOG("RKAIQ: \t rawwr2_path :       %s\n", isp->rawwr2_path.c_str());
-      LOG("RKAIQ: \t rawwr3_path :       %s\n", isp->rawwr3_path.c_str());
-      LOG("RKAIQ: \t dma_path :          %s\n", isp->dma_path.c_str());
-      LOG("RKAIQ: \t rawrd0_m_path :     %s\n", isp->rawrd0_m_path.c_str());
-      LOG("RKAIQ: \t rawrd1_l_path :     %s\n", isp->rawrd1_l_path.c_str());
-      LOG("RKAIQ: \t rawrd2_s_path :     %s\n", isp->rawrd2_s_path.c_str());
-      LOG("RKAIQ: \t stats_path :        %s\n", isp->stats_path.c_str());
-      LOG("RKAIQ: \t input_params_path : %s\n", isp->input_params_path.c_str());
-      LOG("RKAIQ: \t mipi_luma_path :    %s\n", isp->mipi_luma_path.c_str());
-      LOG("RKAIQ: \t mipi_dphy_rx_path : %s\n", isp->mipi_dphy_rx_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: #### isp:\n");
+      RKMEDIA_LOGI("RKAIQ: \t model_idx :         %d\n", isp->model_idx);
+      RKMEDIA_LOGI("RKAIQ: \t linked_sensor :     %d\n", isp->linked_sensor);
+      RKMEDIA_LOGI("RKAIQ: \t media_dev_path :    %s\n",
+                   isp->media_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t isp_dev_path :      %s\n",
+                   isp->isp_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t csi_dev_path :      %s\n",
+                   isp->csi_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mpfbc_dev_path :    %s\n",
+                   isp->mpfbc_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t main_path :         %s\n",
+                   isp->main_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t self_path :         %s\n",
+                   isp->self_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawwr0_path :       %s\n",
+                   isp->rawwr0_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawwr1_path :       %s\n",
+                   isp->rawwr1_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawwr2_path :       %s\n",
+                   isp->rawwr2_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawwr3_path :       %s\n",
+                   isp->rawwr3_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t dma_path :          %s\n", isp->dma_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawrd0_m_path :     %s\n",
+                   isp->rawrd0_m_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawrd1_l_path :     %s\n",
+                   isp->rawrd1_l_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t rawrd2_s_path :     %s\n",
+                   isp->rawrd2_s_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t stats_path :        %s\n",
+                   isp->stats_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t input_params_path : %s\n",
+                   isp->input_params_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_luma_path :    %s\n",
+                   isp->mipi_luma_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t mipi_dphy_rx_path : %s\n",
+                   isp->mipi_dphy_rx_path.c_str());
     }
     if (ispp->model_idx >= 0) {
-      LOG("RKAIQ: #### ispp:\n");
-      LOG("RKAIQ: \t model_idx :            %d\n", ispp->model_idx);
-      LOG("RKAIQ: \t media_dev_path :       %s\n", ispp->media_dev_path.c_str());
-      LOG("RKAIQ: \t pp_input_image_path :  %s\n",
-                ispp->pp_input_image_path.c_str());
-      LOG("RKAIQ: \t pp_m_bypass_path :     %s\n",
-                ispp->pp_m_bypass_path.c_str());
-      LOG("RKAIQ: \t pp_scale0_path :       %s\n", ispp->pp_scale0_path.c_str());
-      LOG("RKAIQ: \t pp_scale1_path :       %s\n", ispp->pp_scale1_path.c_str());
-      LOG("RKAIQ: \t pp_scale2_path :       %s\n", ispp->pp_scale2_path.c_str());
-      LOG("RKAIQ: \t pp_input_params_path : %s\n",
-                ispp->pp_input_params_path.c_str());
-      LOG("RKAIQ: \t pp_stats_path :        %s\n", ispp->pp_stats_path.c_str());
-      LOG("RKAIQ: \t pp_dev_path :          %s\n", ispp->pp_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: #### ispp:\n");
+      RKMEDIA_LOGI("RKAIQ: \t model_idx :            %d\n", ispp->model_idx);
+      RKMEDIA_LOGI("RKAIQ: \t media_dev_path :       %s\n",
+                   ispp->media_dev_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_input_image_path :  %s\n",
+                   ispp->pp_input_image_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_m_bypass_path :     %s\n",
+                   ispp->pp_m_bypass_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_scale0_path :       %s\n",
+                   ispp->pp_scale0_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_scale1_path :       %s\n",
+                   ispp->pp_scale1_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_scale2_path :       %s\n",
+                   ispp->pp_scale2_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_input_params_path : %s\n",
+                   ispp->pp_input_params_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_stats_path :        %s\n",
+                   ispp->pp_stats_path.c_str());
+      RKMEDIA_LOGI("RKAIQ: \t pp_dev_path :          %s\n",
+                   ispp->pp_dev_path.c_str());
     }
   }
   return 0;
