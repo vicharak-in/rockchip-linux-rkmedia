@@ -118,8 +118,7 @@ _CAPI RK_S32 RK_MPI_VENC_InsertUserData(VENC_CHN VeChn, RK_U8 *pu8Data,
 _CAPI RK_S32 RK_MPI_VENC_SetResolution(
     VENC_CHN VeChn, VENC_RESOLUTION_PARAM_S stResolutionParam);
 
-_CAPI RK_S32 RK_MPI_VENC_GetRoiAttr(VENC_CHN VeChn,
-                                    VENC_ROI_ATTR_S *pstRoiAttr,
+_CAPI RK_S32 RK_MPI_VENC_GetRoiAttr(VENC_CHN VeChn, VENC_ROI_ATTR_S *pstRoiAttr,
                                     RK_S32 roi_index);
 _CAPI RK_S32 RK_MPI_VENC_SetRoiAttr(VENC_CHN VeChn,
                                     const VENC_ROI_ATTR_S *pstRoiAttr,
@@ -143,7 +142,8 @@ _CAPI RK_S32 RK_MPI_VENC_StartRecvFrame(
     VENC_CHN VeChn, const VENC_RECV_PIC_PARAM_S *pstRecvParam);
 _CAPI RK_S32 RK_MPI_VENC_DestroyChn(VENC_CHN VeChn);
 _CAPI RK_S32 RK_MPI_VENC_GetFd(VENC_CHN VeChn);
-_CAPI RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VeChn, VENC_CHN_STATUS_S *pstStatus);
+_CAPI RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VeChn,
+                                     VENC_CHN_STATUS_S *pstStatus);
 /********************************************************************
  * Ai api
  ********************************************************************/
@@ -217,6 +217,8 @@ _CAPI RK_S32 RK_MPI_ADEC_DestroyChn(ADEC_CHN AdecChn);
  * VO api
  ********************************************************************/
 _CAPI RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr);
+_CAPI RK_S32 RK_MPI_VO_GetChnAttr(VO_CHN VoChn, VO_CHN_ATTR_S *pstAttr);
+_CAPI RK_S32 RK_MPI_VO_SetChnAttr(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr);
 _CAPI RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn);
 
 #ifdef __cplusplus

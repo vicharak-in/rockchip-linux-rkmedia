@@ -126,6 +126,7 @@ private:
   std::shared_ptr<DRMDisplayBuffer> disp_buffer;
   ImageRect src_rect;
   ImageRect dst_rect;
+  ConditionLockMutex rect_mtx;
 };
 
 DRMOutPutStream::DRMOutPutStream(const char *param)
@@ -280,20 +281,17 @@ int DRMOutPutStream::IoCtrl(unsigned long int request, ...) {
           plane_id);
       return -1;
     }
+    rect_mtx.lock();
     src_rect = *rect;
+    rect_mtx.unlock();
   } break;
   case S_DESTINATION_RECT: {
     ImageRect *rect = (static_cast<ImageRect *>(arg));
     if (rect->x > img_info.width || rect->y > img_info.height)
       return -EINVAL;
-    if (!support_scale && ((src_rect.w != 0 && rect->w != src_rect.w) ||
-                           (src_rect.h != 0 && rect->h != src_rect.h))) {
-      LOG("plane[%d] do not support scale, the destination rect should the "
-          "same to the source rect\n",
-          plane_id);
-      return -1;
-    }
+    rect_mtx.lock();
     dst_rect = *rect;
+    rect_mtx.unlock();
   } break;
   case S_SRC_DST_RECT: {
     ImageRect *rect = (static_cast<ImageRect *>(arg));
@@ -303,8 +301,17 @@ int DRMOutPutStream::IoCtrl(unsigned long int request, ...) {
           plane_id);
       return -1;
     }
+    rect_mtx.lock();
     src_rect = rect[0];
     dst_rect = rect[1];
+    rect_mtx.unlock();
+  } break;
+  case G_SRC_DST_RECT: {
+    ImageRect *rect = (static_cast<ImageRect *>(arg));
+    rect_mtx.lock();
+    rect[0] = src_rect;
+    rect[1] = dst_rect;
+    rect_mtx.unlock();
   } break;
   case G_PLANE_IMAGE_INFO: {
     *(static_cast<ImageInfo *>(arg)) = img_info;
@@ -357,11 +364,18 @@ bool DRMOutPutStream::Write(std::shared_ptr<MediaBuffer> input) {
     den = in_den * drm_num;
   }
 
-  if ((input_img->GetVirWidth() < (src_rect.x + src_rect.w)) ||
-      (input_img->GetVirHeight() < (src_rect.y + src_rect.h))) {
+  ImageRect src_rect_tmp;
+  ImageRect dst_rect_tmp;
+  rect_mtx.lock();
+  src_rect_tmp = src_rect;
+  dst_rect_tmp = dst_rect;
+  rect_mtx.unlock();
+
+  if ((input_img->GetVirWidth() < (src_rect_tmp.x + src_rect_tmp.w)) ||
+      (input_img->GetVirHeight() < (src_rect_tmp.y + src_rect_tmp.h))) {
     LOG("ERROR: DrmDisp: InBuf<%dx%d> does not match the imgRect<%d,%d,%d,%d>\n",
         input_img->GetVirWidth(), input_img->GetVirHeight(),
-        src_rect.x, src_rect.y, src_rect.w, src_rect.h);
+        src_rect_tmp.x, src_rect_tmp.y, src_rect_tmp.w, src_rect_tmp.h);
     return false;
   }
 
@@ -374,14 +388,14 @@ bool DRMOutPutStream::Write(std::shared_ptr<MediaBuffer> input) {
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
 	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_id, crtc_id);
 	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.fb_id, disp_fb_id);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_x, dst_rect.x);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_y, dst_rect.y);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_w, dst_rect.w);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_h, dst_rect.h);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_x, src_rect.x << 16);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_y, src_rect.y << 16);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_w, src_rect.w << 16);
-	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_h, src_rect.h << 16);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_x, dst_rect_tmp.x);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_y, dst_rect_tmp.y);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_w, dst_rect_tmp.w);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.crtc_h, dst_rect_tmp.h);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_x, src_rect_tmp.x << 16);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_y, src_rect_tmp.y << 16);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_w, src_rect_tmp.w << 16);
+	drmModeAtomicAddProperty(req, plane_id, plane_prop_ids.src_h, src_rect_tmp.h << 16);
 	ret = drmModeAtomicCommit(fd, req, 0, NULL);
 	drmModeAtomicFree(req);
   if (!ret) {
@@ -389,8 +403,8 @@ bool DRMOutPutStream::Write(std::shared_ptr<MediaBuffer> input) {
     return true;
   }
   LOG("ERROR: DrmDisp: %d:%d::Imgbuf<%d,%d,%d,%d> display with <%d,%d,%d,%d> failed!\n",
-      crtc_id, plane_id, src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-      dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
+      crtc_id, plane_id, src_rect_tmp.x, src_rect_tmp.y, src_rect_tmp.w, src_rect_tmp.h,
+      dst_rect_tmp.x, dst_rect_tmp.y, dst_rect_tmp.w, dst_rect_tmp.h);
   return false;
 }
 

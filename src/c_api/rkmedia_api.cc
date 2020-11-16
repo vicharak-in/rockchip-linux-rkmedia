@@ -55,6 +55,7 @@ typedef struct _RkmediaADECAttr { ADEC_CHN_ATTR_S attr; } RkmediaADECAttr;
 
 typedef ALGO_MD_ATTR_S RkmediaMDAttr;
 typedef ALGO_OD_ATTR_S RkmediaODAttr;
+typedef VO_CHN_ATTR_S RkmediaVOAttr;
 
 #define RKMEDIA_CHNNAL_BUFFER_LIMIT 3
 #define RKMEDIA_CHNNAL_BUFFER_GOD_MODE_LIMIT 1
@@ -83,6 +84,7 @@ typedef struct _RkmediaChannel {
     RkmediaMDAttr md_attr;
     RkmediaODAttr od_attr;
     RkmediaADECAttr adec_attr;
+    RkmediaVOAttr vo_attr;
   };
   RK_U16 bind_ref;
   std::mutex buffer_mtx;
@@ -4313,6 +4315,10 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
     PARAM_STRING_APPEND_TO(stream_param, "encoder_id", pstAttr->u16EncIdx);
   if (pstAttr->u16CrtcIdx)
     PARAM_STRING_APPEND_TO(stream_param, "crtc_id", pstAttr->u16CrtcIdx);
+  if (pstAttr->u32Width)
+    PARAM_STRING_APPEND_TO(stream_param, "width", pstAttr->u32Width);
+  if (pstAttr->u32Height)
+    PARAM_STRING_APPEND_TO(stream_param, "height", pstAttr->u32Height);
   PARAM_STRING_APPEND_TO(stream_param, "framerate", pstAttr->u16Fps);
   PARAM_STRING_APPEND(stream_param, "plane_type", pcPlaneType);
   PARAM_STRING_APPEND_TO(stream_param, "ZPOS", pstAttr->u16Zpos);
@@ -4325,18 +4331,6 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
   if (!g_vo_chns[VoChn].rkmedia_flow) {
     g_vo_mtx.unlock();
     return -RK_ERR_VO_BUSY;
-  }
-
-  if (pstAttr->stImgRect.s32X || pstAttr->stImgRect.s32Y ||
-      pstAttr->stImgRect.u32Width || pstAttr->stImgRect.u32Height) {
-    ImageRect ImgRect = {pstAttr->stImgRect.s32X, pstAttr->stImgRect.s32Y,
-                         (int)pstAttr->stImgRect.u32Width,
-                         (int)pstAttr->stImgRect.u32Height};
-    if (g_vo_chns[VoChn].rkmedia_flow->Control(S_SOURCE_RECT, &ImgRect)) {
-      g_vo_chns[VoChn].rkmedia_flow.reset();
-      g_vo_mtx.unlock();
-      return -RK_ERR_VO_ILLEGAL_PARAM;
-    }
   }
 
   if (pstAttr->stDispRect.s32X || pstAttr->stDispRect.s32Y ||
@@ -4352,11 +4346,106 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
     }
   }
 
+  if (pstAttr->stImgRect.s32X || pstAttr->stImgRect.s32Y ||
+      pstAttr->stImgRect.u32Width || pstAttr->stImgRect.u32Height) {
+    ImageRect ImgRect = {pstAttr->stImgRect.s32X, pstAttr->stImgRect.s32Y,
+                         (int)pstAttr->stImgRect.u32Width,
+                         (int)pstAttr->stImgRect.u32Height};
+    if (g_vo_chns[VoChn].rkmedia_flow->Control(S_SOURCE_RECT, &ImgRect)) {
+      g_vo_chns[VoChn].rkmedia_flow.reset();
+      g_vo_mtx.unlock();
+      return -RK_ERR_VO_ILLEGAL_PARAM;
+    }
+  }
+
+  memcpy(&g_vo_chns[VoChn].vo_attr, pstAttr, sizeof(VO_CHN_ATTR_S));
+  ImageInfo ImageInfoFinal;
+  memset(&ImageInfoFinal, 0, sizeof(ImageInfoFinal));
+  g_vo_chns[VoChn].rkmedia_flow->Control(G_PLANE_IMAGE_INFO, &ImageInfoFinal);
+  g_vo_chns[VoChn].vo_attr.u32Width = ImageInfoFinal.width;
+  g_vo_chns[VoChn].vo_attr.u32Height = ImageInfoFinal.height;
+  ImageRect ImageRectTotal[2];
+  memset(&ImageRectTotal, 0, 2 * sizeof(ImageRect));
+  g_vo_chns[VoChn].rkmedia_flow->Control(G_SRC_DST_RECT, &ImageRectTotal);
+  g_vo_chns[VoChn].vo_attr.stImgRect.s32X = ImageRectTotal[0].x;
+  g_vo_chns[VoChn].vo_attr.stImgRect.s32Y = ImageRectTotal[0].y;
+  g_vo_chns[VoChn].vo_attr.stImgRect.u32Width = (RK_U32)ImageRectTotal[0].w;
+  g_vo_chns[VoChn].vo_attr.stImgRect.u32Height = (RK_U32)ImageRectTotal[0].h;
+  g_vo_chns[VoChn].vo_attr.stDispRect.s32X = ImageRectTotal[1].x;
+  g_vo_chns[VoChn].vo_attr.stDispRect.s32Y = ImageRectTotal[1].y;
+  g_vo_chns[VoChn].vo_attr.stDispRect.u32Width = (RK_U32)ImageRectTotal[1].w;
+  g_vo_chns[VoChn].vo_attr.stDispRect.u32Height = (RK_U32)ImageRectTotal[1].h;
+
   g_vo_chns[VoChn].status = CHN_STATUS_OPEN;
   g_vo_mtx.unlock();
   LOG("\n%s %s: Enable VO[%d] End!\n", LOG_TAG, __func__, VoChn);
 
   return ret;
+}
+
+RK_S32 RK_MPI_VO_SetChnAttr(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
+  if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
+    return -RK_ERR_VO_INVALID_DEVID;
+
+  if (!pstAttr)
+    return -RK_ERR_VO_ILLEGAL_PARAM;
+
+  g_vo_mtx.lock();
+  if (g_vo_chns[VoChn].status < CHN_STATUS_OPEN) {
+    g_vo_mtx.unlock();
+    return -RK_ERR_VO_NOTREADY;
+  }
+
+  if (!g_vo_chns[VoChn].rkmedia_flow) {
+    g_vo_mtx.unlock();
+    return -RK_ERR_VO_BUSY;
+  }
+  ImageRect ImageRectTotal[2];
+  ImageRectTotal[0].x = pstAttr->stImgRect.s32X;
+  ImageRectTotal[0].y = pstAttr->stImgRect.s32Y;
+  ImageRectTotal[0].w = (int)pstAttr->stImgRect.u32Width;
+  ImageRectTotal[0].h = (int)pstAttr->stImgRect.u32Height;
+  ImageRectTotal[1].x = pstAttr->stDispRect.s32X;
+  ImageRectTotal[1].y = pstAttr->stDispRect.s32Y;
+  ImageRectTotal[1].w = (int)pstAttr->stDispRect.u32Width;
+  ImageRectTotal[1].h = (int)pstAttr->stDispRect.u32Height;
+  int ret =
+      g_vo_chns[VoChn].rkmedia_flow->Control(S_SRC_DST_RECT, &ImageRectTotal);
+  if (ret) {
+    g_vo_mtx.unlock();
+    return -RK_ERR_VO_ILLEGAL_PARAM;
+  }
+
+  g_vo_chns[VoChn].vo_attr.stImgRect.s32X = ImageRectTotal[0].x;
+  g_vo_chns[VoChn].vo_attr.stImgRect.s32Y = ImageRectTotal[0].y;
+  g_vo_chns[VoChn].vo_attr.stImgRect.u32Width = (RK_U32)ImageRectTotal[0].w;
+  g_vo_chns[VoChn].vo_attr.stImgRect.u32Height = (RK_U32)ImageRectTotal[0].h;
+  g_vo_chns[VoChn].vo_attr.stDispRect.s32X = ImageRectTotal[1].x;
+  g_vo_chns[VoChn].vo_attr.stDispRect.s32Y = ImageRectTotal[1].y;
+  g_vo_chns[VoChn].vo_attr.stDispRect.u32Width = (RK_U32)ImageRectTotal[1].w;
+  g_vo_chns[VoChn].vo_attr.stDispRect.u32Height = (RK_U32)ImageRectTotal[1].h;
+  g_vo_mtx.unlock();
+
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_VO_GetChnAttr(VO_CHN VoChn, VO_CHN_ATTR_S *pstAttr) {
+  if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
+    return -RK_ERR_VO_INVALID_DEVID;
+
+  if (!pstAttr)
+    return -RK_ERR_VO_ILLEGAL_PARAM;
+
+  g_vo_mtx.lock();
+  if (g_vo_chns[VoChn].status < CHN_STATUS_OPEN) {
+    g_vo_mtx.unlock();
+    return -RK_ERR_VO_NOTREADY;
+  }
+
+  memcpy(pstAttr, &g_vo_chns[VoChn].vo_attr, sizeof(VO_CHN_ATTR_S));
+  g_vo_mtx.unlock();
+
+  return RK_ERR_SYS_OK;
 }
 
 RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn) {
@@ -4366,7 +4455,7 @@ RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn) {
   g_vo_mtx.lock();
   if (g_vo_chns[VoChn].status == CHN_STATUS_BIND) {
     g_vo_mtx.unlock();
-    return -RK_ERR_ADEC_BUSY;
+    return -RK_ERR_VO_BUSY;
   }
 
   g_vo_chns[VoChn].rkmedia_flow.reset();

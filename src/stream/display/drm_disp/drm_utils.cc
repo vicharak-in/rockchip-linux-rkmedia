@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include <assert.h>
 #include <fcntl.h>
 #include <string.h>
@@ -10,11 +9,11 @@
 
 #include <algorithm>
 
-#include <functional>
 #include "drm_utils.h"
 #include "key_string.h"
 #include "media_type.h"
 #include "utils.h"
+#include <functional>
 
 namespace easymedia {
 
@@ -546,7 +545,7 @@ static int filter_modeinfo(int &size, drmModeModeInfoPtr *modes,
     int r = f(dmmi);
     if (r < 0) {
       size = remove_element<drmModeModeInfoPtr>(size, modes, dmmi);
-    } else if (r > 0) {
+    } else if (r >= 0) {
       ret = 0;
       j++;
     }
@@ -960,8 +959,8 @@ struct resources *DRMDevice::get_resources() {
     drmModeConnector *conn = sconnector->connector;
 
     int ret = asprintf(&sconnector->name, "%s-%u",
-             lookup_drm_connector_type_name(conn->connector_type),
-             conn->connector_type_id);
+                       lookup_drm_connector_type_name(conn->connector_type),
+                       conn->connector_type_id);
     if (ret < 0) {
       LOG("asprintf failed\n");
     }
