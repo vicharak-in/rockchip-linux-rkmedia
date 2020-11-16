@@ -37,7 +37,7 @@ void usage(char *s) {
   printf("Usage: %s\n", s);
   printf("Usage: %s -rgb\n", s);
   printf("Usage: %s -ir\n", s);
-  printf("Usage: %s -rgb [/etc/iqfiles]\n", s);
+  printf("Usage: %s -rgb [/etc/iqfiles] [noui]\n", s);
   exit(0);
 }
 int main(int argc, char *argv[]) {
@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
   int disp_height = 1280;
   int id = 0;
   char *iq_dir = NULL;
+  int ui = 1;
   if (argc >= 2) {
     if (strstr(argv[1], "rgb"))
       id = 0;
@@ -60,6 +61,11 @@ int main(int argc, char *argv[]) {
     iq_dir = argv[2];
     if (access(iq_dir, R_OK))
       usage(argv[0]);
+  }
+
+  if (argc >= 4) {
+    if (strstr(argv[3], "noui"))
+      ui = 0;
   }
 
 #ifdef RKAIQ
@@ -149,6 +155,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
   VO_CHN_ATTR_S stVoAttr = {0};
+  stVoAttr.pcDevNode = "/dev/dri/card0";
   stVoAttr.emPlaneType = VO_PLANE_OVERLAY;
   stVoAttr.enImgType = IMAGE_TYPE_NV12;
   stVoAttr.u16Zpos = 0;
@@ -165,6 +172,27 @@ int main(int argc, char *argv[]) {
     printf("Create vo[0] failed! ret=%d\n", ret);
     return -1;
   }
+
+  // VO[1] for primary plane
+  memset(&stVoAttr, 0, sizeof(stVoAttr));
+  stVoAttr.pcDevNode = "/dev/dri/card0";
+  stVoAttr.emPlaneType = VO_PLANE_PRIMARY;
+  stVoAttr.enImgType = IMAGE_TYPE_RGB888;
+  stVoAttr.u16Zpos = ui;
+  stVoAttr.stImgRect.s32X = 0;
+  stVoAttr.stImgRect.s32Y = 0;
+  stVoAttr.stImgRect.u32Width = disp_width;
+  stVoAttr.stImgRect.u32Height = disp_height;
+  stVoAttr.stDispRect.s32X = 0;
+  stVoAttr.stDispRect.s32Y = 0;
+  stVoAttr.stDispRect.u32Width = disp_width;
+  stVoAttr.stDispRect.u32Height = disp_height;
+  ret = RK_MPI_VO_CreateChn(1, &stVoAttr);
+  if (ret) {
+    printf("Create vo[1] failed! ret=%d\n", ret);
+    return -1;
+  }
+
   MPP_CHN_S stSrcChn = {0};
   MPP_CHN_S stDestChn = {0};
   stSrcChn.enModId = RK_ID_VI;
@@ -235,6 +263,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
   RK_MPI_VO_DestroyChn(0);
+  RK_MPI_VO_DestroyChn(1);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_RGA_DestroyChn(1);
   RK_MPI_VI_DisableChn(0, 0);

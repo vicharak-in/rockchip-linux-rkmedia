@@ -128,6 +128,7 @@ static void *GetIrBuffer(void *arg) {
 
 int main(int argc, char *argv[]) {
   int ret = 0;
+  int ui = 1;
   pthread_t trgb, tir;
   MB_IMAGE_INFO_S disp_info = {scale_width, scale_height, scale_width,
                                scale_height, IMAGE_TYPE_NV12};
@@ -135,9 +136,13 @@ int main(int argc, char *argv[]) {
   if (argc >= 2) {
     iq_dir = argv[1];
     if (access(iq_dir, R_OK)) {
-      printf("Usage: %s [/etc/iqfiles]\n", argv[0]);
+      printf("Usage: %s [/etc/iqfiles] [noui]\n", argv[0]);
       exit(0);
     }
+  }
+  if (argc >= 3) {
+    if (strstr(argv[2], "noui"))
+      ui = 0;
   }
 
 #ifdef RKAIQ
@@ -218,6 +223,7 @@ int main(int argc, char *argv[]) {
   }
 
   VO_CHN_ATTR_S stVoAttr = {0};
+  stVoAttr.pcDevNode = "/dev/dri/card0";
   stVoAttr.emPlaneType = VO_PLANE_OVERLAY;
   stVoAttr.enImgType = IMAGE_TYPE_NV12;
   stVoAttr.u16Zpos = 0;
@@ -232,6 +238,26 @@ int main(int argc, char *argv[]) {
   ret = RK_MPI_VO_CreateChn(0, &stVoAttr);
   if (ret) {
     printf("Create vo[0] failed! ret=%d\n", ret);
+    return -1;
+  }
+
+  // VO[1] for primary plane
+  memset(&stVoAttr, 0, sizeof(stVoAttr));
+  stVoAttr.pcDevNode = "/dev/dri/card0";
+  stVoAttr.emPlaneType = VO_PLANE_PRIMARY;
+  stVoAttr.enImgType = IMAGE_TYPE_RGB888;
+  stVoAttr.u16Zpos = ui;
+  stVoAttr.stImgRect.s32X = 0;
+  stVoAttr.stImgRect.s32Y = 0;
+  stVoAttr.stImgRect.u32Width = disp_width;
+  stVoAttr.stImgRect.u32Height = disp_height;
+  stVoAttr.stDispRect.s32X = 0;
+  stVoAttr.stDispRect.s32Y = 0;
+  stVoAttr.stDispRect.u32Width = disp_width;
+  stVoAttr.stDispRect.u32Height = disp_height;
+  ret = RK_MPI_VO_CreateChn(1, &stVoAttr);
+  if (ret) {
+    printf("Create vo[1] failed! ret=%d\n", ret);
     return -1;
   }
 
@@ -284,6 +310,7 @@ int main(int argc, char *argv[]) {
   RK_MPI_MB_ReleaseBuffer(rgb_mb);
   RK_MPI_MB_ReleaseBuffer(ir_mb);
   RK_MPI_VO_DestroyChn(0);
+  RK_MPI_VO_DestroyChn(1);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_RGA_DestroyChn(1);
   RK_MPI_VI_DisableChn(0, 0);
