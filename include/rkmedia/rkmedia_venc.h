@@ -284,8 +284,8 @@ typedef enum rkOSD_REGION_ID_E {
 } OSD_REGION_ID_E;
 
 typedef enum rkOSD_PIXEL_FORMAT_E {
-  PIXEL_FORMAT_ARGB_1555 = 0,
-  PIXEL_FORMAT_ARGB_8888,
+  PIXEL_FORMAT_ARGB_8888 = 0,
+  PIXEL_FORMAT_BUTT // butt of enum
 } OSD_PIXEL_FORMAT_E;
 
 typedef struct rkBITMAP_S {
