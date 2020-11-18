@@ -29,17 +29,17 @@ void video_packet_cb(MEDIA_BUFFER mb) {
   RK_MPI_MB_ReleaseBuffer(mb);
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
@@ -63,12 +63,9 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case '?':
     default:
       print_usage(argv[0]);
@@ -110,6 +107,7 @@ int main(int argc, char *argv[]) {
 
   // Create h264 encoder:venc[0]
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   // config venc attr
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
@@ -185,13 +183,7 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, sigterm_handler);
 
   while (!quit) {
-    usleep(100);
-  }
-
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);
@@ -199,9 +191,15 @@ int main(int argc, char *argv[]) {
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   stDestChn.s32ChnId = 1;
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-  RK_MPI_VI_DisableChn(0, 1);
   RK_MPI_VENC_DestroyChn(0);
   RK_MPI_VENC_DestroyChn(1);
+  RK_MPI_VI_DisableChn(0, 1);
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
 
   return 0;
 }

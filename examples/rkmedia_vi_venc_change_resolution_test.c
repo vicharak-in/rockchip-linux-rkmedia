@@ -80,6 +80,7 @@ int StreamOn(int width, int height, IMAGE_TYPE_E img_type,
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = codec_type;
   venc_chn_attr.stVencAttr.imageType = img_type;
   venc_chn_attr.stVencAttr.u32PicWidth = width;
@@ -242,6 +243,7 @@ int SubStreamOn(int width, int height, const char *video_node, int vi_chn,
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = codec_type;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
   venc_chn_attr.stVencAttr.u32PicWidth = width;
@@ -301,16 +303,18 @@ int SubStreamOff(int vi_chn, int venc_chn) {
     return -1;
   }
 
-  ret = RK_MPI_VI_DisableChn(0, vi_chn);
-  if (ret) {
-    printf("ERROR: disable vi[%d] failed, ret: %d\n", vi_chn, ret);
-    return -1;
-  }
   ret = RK_MPI_VENC_DestroyChn(venc_chn);
   if (ret) {
     printf("ERROR: disable venc[%d] failed, ret: %d\n", vi_chn, ret);
     return -1;
   }
+
+  ret = RK_MPI_VI_DisableChn(0, vi_chn);
+  if (ret) {
+    printf("ERROR: disable vi[%d] failed, ret: %d\n", vi_chn, ret);
+    return -1;
+  }
+
   printf("*** SubStreamOff: END....\n");
 
   return 0;
@@ -338,7 +342,7 @@ static void *GetStreamThread() {
   return NULL;
 }
 
-static char optstr[] = "?:c:s:w:h:a::";
+static char optstr[] = "?::c:s:w:h:a::";
 
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
@@ -346,6 +350,7 @@ static const struct option long_options[] = {
     {"seconds", required_argument, NULL, 's'},
     {"width", required_argument, NULL, 'w'},
     {"height", required_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
@@ -365,7 +370,7 @@ static void print_usage(char *name) {
   printf("  %s [-c 20] [-s 5] [-w 3840] [-h 2160] [-a the path of iqfiles]\n",
          name);
   printf("  @[-c] Main stream switching times. defalut:20\n");
-  printf("  @[-s] The duration of the main stream. default:5s\n");
+  printf("  @[-s] The duration of the main stream. default:5\n");
   printf("  @[-w] img width for rkispp_m_bypass. default: 3840\n");
   printf("  @[-h] img height for rkispp_m_bypass. default: 2160\n");
   printf("  @[-a] the path of iqfiles. default: NULL\n");
@@ -374,8 +379,8 @@ static void print_usage(char *name) {
 int main(int argc, char *argv[]) {
   int loop_cnt = 20;
   int loop_seconds = 5; // 5s
-  int width = 2688;
-  int height = 1520;
+  int width = 3840;
+  int height = 2160;
   char *iq_file_dir = NULL;
 
   int c = 0;
@@ -491,12 +496,6 @@ int main(int argc, char *argv[]) {
     }
 
     g_buf_flag = 0;
-    // close isp before vi
-    if (iq_file_dir) {
-#ifdef RKAIQ
-      SAMPLE_COMM_ISP_Stop();
-#endif
-    }
 
     if (StreamOff(img_type_used)) {
       printf("ERROR: StreamOff failed!\n");
@@ -513,12 +512,18 @@ int main(int argc, char *argv[]) {
       quit = true;
     }
 
+    if (iq_file_dir) {
+#ifdef RKAIQ
+      SAMPLE_COMM_ISP_Stop();
+#endif
+    }
+
     for (int j = 0; j < 3; j++) {
       fclose(g_save_file[j]);
       g_save_file[j] = NULL;
     }
   }
-
+  quit = true;
   for (int i = 0; i < 3; i++) {
     if (g_save_file[i]) {
       fclose(g_save_file[i]);

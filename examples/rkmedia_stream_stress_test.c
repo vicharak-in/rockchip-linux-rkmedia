@@ -8,9 +8,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <string.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
@@ -163,6 +163,7 @@ int StreamOn(StreamInfo *info) {
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = info->codec_type;
   venc_chn_attr.stVencAttr.imageType = info->pix_fmt;
   venc_chn_attr.stVencAttr.u32PicWidth = info->width;
@@ -338,7 +339,7 @@ int StreamOff(StreamInfo *info) {
   return 0;
 }
 
-static char optstr[] = "?:s:w:h:a:";
+static char optstr[] = "?::s:w:h:a:";
 
 static void print_usage(char *name) {
   printf("#Function description:\n");

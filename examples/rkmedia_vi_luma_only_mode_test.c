@@ -22,17 +22,17 @@ static void sigterm_handler(int sig) {
   quit = true;
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
@@ -56,12 +56,9 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case '?':
     default:
       print_usage(argv[0]);
@@ -116,13 +113,14 @@ int main(int argc, char *argv[]) {
     printf("Rect[1] {256, 256, 256, 256} -> luma:%lld\n", u64LumaData[1]);
     usleep(100000); // 100ms
   }
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
-  }
+
   printf("%s exit!\n", __func__);
   RK_MPI_VI_DisableChn(0, 1);
 
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
   return 0;
 }

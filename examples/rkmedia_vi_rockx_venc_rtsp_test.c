@@ -325,7 +325,8 @@ static void *GetMediaBuffer(void *arg) {
     // process result
     if (out_track_objects.count > 0) {
       // for (int k = 0; k < person_array.count; k++) {
-      //   printf("## order: %d, p: %d, o: %d\n", k, person_array.object[k].id, out_track_objects.object[k].id);
+      //   printf("## order: %d, p: %d, o: %d\n", k, person_array.object[k].id,
+      //   out_track_objects.object[k].id);
       // }
       rknn_list_push(rknn_list_, getCurrentTimeMsec(), out_track_objects);
       int size = rknn_list_size(rknn_list_);
@@ -556,7 +557,8 @@ static void *MainStream(void *arg) {
         printf("time interval is %ld\n", getCurrentTimeMsec() - time_before);
 
       for (int j = 0; j < person_array.count; j++) {
-        // printf("ttl: %d, now: %d, id: %d\n", person_array.count, j, person_array.object[j].id);
+        // printf("ttl: %d, now: %d, id: %d\n", person_array.count, j,
+        // person_array.object[j].id);
         // printf("person_array.count is %d\n", person_array.count);
         // const char *cls_name =
         // OBJECT_DETECTION_LABELS_91[person_array.object[j].cls_idx];
@@ -780,7 +782,7 @@ static RK_S32 SAMPLE_COMMON_VI_Start(struct Session *session,
 
 static RK_S32 SAMPLE_COMMON_VENC_Start(struct Session *session) {
   VENC_CHN_ATTR_S venc_chn_attr;
-
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = session->video_type;
 
   venc_chn_attr.stVencAttr.imageType = session->enImageType;
@@ -881,11 +883,11 @@ static const struct option long_options[] = {
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a /oem/etc/iqfiles/] "
+  printf("\t%s [-a [iqfiles_dir]] "
          "[-v 0] "
-         "[-c /oem/usr/share/rtsp-nn.cfg] "
-         "[-r /usr/lib/librknn_runtime.so] "
-         "[-p /tmp/] "
+         "[-c rtsp-nn.cfg] "
+         "[-r librknn_runtime.so] "
+         "[-p pic_dir] "
          "[-l 0.45] "
          "[-t 0] "
          "[-f 30] "
@@ -899,9 +901,9 @@ static void print_usage(const RK_CHAR *name) {
 #else
   printf("\t%s "
          "[-v 0] "
-         "[-c /oem/usr/share/rtsp-nn.cfg] "
-         "[-r /usr/lib/librknn_runtime.so] "
-         "[-p /tmp/] "
+         "[-c rtsp-nn.cfg] "
+         "[-r librknn_runtime.so] "
+         "[-p pic_dir] "
          "[-l 0.45] "
          "[-t 0] "
          "[-f 30] "

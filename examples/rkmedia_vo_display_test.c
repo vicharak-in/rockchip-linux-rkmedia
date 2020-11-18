@@ -8,9 +8,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <string.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
@@ -24,7 +24,7 @@ static void sigterm_handler(int sig) {
   quit = true;
 }
 
-static RK_CHAR optstr[] = "?:d:t:s:x:y:w:h:z:f:";
+static RK_CHAR optstr[] = "?::d:t:s:x:y:w:h:z:f:";
 static void print_usage(const RK_CHAR *name) {
   printf("#Usage example:\n");
   printf("\t%s [-d /dev/dri/card0] [-t Primary] [-s 0] [-x 0] [-y 0] [-w 720] "

@@ -74,6 +74,7 @@ static int avbrStreamOn(int width, int height, int vi_chn, int venc_chn) {
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H265;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
   venc_chn_attr.stVencAttr.u32PicWidth = width;
@@ -154,42 +155,48 @@ static int avbrStreamOff(int vi_chn, int venc_chn) {
            venc_chn, ret);
     return -1;
   }
-  ret = RK_MPI_VI_DisableChn(0, vi_chn);
-  if (ret) {
-    printf("ERROR: Destroy VI[%d] failed! ret=%d\n", vi_chn, ret);
-    return -1;
-  }
   ret = RK_MPI_VENC_DestroyChn(venc_chn);
   if (ret) {
     printf("ERROR: Destroy Venc[%d] failed! ret=%d\n", venc_chn, ret);
+    return -1;
+  }
+  ret = RK_MPI_VI_DisableChn(0, vi_chn);
+  if (ret) {
+    printf("ERROR: Destroy VI[%d] failed! ret=%d\n", vi_chn, ret);
     return -1;
   }
 
   return 0;
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::o:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
+    {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]"
+         "[-o output.h265] \n",
+         name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
          "should run in other application\n");
 #else
-  printf("\t%s\n", name);
+  printf("\t%s"
+         "[-o output.h265] \n",
+         name);
 #endif
+  printf("\t-o | --output: output path, Default:/userdata/output.h265\n");
 }
 
 int main(int argc, char *argv[]) {
-  g_save_file = fopen("/userdata/output.h265", "w");
+  char *output_path = "/userdata/output.h265";
   signal(SIGINT, sigterm_handler);
   int c;
   char *iq_file_dir = NULL;
@@ -206,9 +213,9 @@ int main(int argc, char *argv[]) {
         iq_file_dir = "/oem/etc/iqfiles";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
+    case 'o':
+      output_path = optarg;
+      break;
     case '?':
     default:
       print_usage(argv[0]);
@@ -216,6 +223,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  printf("#output path: %s\n\n", output_path);
+  g_save_file = fopen(output_path, "w");
+  if (!g_save_file) {
+    printf("open output file fail\n");
+    return -1;
+  }
   if (iq_file_dir) {
 #ifdef RKAIQ
     printf("#Aiq xml dirpath: %s\n\n", iq_file_dir);
@@ -233,19 +246,19 @@ int main(int argc, char *argv[]) {
     return -1;
 
   while (!quit) {
-    usleep(100);
-  }
-
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+    usleep(500000);
   }
 
   avbrStreamOff(0, 0);
   if (g_save_file) {
-    printf("#VENC OSD TEST:: Close save file!\n");
+    printf("#VENC AVBR TEST:: Close save file!\n");
     fclose(g_save_file);
+  }
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
   }
 
   printf("%s exit!\n", __func__);

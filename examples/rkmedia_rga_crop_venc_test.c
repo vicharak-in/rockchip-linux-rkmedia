@@ -158,33 +158,30 @@ static const struct option long_options[] = {
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/] "
-         "\n",
-         name);
   printf("\t%s "
-         "[-a | --aiq /oem/etc/iqfiles/] "
-         "[-H | --vi_height 1920] "
-         "[-W | --vi_width 1080] "
-         "[-h | --crop_height 640] "
-         "[-w | --crop_width 640] "
-         "[-x | --crop_x 300] "
-         "[-y | --crop_y 300] "
-         "[--r | --rotation 0] "
-         "[-d | --device_name rkispp_scale0] \n",
+         "[-a [iqfiles_dir]] "
+         "[-H 1920] "
+         "[-W 1080] "
+         "[-h 640] "
+         "[-w 640] "
+         "[-x 300] "
+         "[-y 300] "
+         "[-r 0] "
+         "[-d rkispp_scale0] \n",
          name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default. without this option, aiq "
          "should run in other application\n");
 #else
-  printf("\t%s [-H | --vi_height 1920] "
-         "[-W | --vi_width 1080] "
-         "[-h | --crop_height 640] "
-         "[-w | --crop_width 640] "
-         "[-x | --crop_x 300] "
-         "[-y | --crop_y 300] "
-         "[-r | --rotation 0] "
-         "[-d | --device_name rkispp_scale0] \n",
+  printf("\t%s [-H 1920] "
+         "[-W 1080] "
+         "[-h 640] "
+         "[-w 640] "
+         "[-x 300] "
+         "[-y 300] "
+         "[-r 0] "
+         "[-d rkispp_scale0] \n",
          name);
 #endif
   printf("\t-H | --vi_height: VI height, Default:1080\n");
@@ -196,7 +193,6 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t-r  | --rotation, option[0, 90, 180, 270], Default:0\n");
   printf("\t-d  | --device_name set pcDeviceName, Default:rkispp_scale0\n");
   printf("\t  option: [rkispp_scale0, rkispp_scale1, rkispp_scale2]\n");
-  printf("Notice: fmt always NV12\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -309,6 +305,7 @@ int main(int argc, char *argv[]) {
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
   venc_chn_attr.stVencAttr.imageType = g_enPixFmt;
   venc_chn_attr.stVencAttr.u32PicWidth = demo_arg.vi_width;
@@ -345,21 +342,21 @@ int main(int argc, char *argv[]) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);
   pthread_join(read_thread, NULL);
   pthread_join(venc_thread, NULL);
 
+  RK_MPI_VENC_DestroyChn(g_stVencChn.s32ChnId);
+  RK_MPI_VI_DisableChn(g_stViChn.s32DevId, g_stViChn.s32ChnId);
+
   if (iq_file_dir) {
 #ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
+    SAMPLE_COMM_ISP_Stop();
 #endif
   }
-
-  RK_MPI_VI_DisableChn(g_stViChn.s32DevId, g_stViChn.s32ChnId);
-  RK_MPI_VENC_DestroyChn(g_stVencChn.s32ChnId);
 
   return 0;
 }

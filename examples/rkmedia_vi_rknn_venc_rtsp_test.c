@@ -5,6 +5,7 @@
 #include "rkmedia_api.h"
 #include "rkmedia_api.h"
 #include "rkmedia_venc.h"
+#include <getopt.h>
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
@@ -14,8 +15,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "rknn_api.h"
+#ifdef RKAIQ
+#include "common/sample_common.h"
+#endif
+
 #include "stdbool.h"
+#include "rknn_api.h"
 
 #define MAX_SESSION_NUM 2
 #define DRAW_INDEX 0
@@ -23,13 +28,12 @@
 #define MAX_RKNN_LIST_NUM 10
 #define UPALIGNTO(value, align) ((value + align - 1) & (~(align - 1)))
 #define UPALIGNTO16(value) UPALIGNTO(value, 16)
-#define RKNN_RUNTIME_LIB_PATH "/usr/lib/librknn_runtime.so"
 
 // SSD
-#define BOX_PRIORS_TXT_PATH "/oem/usr/share/rknn_model/box_priors.txt"
-#define LABEL_NALE_TXT_PATH "/oem/usr/share/rknn_model/coco_labels_list.txt"
-#define MODEL_PATH                                                             \
-  "/oem/usr/share/rknn_model/ssd_inception_v2_rv1109_rv1126.rknn"
+static char *g_box_priors = "/oem/usr/share/rknn_model/box_priors.txt";
+static char *g_labels_list = "/oem/usr/share/rknn_model/coco_labels_list.txt";
+static char *g_ssd_path =
+    "/oem/usr/share/rknn_model/ssd_inception_v2_rv1109_rv1126.rknn";
 
 #define OBJ_NAME_MAX_SIZE 16
 #define OBJ_NUMB_MAX_SIZE 64
@@ -292,7 +296,7 @@ int postProcessSSD(float *predictions, float *output_classes, int width,
   if (init == -1) {
     int ret = 0;
     printf("loadLabelName\n");
-    ret = loadLabelName(LABEL_NALE_TXT_PATH, labels);
+    ret = loadLabelName(g_labels_list, labels);
     if (ret < 0) {
       return -1;
     }
@@ -301,7 +305,7 @@ int postProcessSSD(float *predictions, float *output_classes, int width,
     // }
 
     printf("loadBoxPriors\n");
-    ret = loadBoxPriors(BOX_PRIORS_TXT_PATH, box_priors);
+    ret = loadBoxPriors(g_box_priors, box_priors);
     if (ret < 0) {
       return -1;
     }
@@ -722,7 +726,7 @@ static void *GetMediaBuffer(void *arg) {
   unsigned char *model;
 
   printf("Loading model ...\n");
-  model = load_model(MODEL_PATH, &model_len);
+  model = load_model(g_ssd_path, &model_len);
   ret = rknn_init(&ctx, model, model_len, 0);
   if (ret < 0) {
     printf("rknn_init fail! ret=%d\n", ret);
@@ -1010,6 +1014,7 @@ static void SAMPLE_COMMON_VI_Start(struct Session *session,
 
 static void SAMPLE_COMMON_VENC_Start(struct Session *session) {
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
 
   venc_chn_attr.stVencAttr.enType = session->video_type;
 
@@ -1057,16 +1062,100 @@ static void SAMPLE_COMMON_VENC_Start(struct Session *session) {
   RK_MPI_VENC_CreateChn(session->stVenChn.s32ChnId, &venc_chn_attr);
 }
 
+static RK_CHAR optstr[] = "?a::c:b:l:p:";
+static const struct option long_options[] = {
+    {"aiq", optional_argument, NULL, 'a'},
+    {"cfg_path", required_argument, NULL, 'c'},
+    {"box_priors", required_argument, NULL, 'b'},
+    {"labels_list", required_argument, NULL, 'l'},
+    {"ssd_path", required_argument, NULL, 'p'},
+    {"help", no_argument, NULL, '?'},
+    {NULL, 0, NULL, 0},
+};
+
+static void print_usage(const RK_CHAR *name) {
+  printf("usage example:\n");
+#ifdef RKAIQ
+  printf("\t%s [-a [iqfiles_dir]] "
+         "[-b box_priors.txt] "
+         "[-l coco_labels_list.txt] "
+         "[-p ssd_inception_v2_rv1109_rv1126.rknn] "
+         "[-c rtsp-nn.cfg]\n",
+         name);
+  printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
+         "/oem/etc/iqfiles/, "
+         "set dirpath empty to using path by default, without this option aiq "
+         "should run in other application\n");
+#else
+  printf("\t%s "
+         "[-b box_priors.txt] "
+         "[-l coco_labels_list.txt] "
+         "[-p ssd_inception_v2_rv1109_rv1126.rknn] "
+         "[-c rtsp-nn.cfg]\n",
+         name);
+#endif
+  printf("\t-b | --box_priors: box_priors path, Default: "
+         "\"/oem/usr/share/rknn_model/box_priors.txt\"\n");
+  printf("\t-l | --labels_list: labels_list path, Default: "
+         "\"/oem/usr/share/rknn_model/coco_labels_list.txt\"\n");
+  printf("\t-p | --ssd_path: ssd mode path, Default: "
+         "\"/oem/usr/share/rknn_model/ssd_inception_v2_rv1109_rv1126.rknn\"\n");
+  printf("\t-c | --cfg_path: rtsp cfg path, Default: "
+         "\"/oem/usr/share/rtsp-nn.cfg\"\n");
+  printf("\trstp: rtsp://<ip>/live/main_stream\n");
+}
+
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    printf("You must input the file of cfg.\n");
-    printf("example file: oem/usr/share/rtsp-nn.cfg.\n");
-    return -1;
+  RK_CHAR *pCfgPath = "/oem/usr/share/rtsp-nn.cfg";
+  RK_CHAR *pIqfilesPath = NULL;
+  int c;
+  while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
+    const char *tmp_optarg = optarg;
+    switch (c) {
+    case 'a':
+      if (!optarg && NULL != argv[optind] && '-' != argv[optind][0]) {
+        tmp_optarg = argv[optind++];
+      }
+      if (tmp_optarg) {
+        pIqfilesPath = (char *)tmp_optarg;
+      } else {
+        pIqfilesPath = "/oem/etc/iqfiles/";
+      }
+      break;
+    case 'c':
+      pCfgPath = optarg;
+      break;
+    case 'b':
+      g_box_priors = optarg;
+      break;
+    case 'l':
+      g_labels_list = optarg;
+      break;
+    case 'p':
+      g_ssd_path = optarg;
+      break;
+    case '?':
+    default:
+      print_usage(argv[0]);
+      return 0;
+    }
   }
-  printf("BOX_PRIORS_TXT_PATH is " BOX_PRIORS_TXT_PATH "\n");
-  printf("LABEL_NALE_TXT_PATH is " LABEL_NALE_TXT_PATH "\n");
-  printf("MODEL_PATH is " MODEL_PATH "\n");
-  load_cfg(argv[1]);
+
+  printf("cfg path is %s\n", pCfgPath);
+  printf("BOX_PRIORS_TXT_PATH is %s\n", g_box_priors);
+  printf("LABEL_NALE_TXT_PATH is %s\n", g_labels_list);
+  printf("MODEL_PATH is %s\n", g_ssd_path);
+  load_cfg(pCfgPath);
+
+  if (pIqfilesPath) {
+#ifdef RKAIQ
+    printf("xml dirpath: %s\n\n", pIqfilesPath);
+    RK_BOOL fec_enable = RK_FALSE;
+    SAMPLE_COMM_ISP_Init(hdr_mode, fec_enable, pIqfilesPath);
+    SAMPLE_COMM_ISP_Run();
+    SAMPLE_COMM_ISP_SetFrameRate(fps);
+#endif
+  }
 
   // init rtsp
   printf("init rtsp\n");
@@ -1147,15 +1236,21 @@ int main(int argc, char **argv) {
     rtsp_do_event(g_rtsplive);
   }
 
+  rtsp_del_demo(g_rtsplive);
   for (int i = 0; i < cfg.session_count; i++) {
     if (i != DRAW_INDEX)
       RK_MPI_SYS_UnBind(&cfg.session_cfg[i].stViChn,
                         &cfg.session_cfg[i].stVenChn);
-    RK_MPI_VI_DisableChn(0, cfg.session_cfg[i].stViChn.s32ChnId);
     RK_MPI_VENC_DestroyChn(cfg.session_cfg[i].stVenChn.s32ChnId);
+    RK_MPI_VI_DisableChn(0, cfg.session_cfg[i].stViChn.s32ChnId);
   }
-  rtsp_del_demo(g_rtsplive);
-  destory_rknn_list(&rknn_list_);
 
+  if (pIqfilesPath) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
+
+  destory_rknn_list(&rknn_list_);
   return 0;
 }

@@ -5,13 +5,13 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
@@ -70,7 +70,7 @@ static const struct option long_options[] = {
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
 
   RGA_ATTR_S stRgaAttr;
   stRgaAttr.bEnBufPool = RK_TRUE;
-  stRgaAttr.u16BufPoolCnt = 12;
+  stRgaAttr.u16BufPoolCnt = 2;
   stRgaAttr.u16Rotaion = 0;
   stRgaAttr.stImgIn.u32X = 0;
   stRgaAttr.stImgIn.u32Y = 0;
@@ -181,13 +181,15 @@ int main(int argc, char *argv[]) {
   while (!quit) {
     usleep(100);
   }
-#ifdef RKAIQ
-  SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+
   printf("%s exit!\n", __func__);
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-  RK_MPI_VI_DisableChn(0, 1);
   RK_MPI_RGA_DestroyChn(0);
+  RK_MPI_VI_DisableChn(0, 1);
+
+#ifdef RKAIQ
+  SAMPLE_COMM_ISP_Stop();
+#endif
 
   return 0;
 }

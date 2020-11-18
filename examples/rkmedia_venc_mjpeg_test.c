@@ -49,21 +49,27 @@ static void set_argb8888_buffer(RK_U32 *buf, RK_U32 size, RK_U32 color) {
     *(buf + i) = color;
 }
 
-static char optstr[] = "?:m:a::h";
+static char optstr[] = "?::m:a::o:";
 
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"mode", required_argument, NULL, 'm'},
-    {"help", no_argument, NULL, 'h'},
+    {"output", required_argument, NULL, 'o'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(char *name) {
   printf("#Usage Example: \n");
-  printf("  %s [-m cbr] [-m /oem/etc/iqfiles]\n", name);
-  printf("  @[-m] Set RcMode:cbr/vbr. defalut:vbr\n");
-  printf("  @[-a] the dirpath of iqfiles. set dirpath empty to using "
+#ifdef RKAIQ
+  printf("\t%s [-m cbr] [-a [iqfiles_dir]] [-o out.mjpg]\n", name);
+  printf("\t[-a | --aiq] the dirpath of iqfiles. set dirpath empty to using "
          "path:\"/oem/etc/iqfiles/\", default: NULL\n");
+#else
+  printf("\t%s [-m cbr] [-o out.mjpg]\n", name);
+#endif
+  printf("\t[-m | --mode] Set RcMode:cbr/vbr. defalut:vbr\n");
+  printf("\t-o | --output: output path, Default:/tmp/test.mjpg\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -71,6 +77,7 @@ int main(int argc, char *argv[]) {
   const RK_CHAR *pcRcMode = "vbr";
   int c = 0;
   const char *iq_file_dir = NULL;
+  RK_CHAR *pOutPath = "/tmp/test.mjpg";
 
   opterr = 1;
   while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
@@ -78,7 +85,6 @@ int main(int argc, char *argv[]) {
     switch (c) {
     case 'm':
       pcRcMode = optarg;
-      printf("#IN ARGS: pcRcMode: %s\n", pcRcMode);
       break;
     case 'a':
       if (!optarg && NULL != argv[optind] && '-' != argv[optind][0]) {
@@ -87,9 +93,11 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
-      printf("#IN ARGS: the path of iqfiles: %s\n", iq_file_dir);
+      break;
+    case 'o':
+      pOutPath = optarg;
       break;
     case '?':
     default:
@@ -98,9 +106,16 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  printf("#IN ARGS: pcRcMode: %s\n", pcRcMode);
+  printf("#IN ARGS: output path: %s\n", pOutPath);
+  save_file = fopen(pOutPath, "w");
+  if (!save_file) {
+    printf("WARN: open %s failed!\n", pOutPath);
+  }
+
   if (iq_file_dir) {
 #ifdef RKAIQ
-    printf("#Aiq xml dirpath: %s\n\n", iq_file_dir);
+    printf("#IN ARGS:Aiq xml dirpath: %s\n\n", iq_file_dir);
     rk_aiq_working_mode_t hdr_mode = RK_AIQ_WORKING_MODE_NORMAL;
     RK_BOOL fec_enable = RK_FALSE;
     int fps = 30;
@@ -161,10 +176,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  save_file = fopen("/tmp/test.mjpg", "w");
-  if (!save_file)
-    printf("WARN: open /tmp/test.mjpg failed!\n");
-
   MPP_CHN_S stEncChn;
   stEncChn.enModId = RK_ID_VENC;
   stEncChn.s32ChnId = 0;
@@ -218,19 +229,19 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, sigterm_handler);
 
   while (!quit) {
-    usleep(100);
-  }
-
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-  RK_MPI_VI_DisableChn(0, 1);
   RK_MPI_VENC_DestroyChn(0);
+  RK_MPI_VI_DisableChn(0, 1);
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
 
   if (save_file)
     fclose(save_file);

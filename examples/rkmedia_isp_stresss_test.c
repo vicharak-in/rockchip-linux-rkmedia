@@ -78,6 +78,7 @@ static void StreamOnOff(RK_BOOL start) {
   stDestChn.s32ChnId = 0;
   if (start) {
     VENC_CHN_ATTR_S venc_chn_attr;
+    memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
     venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
     venc_chn_attr.stVencAttr.imageType = g_enPixFmt;
     venc_chn_attr.stVencAttr.u32PicWidth = g_width;

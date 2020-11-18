@@ -79,23 +79,21 @@ int menu_ldch() {
   return menu;
 }
 
+static RK_CHAR optstr[] = "?::a::";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/] "
-         " [-h | --heght]"
+  printf("\t%s [-a iqfiles_dir] "
          "\n",
          name);
-  printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
-         "/oem/etc/iqfiles/. "
+  printf("\t-a | --aiq: enable aiq with dirpath provided,"
          "without this option, default path \"/oem/etc/iqfiles/\" would be "
          "userd.\n");
-  printf("\t-h | --help: show help info.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -108,14 +106,11 @@ int main(int argc, char *argv[]) {
   char *iq_file_dir = "/oem/etc/iqfiles/";
 
   int c;
-  while ((c = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
     switch (c) {
     case 'a':
       iq_file_dir = optarg;
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case '?':
     default:
       print_usage(argv[0]);
@@ -162,6 +157,7 @@ restart:
   SAMPLE_COMM_ISP_SetFrameRate(fps);
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
   venc_chn_attr.stVencAttr.u32PicWidth = 1920;
@@ -270,11 +266,10 @@ restart:
 
   printf("%s exit!\n", __func__);
 
-  SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   RK_MPI_VENC_DestroyChn(0);
   RK_MPI_VI_DisableChn(0, 1);
 
+  SAMPLE_COMM_ISP_Stop();
   return 0;
 }

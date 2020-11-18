@@ -51,7 +51,8 @@ static RK_VOID AI_AO() {
   ai_attr.u32NbSamples = 1152;
   ai_attr.u32SampleRate = g_enWorkSampleRate;
   ai_attr.u32Channels = 1;
-  ai_attr.enAiLayout = AI_LAYOUT_MIC_REF;//chanel layout: [ref:mic]; remove ref, output mic mono
+  ai_attr.enAiLayout = AI_LAYOUT_MIC_REF; // chanel layout: [ref:mic]; remove
+                                          // ref, output mic mono
 
   AO_CHN_ATTR_S ao_attr;
   ao_attr.pcAudioNode = ALSA_PATH;
@@ -98,7 +99,8 @@ static RK_VOID AI_AENC_FILE(char *file_path) {
   ai_attr.u32NbSamples = AAC_NB_SAMPLES;
   ai_attr.u32SampleRate = g_enWorkSampleRate;
   ai_attr.u32Channels = 1;
-  ai_attr.enAiLayout = AI_LAYOUT_MIC_REF;//chanel layout: [ref:mic]; remove ref, output mic mono
+  ai_attr.enAiLayout = AI_LAYOUT_MIC_REF; // chanel layout: [ref:mic]; remove
+                                          // ref, output mic mono
 
   AENC_CHN_ATTR_S aenc_attr;
   aenc_attr.enCodecType = RK_CODEC_TYPE_AAC;
@@ -276,7 +278,8 @@ RK_S32 AI_VqeProcess_AO(RK_VOID) {
   ai_attr.u32NbSamples = 1024;
   ai_attr.u32SampleRate = g_enWorkSampleRate;
   ai_attr.u32Channels = 1;
-  ai_attr.enAiLayout = AI_LAYOUT_MIC_REF;//remove ref channel, and output mic mono
+  ai_attr.enAiLayout =
+      AI_LAYOUT_MIC_REF; // remove ref channel, and output mic mono
 
   AO_CHN_ATTR_S ao_attr;
   ao_attr.pcAudioNode = ALSA_PATH;

@@ -15,7 +15,6 @@
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
-#include "rkmedia_venc.h"
 
 typedef struct {
   char *file_path;
@@ -32,9 +31,12 @@ static void *GetMediaBuffer(void *arg) {
   OutputArgs *outArgs = (OutputArgs *)arg;
   char *save_path = outArgs->file_path;
   int save_cnt = outArgs->frame_cnt;
-  FILE *save_file = fopen(save_path, "w");
-  if (!save_file)
-    printf("ERROR: Open %s failed!\n", save_path);
+  FILE *save_file = NULL;
+  if (save_cnt > 0) {
+    save_file = fopen(save_path, "w");
+    if (!save_file)
+      printf("ERROR: Open %s failed!\n", save_path);
+  }
 
   MEDIA_BUFFER mb = NULL;
   while (!quit) {
@@ -63,12 +65,8 @@ static void *GetMediaBuffer(void *arg) {
 
     RK_MPI_MB_ReleaseBuffer(mb);
 
-    // exit when complete and error
-    if (!save_file) {
-      quit = true;
-      printf("target file is null, exit!\n");
-      break;
-    } else if (save_cnt <= 0) {
+    // exit when complete
+    if (save_cnt <= 0 && outArgs->frame_cnt > 0) {
       quit = true;
       printf("Output is completed!\n");
       break;
@@ -81,43 +79,45 @@ static void *GetMediaBuffer(void *arg) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:a::w:h:c:o:";
+static RK_CHAR optstr[] = "?::a::w:h:c:o:d:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"device_name", required_argument, NULL, 'd'},
     {"width", required_argument, NULL, 'w'},
     {"height", required_argument, NULL, 'h'},
     {"frame_cnt", required_argument, NULL, 'c'},
-    {"output_path", required_argument, NULL, 'o'},
+    {"output", required_argument, NULL, 'o'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/] [-w | --width 1920] "
-         "[-h | --heght 1080]"
-         "[-c | --frame_cnt 10] "
-         "[-d | --device_name rkispp_scale0] "
-         "[-o | --output_path /tmp/1080p.nv12] \n",
+  printf("\t%s [-a [iqfiles_dir]] [-w 1920] "
+         "[-h 1080]"
+         "[-c 10] "
+         "[-d rkispp_scale0] "
+         "[-o out.nv12] \n",
          name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath emtpty to using path by default, without this option aiq "
          "should run in other application\n");
 #else
-  printf("\t%s [-w | --width 1920] "
-         "[-h | --heght 1080]"
-         "[-c | --frame_cnt 10] "
-         "[-d | --device_name rkispp_scale0] "
-         "[-o | --output_path /tmp/1080p.nv12] \n",
+  printf("\t%s [-w 1920] "
+         "[-h 1080]"
+         "[-c 10] "
+         "[-d rkispp_scale0] "
+         "[-o out.nv12] \n",
          name);
 #endif
   printf("\t-w | --width: VI width, Default:1920\n");
   printf("\t-h | --heght: VI height, Default:1080\n");
   printf("\t-d | --device_name set pcDeviceName, Default:rkispp_scale0\n");
-  printf("\t-c | --frame_cnt: record frame, Default:10\n");
-  printf("\t-o | --output_path: output path, Default:/tmp/1080p.nv12\n");
+  printf("\t-c | --frame_cnt: record frame, Default:10, set -1 to disable "
+         "record\n");
+  printf("\t-o | --output: output path, Default:/tmp/1080p.nv12\n");
   printf("Notice: fmt always NV12\n");
 }
 
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         pIqfilesPath = (char *)tmp_optarg;
       } else {
-        pIqfilesPath = "/oem/etc/iqfiles";
+        pIqfilesPath = "/oem/etc/iqfiles/";
       }
       break;
     case 'w':
@@ -212,17 +212,17 @@ int main(int argc, char *argv[]) {
   }
 
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
+
+  printf("%s exit!\n", __func__);
+  RK_MPI_VI_DisableChn(0, 0);
 
 #ifdef RKAIQ
   if (pIqfilesPath)
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
+    SAMPLE_COMM_ISP_Stop();
 #endif
 
-  printf("%s exit!\n", __func__);
   printf(">>>>>>>>>>>>>>> Test END <<<<<<<<<<<<<<<<<<<<<<\n");
-  RK_MPI_VI_DisableChn(0, 0);
-
   return 0;
 }

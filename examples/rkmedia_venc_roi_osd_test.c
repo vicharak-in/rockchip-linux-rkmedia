@@ -143,6 +143,7 @@ int StreamOn(int width, int height, const char *video_node, int vi_chn,
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = codec_type;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
   venc_chn_attr.stVencAttr.u32PicWidth = width;
@@ -222,10 +223,11 @@ int StreamOff(int vi_chn, int venc_chn) {
   return 0;
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::o:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
+    {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0},
 };
 
@@ -234,19 +236,26 @@ static void print_usage(char *name) {
   printf("In the case of multiple streams, verify the effect of roi and osd at "
          "the same time.\n");
   printf(
-      "  MainStream: rkispp_scale0: 1920x1080 NV12 -> /userdata/main.h264\n");
-  printf("  SubStream0: rkispp_scale1: 720x480 NV12 -> /userdata/sub0.h264\n");
-  printf("  SubStream1: rkispp_scale2: 1280x720 NV12 -> /userdata/sub1.h264\n");
+      "  MainStream: rkispp_scale0: 1920x1080 NV12 -> /<output>/main.h264\n");
+  printf("  SubStream0: rkispp_scale1: 720x480 NV12 -> /<output>/sub0.h264\n");
+  printf("  SubStream1: rkispp_scale2: 1280x720 NV12 -> /<output>/sub1.h264\n");
   printf("#Usage Example: \n");
-  printf("  %s [-a /etc/iqfiles]\n", name);
-  printf("  @[-a] the dirpath of iqfiles. set dirpath empty to using "
-         "path:\"/oem/etc/iqfiles/\", default: NULL\n");
-  printf("  %s [-?]\n", name);
+#ifdef RKAIQ
+  printf("\t%s [-a [iqfiles_dir]] [-o output_dir]\n", name);
+  printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
+         "/oem/etc/iqfiles/, "
+         "set dirpath empty to using path by default, without this option aiq "
+         "should run in other application\n");
+#else
+  printf("\t%s [-o output_dir]\n", name);
+#endif
+  printf("\t-o | --output: output dirpath, Default:/tmp/\n");
 }
 
 int main(int argc, char *argv[]) {
   char *iq_file_dir = NULL;
   int c = 0;
+  RK_CHAR *pOutPath = "/tmp/";
   opterr = 1;
   while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
     const char *tmp_optarg = optarg;
@@ -258,12 +267,12 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
+    case 'o':
+      pOutPath = optarg;
+      break;
     case '?':
     default:
       print_usage(argv[0]);
@@ -271,6 +280,27 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  char file_name[128] = {0};
+  char file_name0[128] = {0};
+  char file_name1[128] = {0};
+  sprintf(file_name, "%s/main.h264", pOutPath);
+  sprintf(file_name0, "%s/sub0.h264", pOutPath);
+  sprintf(file_name1, "%s/sub1.h264", pOutPath);
+  printf("#output main:%s\n", file_name);
+  printf("#output sub0:%s\n", file_name0);
+  printf("#output sub1:%s\n", file_name1);
+  g_save_file = fopen(file_name, "w");
+  if (!g_save_file) {
+    printf("******open %s fail\n", file_name);
+  }
+  g_save_file_sub0 = fopen(file_name0, "w");
+  if (!g_save_file_sub0) {
+    printf("******open %s fail\n", file_name0);
+  }
+  g_save_file_sub1 = fopen(file_name1, "w");
+  if (!g_save_file_sub1) {
+    printf("******open %s fail\n", file_name1);
+  }
   printf(">>>>>>>>>>>>>>> Test START <<<<<<<<<<<<<<<<<<<<<<\n");
   if (iq_file_dir) {
 #ifdef RKAIQ
@@ -285,19 +315,16 @@ int main(int argc, char *argv[]) {
   }
 
   RK_MPI_SYS_Init();
-  g_save_file = fopen("/data/main.h264", "w");
   if (StreamOn(1920, 1080, "rkispp_scale0", 0, 0)) {
     printf("ERROR: StreamOn failed!\n");
     return -1;
   }
 
-  g_save_file_sub0 = fopen("/data/sub0.h264", "w");
   if (StreamOn(720, 480, "rkispp_scale1", 1, 1)) {
     printf("ERROR: StreamOn failed!\n");
     return -1;
   }
 
-  g_save_file_sub1 = fopen("/data/sub1.h264", "w");
   if (StreamOn(1280, 720, "rkispp_scale2", 2, 2)) {
     printf("ERROR: StreamOn failed!\n");
     return -1;
@@ -353,18 +380,19 @@ int main(int argc, char *argv[]) {
 
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
-  }
-
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+    usleep(500000);
   }
 
   StreamOff(0, 0);
   StreamOff(1, 1);
   StreamOff(2, 2);
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
+
   fclose(g_save_file);
   fclose(g_save_file_sub0);
   fclose(g_save_file_sub1);

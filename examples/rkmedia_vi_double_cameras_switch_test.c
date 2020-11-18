@@ -6,14 +6,14 @@
 #include "rkmedia_api.h"
 #include <assert.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <string.h>
-#include <pthread.h>
 
 static bool quit = false;
 static void sigterm_handler(int sig) {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
   RGA_ATTR_S stRgaAttr;
   memset(&stRgaAttr, 0, sizeof(stRgaAttr));
   stRgaAttr.bEnBufPool = RK_TRUE;
-  stRgaAttr.u16BufPoolCnt = 12;
+  stRgaAttr.u16BufPoolCnt = 2;
   stRgaAttr.u16Rotaion = 90;
   stRgaAttr.stImgIn.u32X = 0;
   stRgaAttr.stImgIn.u32Y = 0;
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
   }
   memset(&stRgaAttr, 0, sizeof(stRgaAttr));
   stRgaAttr.bEnBufPool = RK_TRUE;
-  stRgaAttr.u16BufPoolCnt = 12;
+  stRgaAttr.u16BufPoolCnt = 2;
   stRgaAttr.u16Rotaion = 270;
   stRgaAttr.stImgIn.u32X = 0;
   stRgaAttr.stImgIn.u32Y = 0;
@@ -235,13 +235,14 @@ int main(int argc, char *argv[]) {
     return -1;
   }
   RK_MPI_VO_DestroyChn(0);
-  RK_MPI_VI_DisableChn(0, 0);
-  RK_MPI_VI_DisableChn(1, 1);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_RGA_DestroyChn(1);
+  RK_MPI_VI_DisableChn(0, 0);
+  RK_MPI_VI_DisableChn(1, 1);
 #ifdef RKAIQ
   aiq_double_cam_exit(ctx0);
   aiq_double_cam_exit(ctx1);
 #endif
+
   return 0;
 }

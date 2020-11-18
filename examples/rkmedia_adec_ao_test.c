@@ -24,7 +24,7 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t-d: device name, Default:\"default\"\n");
   printf("\t-r: sample rate, Default:16000\n");
   printf("\t-c: channel count, Default:2\n");
-  printf("\t-i: output path, Default:\"/tmp/aenc.aac\"\n");
+  printf("\t-i: input path, Default:\"/tmp/aac.adts\"\n");
   printf("Notice: fmt always s16_le\n");
 }
 

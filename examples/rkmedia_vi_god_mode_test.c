@@ -5,19 +5,20 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
 #include "rkmedia_venc.h"
 
 static bool quit = false;
+static RK_CHAR *g_pOutPath = "/tmp/output.nv12";
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
   quit = true;
@@ -25,10 +26,9 @@ static void sigterm_handler(int sig) {
 
 static void *GetMediaBuffer(void *arg) {
   printf("#Start %s thread, arg:%p\n", __func__, arg);
-  const char *save_path = "/userdata/output.nv12";
-  FILE *save_file = fopen(save_path, "w");
+  FILE *save_file = fopen(g_pOutPath, "w");
   if (!save_file)
-    printf("ERROR: Open %s failed!\n", save_path);
+    printf("ERROR: Open %s failed!\n", g_pOutPath);
 
   MEDIA_BUFFER mb = NULL;
   int save_cnt = 0;
@@ -47,7 +47,7 @@ static void *GetMediaBuffer(void *arg) {
 
     if (save_file && (save_cnt < 3)) {
       fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), save_file);
-      printf("#Save frame-%d to %s\n", save_cnt, save_path);
+      printf("#Save frame-%d to %s\n", save_cnt, g_pOutPath);
       save_cnt++;
     }
 
@@ -78,24 +78,26 @@ void video_packet_cb(MEDIA_BUFFER mb) {
   RK_MPI_MB_ReleaseBuffer(mb);
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::o:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"output", required_argument, NULL, 'o'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]] [-o output.nv12]\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
          "should run in other application\n");
 #else
-  printf("\t%s\n", name);
+  printf("\t%s [-o output.nv12]\n", name);
 #endif
+  printf("\t-o | --output: output path, Default:/tmp/output.nv12\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -112,12 +114,12 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
+    case 'o':
+      g_pOutPath = optarg;
+      break;
     case '?':
     default:
       print_usage(argv[0]);
@@ -125,6 +127,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  printf("#Output Path: %s\n", g_pOutPath);
   if (iq_file_dir) {
 #ifdef RKAIQ
     printf("#Aiq xml dirpath: %s\n\n", iq_file_dir);
@@ -142,7 +145,7 @@ int main(int argc, char *argv[]) {
   // through the RK_MPI_SYS_GetMediaBuffer interface after the VI is bound.
   VI_CHN_ATTR_S vi_chn_attr;
   vi_chn_attr.pcVideoNode = "rkispp_scale0";
-  vi_chn_attr.u32BufCnt = 4; // should be >= 4
+  vi_chn_attr.u32BufCnt = 3;
   vi_chn_attr.u32Width = 1920;
   vi_chn_attr.u32Height = 1080;
   vi_chn_attr.enPixFmt = IMAGE_TYPE_NV12;
@@ -206,13 +209,9 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, sigterm_handler);
 
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
-  }
+
   printf("%s exit!\n", __func__);
   // unbind first
   ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
@@ -231,6 +230,12 @@ int main(int argc, char *argv[]) {
   if (ret) {
     printf("ERROR: Destroy VI[0] error! ret=%d\n", ret);
     return 0;
+  }
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
   }
 
   return 0;

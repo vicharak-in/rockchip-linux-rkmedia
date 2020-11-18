@@ -38,17 +38,17 @@ void occlusion_detection_cb(EVENT_S *pstEvent) {
   }
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
@@ -76,12 +76,9 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case '?':
     default:
       print_usage(argv[0]);
@@ -117,7 +114,7 @@ int main(int argc, char *argv[]) {
   }
   RGA_ATTR_S stRgaAttr;
   stRgaAttr.bEnBufPool = RK_TRUE;
-  stRgaAttr.u16BufPoolCnt = 12;
+  stRgaAttr.u16BufPoolCnt = 2;
   stRgaAttr.u16Rotaion = 90;
   stRgaAttr.stImgIn.u32X = 0;
   stRgaAttr.stImgIn.u32Y = 0;
@@ -262,13 +259,15 @@ int main(int argc, char *argv[]) {
     printf("UnBind rga[0] to vo[0] failed! ret=%d\n", ret);
     return -1;
   }
-#ifdef RKAIQ
-  SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+
   RK_MPI_ALGO_OD_DestroyChn(0);
   RK_MPI_VO_DestroyChn(0);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_VI_DisableChn(0, 0);
+
+#ifdef RKAIQ
+  SAMPLE_COMM_ISP_Stop();
+#endif
 
   return 0;
 }

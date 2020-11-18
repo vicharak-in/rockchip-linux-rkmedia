@@ -26,9 +26,11 @@ static void sigterm_handler(int sig) {
 
 static void *GetMediaBuffer(void *arg) {
   printf("#Start %s thread, arg:%p\n", __func__, arg);
-  FILE *save_file = fopen("/userdata/output.h265", "w");
+  char out_path[128];
+  sprintf(out_path, "%s/output.h265", g_save_path);
+  FILE *save_file = fopen(out_path, "w");
   if (!save_file)
-    printf("ERROR: Open /userdata/output.h265 failed!\n");
+    printf("ERROR: Open %s failed!\n", out_path);
 
   MEDIA_BUFFER mb = NULL;
   while (!quit) {
@@ -76,32 +78,28 @@ void take_pictures_cb(MEDIA_BUFFER mb) {
   jpeg_id++;
 }
 
-static RK_CHAR optstr[] = "?:a::h:o:";
+static RK_CHAR optstr[] = "?::a::o:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
-    {"output_path", required_argument, NULL, 'o'},
+    {"help", optional_argument, NULL, '?'},
+    {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq=/oem/etc/iqfiles/] [-w | --width 1920] "
-         "[-h | --help] "
-         "[-o | --output_path /tmp/] "
+  printf("\t%s [-a [iqfiles_dir]] "
+         "[-o output_dir] "
          "\n",
          name);
-  printf("\t-a | --aiq: enable aiq with dirpath provided, "
-         "eg:-a=/oem/etc/iqfiles/, "
+  printf("\t-a | --aiq: enable aiq with dirpath provided,"
          "set dirpath emtpty to using path by default\n");
 #else
-  printf("\t%s [-h | --help] "
-         "[-o | --output_path /tmp/] \n",
-         name);
+  printf("\t%s [-o output_dir] \n", name);
 #endif
-  printf("\t-o | --output_dirpath: output path, Default:/tmp/\n");
-  printf("\t-h | --help: show help info.\n");
+  printf("\t-o | --output: output path, Default:/tmp/\n");
+  printf("\t-? | --help: show help info.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -134,9 +132,6 @@ int main(int argc, char *argv[]) {
         iq_file_dir = "/oem/etc/iqfiles";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case 'o':
       g_save_path = optarg ? optarg : NULL;
       break;
@@ -147,7 +142,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-if (iq_file_dir) {
+  if (iq_file_dir) {
 #ifdef RKAIQ
     SAMPLE_COMM_ISP_Init(hdr_mode, fec_enable, iq_file_dir);
     SAMPLE_COMM_ISP_Run();
@@ -177,6 +172,7 @@ if (iq_file_dir) {
 
   // Create H265 for Main Stream.
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H265;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_FBC0;
   venc_chn_attr.stVencAttr.u32PicWidth = u32SrcWidth;
@@ -277,16 +273,16 @@ if (iq_file_dir) {
   }
 
   printf("%s exit!\n", __func__);
-#ifdef RKAIQ
-  SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
   stDestChn.s32ChnId = 0;
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   stDestChn.s32ChnId = 1;
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-  RK_MPI_VI_DisableChn(0, 0);
   RK_MPI_VENC_DestroyChn(0);
   RK_MPI_VENC_DestroyChn(1);
+  RK_MPI_VI_DisableChn(0, 0);
 
+#ifdef RKAIQ
+  SAMPLE_COMM_ISP_Stop();
+#endif
   return 0;
 }

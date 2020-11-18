@@ -10,9 +10,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <string.h>
 
 #include "rkmedia_api.h"
 #include "rkmedia_venc.h"
@@ -69,7 +69,7 @@ static const struct option long_options[] = {
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
-  printf("\t%s -i in.nv12 -o out.h264 -w 1920 -h 1080 -t h264", name);
+  printf("\t%s [-i in.nv12] [-o out.h264] [-w 1920] [-h 1080] [-t h264]", name);
   printf("\t-i | --input: Input image file\n");
   printf("\t-o | --output: Output file\n");
   printf("\t-w | --width: Image width\n");
@@ -99,10 +99,10 @@ int main(int argc, char *argv[]) {
       output_file = optarg;
       break;
     case 'w':
-      u32Width = (RK_U32) atoi(optarg);
+      u32Width = (RK_U32)atoi(optarg);
       break;
     case 'h':
-      u32Height = (RK_U32) atoi(optarg);
+      u32Height = (RK_U32)atoi(optarg);
       break;
     case 'c':
       u32FrameCnt = atoi(optarg);
@@ -132,17 +132,17 @@ int main(int argc, char *argv[]) {
   printf("#ImgHeight:%u\n", u32Height);
   printf("#FrameCnt:%d\n", u32FrameCnt);
   switch (enEncoderMode) {
-    case VENC_RC_MODE_H264CBR:
-      printf("#EncoderType:H264 Cbr\n");
-      break;
-    case VENC_RC_MODE_H265CBR:
-      printf("#EncoderType:H265 Cbr\n");
-      break;
-    case VENC_RC_MODE_MJPEGCBR:
-      printf("#EncoderType:Mjpeg Cbr\n");
-      break;
-    default:
-      break;
+  case VENC_RC_MODE_H264CBR:
+    printf("#EncoderType:H264 Cbr\n");
+    break;
+  case VENC_RC_MODE_H265CBR:
+    printf("#EncoderType:H265 Cbr\n");
+    break;
+  case VENC_RC_MODE_MJPEGCBR:
+    printf("#EncoderType:Mjpeg Cbr\n");
+    break;
+  default:
+    break;
   }
 
   if (!input_file || !u32Width || !u32Height || !u32FrameCnt) {
@@ -209,7 +209,8 @@ int main(int argc, char *argv[]) {
   RK_S32 s32ReadSize = 0;
   RK_S32 s32FrameSize = 0;
   RK_U64 u64TimePeriod = 1000000 / u32Fps; // us
-  MB_IMAGE_INFO_S stImageInfo = {u32Width, u32Height, u32Width, u32Height, IMAGE_TYPE_NV12};
+  MB_IMAGE_INFO_S stImageInfo = {u32Width, u32Height, u32Width, u32Height,
+                                 IMAGE_TYPE_NV12};
 
   while (!quit) {
     // Create dma buffer. Note that mpp encoder only support dma buffer.

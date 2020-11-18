@@ -4,17 +4,18 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "common/sample_double_cam_isp.h"
 #include "rkmedia_api.h"
 #include <rga/RgaApi.h>
+#include <rga/rga.h>
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static MEDIA_BUFFER ir_mb;
@@ -194,7 +195,7 @@ int main(int argc, char *argv[]) {
   RGA_ATTR_S stRgaAttr;
   memset(&stRgaAttr, 0, sizeof(stRgaAttr));
   stRgaAttr.bEnBufPool = RK_TRUE;
-  stRgaAttr.u16BufPoolCnt = 12;
+  stRgaAttr.u16BufPoolCnt = 2;
   stRgaAttr.u16Rotaion = 90;
   stRgaAttr.stImgIn.u32X = 0;
   stRgaAttr.stImgIn.u32Y = 0;
@@ -280,13 +281,13 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  RK_MPI_VO_DestroyChn(0);
-  RK_MPI_VI_DisableChn(0, 0);
-  RK_MPI_VI_DisableChn(1, 1);
-  RK_MPI_RGA_DestroyChn(0);
-  RK_MPI_RGA_DestroyChn(1);
   RK_MPI_MB_ReleaseBuffer(rgb_mb);
   RK_MPI_MB_ReleaseBuffer(ir_mb);
+  RK_MPI_VO_DestroyChn(0);
+  RK_MPI_RGA_DestroyChn(0);
+  RK_MPI_RGA_DestroyChn(1);
+  RK_MPI_VI_DisableChn(0, 0);
+  RK_MPI_VI_DisableChn(1, 1);
 
 #ifdef RKAIQ
   aiq_double_cam_exit(ctx0);

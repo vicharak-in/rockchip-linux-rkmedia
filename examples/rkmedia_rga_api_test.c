@@ -98,7 +98,7 @@ static void *GetMediaBuffer(void *arg) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:a::x:y:d:H:W:w:h:";
+static RK_CHAR optstr[] = "?::a::x:y:d:H:W:w:h:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"vi_height", required_argument, NULL, 'H'},
@@ -108,37 +108,35 @@ static const struct option long_options[] = {
     {"device_name", required_argument, NULL, 'd'},
     {"crop_x", required_argument, NULL, 'x'},
     {"crop_y", required_argument, NULL, 'y'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a | --aiq /oem/etc/iqfiles/] "
-         "\n",
-         name);
   printf("\t%s "
-         "[-a | --aiq /oem/etc/iqfiles/] "
-         "[-H | --vi_height 1920] "
-         "[-W | --vi_width 1080] "
-         "[-h | --crop_height 640] "
-         "[-w | --crop_width 640] "
-         "[-x | --crop_x 300] "
-         "[-y | --crop_y 300] "
-         "[-d | --device_name rkispp_scale0] \n",
+         "[-a [iqfiles_dir]] "
+         "[-H 1920] "
+         "[-W 1080] "
+         "[-h 640] "
+         "[-w 640] "
+         "[-x 300] "
+         "[-y 300] "
+         "[-d rkispp_scale0] \n",
          name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default. without this option, aiq "
          "should run in other application\n");
 #else
-  printf("\t%s [-H | --vi_height 1920] "
-         "[-W | --vi_width 1080] "
-         "[-h | --crop_height 640] "
-         "[-w | --crop_width 640] "
-         "[-x | --crop_x 300] "
-         "[-y | --crop_y 300] "
-         "[-d | --device_name rkispp_scale0] \n",
+  printf("\t%s [-H 1920] "
+         "[-W 1080] "
+         "[-h 640] "
+         "[-w 640] "
+         "[-x 300] "
+         "[-y 300] "
+         "[-d rkispp_scale0] \n",
          name);
 #endif
   printf("\t-H | --vi_height: VI height, Default:1080\n");
@@ -176,7 +174,7 @@ int main(int argc, char *argv[]) {
       if (tmp_optarg) {
         iq_file_dir = (char *)tmp_optarg;
       } else {
-        iq_file_dir = "/oem/etc/iqfiles";
+        iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
     case 'H':
@@ -282,18 +280,18 @@ int main(int argc, char *argv[]) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
-  }
-
-  if (iq_file_dir) {
-#ifdef RKAIQ
-    SAMPLE_COMM_ISP_Stop(); // isp aiq stop before vi streamoff
-#endif
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);
-  RK_MPI_VI_DisableChn(0, 0);
   RK_MPI_VO_DestroyChn(0);
+  RK_MPI_VI_DisableChn(0, 0);
+
+  if (iq_file_dir) {
+#ifdef RKAIQ
+    SAMPLE_COMM_ISP_Stop();
+#endif
+  }
 
   return 0;
 }

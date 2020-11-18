@@ -23,15 +23,6 @@ target_include_directories(rkmedia_vi_venc_test PRIVATE ${CMAKE_SOURCE_DIR}/incl
 install(TARGETS rkmedia_vi_venc_test RUNTIME DESTINATION "bin")
 
 #--------------------------
-# rkmedia_vi_venc_file_test
-#--------------------------
-add_executable(rkmedia_vi_venc_file_test rkmedia_vi_venc_file_test.c ${COMMON_SRC})
-add_dependencies(rkmedia_vi_venc_file_test easymedia)
-target_link_libraries(rkmedia_vi_venc_file_test easymedia)
-target_include_directories(rkmedia_vi_venc_file_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-install(TARGETS rkmedia_vi_venc_file_test RUNTIME DESTINATION "bin")
-
-#--------------------------
 # rkmedia_venc_osd_test
 #--------------------------
 add_executable(rkmedia_venc_osd_test rkmedia_venc_osd_test.c ${COMMON_SRC})
