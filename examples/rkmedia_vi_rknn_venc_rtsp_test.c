@@ -1151,6 +1151,8 @@ int main(int argc, char **argv) {
 #ifdef RKAIQ
     printf("xml dirpath: %s\n\n", pIqfilesPath);
     RK_BOOL fec_enable = RK_FALSE;
+    int fps = 30;
+    rk_aiq_working_mode_t hdr_mode = RK_AIQ_WORKING_MODE_NORMAL;
     SAMPLE_COMM_ISP_Init(hdr_mode, fec_enable, pIqfilesPath);
     SAMPLE_COMM_ISP_Run();
     SAMPLE_COMM_ISP_SetFrameRate(fps);

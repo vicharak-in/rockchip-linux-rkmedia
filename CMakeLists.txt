@@ -97,6 +97,10 @@ if(USE_RKAIQ)
     add_definitions(-DRKAIQ)
 endif()
 
+if(AUDIO_ALGORITHM)
+  add_definitions(-DAUDIO_ALGORITHM_ENABLE)
+endif()
+
 # ----------------------------------------------------------------------------
 # Build options
 # ----------------------------------------------------------------------------

@@ -12,7 +12,9 @@
 #include <mutex>
 
 #include "v4l2_utils.h"
+#ifdef RKAIQ
 #include "rkaiq_media.h"
+#endif
 
 #define RKISP_SUBDEV_NAME "rkisp-isp-subdev"
 #define RKIISPP_SUBDEV_NAME "rkispp-subdev"
@@ -45,7 +47,9 @@ public:
   int InitHwInfos();
   int SetupLink(std::string devname, bool enable);
 
+#ifdef RKAIQ
   RKAiqMedia media_ctl_infos;
+#endif
 };
 
 class V4L2Stream : public Stream {

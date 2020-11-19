@@ -20,8 +20,13 @@ if(V4L2_OUTPUT OR V4L2_CAPTURE)
   endif()
 
   set(EASY_MEDIA_STREAM_V4L2_SOURCE_FILES stream/camera/v4l2_utils.cc
-                                          stream/camera/rkaiq_media.cc
                                           stream/camera/v4l2_stream.cc)
+
+  if(USE_RKAIQ)
+    set(EASY_MEDIA_STREAM_V4L2_SOURCE_FILES
+        ${EASY_MEDIA_STREAM_V4L2_SOURCE_FILES}
+        stream/camera/rkaiq_media.cc)
+  endif()
 
   if(V4L2_CAPTURE)
     set(EASY_MEDIA_STREAM_V4L2_SOURCE_FILES
