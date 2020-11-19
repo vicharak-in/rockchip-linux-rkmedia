@@ -55,7 +55,7 @@ static void *GetMediaBuffer(void *path) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:d:c:r:s:o:";
+static RK_CHAR optstr[] = "?::d:c:r:s:o:";
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
   printf("\t%s [-d default] [-r 16000] [-c 2] [-s 1024] -o /tmp/ai.pcm\n",

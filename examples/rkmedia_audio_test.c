@@ -351,7 +351,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  if (strcmp(argv[1], "-h") == 0) {
+  if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "-?") == 0) {
     RKMEDIA_AUDIO_Usage();
     return -1;
   }

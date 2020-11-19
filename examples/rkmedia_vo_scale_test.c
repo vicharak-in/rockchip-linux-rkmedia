@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
   RK_MPI_SYS_Init();
   VI_CHN_ATTR_S vi_chn_attr;
   vi_chn_attr.pcVideoNode = "rkispp_scale0";
-  vi_chn_attr.u32BufCnt = 4;
+  vi_chn_attr.u32BufCnt = 3;
   vi_chn_attr.u32Width = video_width;
   vi_chn_attr.u32Height = video_height;
   vi_chn_attr.enPixFmt = IMAGE_TYPE_NV12;

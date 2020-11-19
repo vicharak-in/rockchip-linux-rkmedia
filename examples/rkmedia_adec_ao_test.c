@@ -16,7 +16,7 @@
 #include "rkmedia_api.h"
 
 static bool quit = false;
-static RK_CHAR optstr[] = "?:d:c:r:i:";
+static RK_CHAR optstr[] = "?::d:c:r:i:";
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");

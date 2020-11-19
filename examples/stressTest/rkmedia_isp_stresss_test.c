@@ -99,7 +99,7 @@ static void StreamOnOff(RK_BOOL start) {
 
     VI_CHN_ATTR_S vi_chn_attr;
     vi_chn_attr.pcVideoNode = g_video_node;
-    vi_chn_attr.u32BufCnt = 4;
+    vi_chn_attr.u32BufCnt = 3;
     vi_chn_attr.u32Width = g_width;
     vi_chn_attr.u32Height = g_height;
     vi_chn_attr.enPixFmt = g_enPixFmt;
@@ -139,7 +139,7 @@ static void StreamOnOffVI(RK_BOOL start) {
   if (start) {
     VI_CHN_ATTR_S vi_chn_attr;
     vi_chn_attr.pcVideoNode = g_video_node;
-    vi_chn_attr.u32BufCnt = 4;
+    vi_chn_attr.u32BufCnt = 3;
     vi_chn_attr.u32Width = g_width;
     vi_chn_attr.u32Height = g_height;
     vi_chn_attr.enPixFmt = g_enPixFmt;
@@ -499,7 +499,7 @@ int main(int argc, char *argv[]) {
 
   RK_U32 u32Index;
 
-  if (strcmp(argv[1], "-h") == 0) {
+  if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "-?") == 0) {
     RKMEDIA_ISP_Usage();
     return -1;
   }

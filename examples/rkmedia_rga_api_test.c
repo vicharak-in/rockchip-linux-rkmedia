@@ -102,7 +102,7 @@ static RK_CHAR optstr[] = "?::a::x:y:d:H:W:w:h:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"vi_height", required_argument, NULL, 'H'},
-    {"vi_width", required_argument, NULL, 'G'},
+    {"vi_width", required_argument, NULL, 'W'},
     {"crop_height", required_argument, NULL, 'h'},
     {"crop_width", required_argument, NULL, 'w'},
     {"device_name", required_argument, NULL, 'd'},
@@ -141,8 +141,8 @@ static void print_usage(const RK_CHAR *name) {
 #endif
   printf("\t-H | --vi_height: VI height, Default:1080\n");
   printf("\t-W | --vi_width: VI width, Default:1920\n");
-  printf("\t-h | --crop_height: record frame, Default:640\n");
-  printf("\t-w | --crop_width: output path, Default:640\n");
+  printf("\t-h | --crop_height: crop_height, Default:640\n");
+  printf("\t-w | --crop_width: crop_width, Default:640\n");
   printf("\t-x  | --crop_x: start x of cropping, Default:300\n");
   printf("\t-y  | --crop_y: start y of cropping, Default:300\n");
   printf("\t-d  | --device_name set pcDeviceName, Default:rkispp_scale0\n");

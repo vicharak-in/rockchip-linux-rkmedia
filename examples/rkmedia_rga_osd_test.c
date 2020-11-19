@@ -24,7 +24,7 @@
 static RK_U32 g_snap_limit = 1;
 static RK_U32 g_raw_img_limit = 0;
 static RK_U32 g_unused_num = 10;
-RK_CHAR *g_pOutPath = "/tmp/";
+static RK_CHAR *g_pOutPath = "/tmp/";
 static bool quit = false;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
