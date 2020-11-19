@@ -81,6 +81,68 @@ int ParseAlsaParams(const char *param,
   return ret;
 }
 
+int ParseVQEParams(const char *param,
+                    std::map<std::string, std::string> &params,
+                    bool *bVqeEnable, VQE_CONFIG_S *stVqeConfig) {
+  int ret = 0;
+  if (!easymedia::parse_media_param_map(param, params))
+    return 0;
+  for (auto &p : params) {
+    const std::string &key = p.first;
+    if (key == KEY_VQE_ENABLE) {
+      *bVqeEnable = stoi(p.second);
+    } else if (key == KEY_VQE_MODE) {
+      stVqeConfig->u32VQEMode = (VQE_MODE_E)stoi(p.second);
+    }
+  }
+  if ((*bVqeEnable == 0) || (stVqeConfig->u32VQEMode > VQE_MODE_AO))
+    return 0;
+
+  if (stVqeConfig->u32VQEMode == VQE_MODE_AI_TALK) {
+    for (auto &p : params) {
+      const std::string &key = p.first;
+      if (key == KEY_VQE_OPEN_MASK)
+        stVqeConfig->stAiTalkConfig.u32OpenMask = stoi(p.second);
+      else if (key == KEY_VQE_WORK_SAMPLE_RATE)
+        stVqeConfig->stAiTalkConfig.s32WorkSampleRate = stoi(p.second);
+      else if (key == KEY_VQE_FRAME_SAMPLE)
+        stVqeConfig->stAiTalkConfig.s32FrameSample = stoi(p.second);
+      else if (key == KEY_VQE_PARAM_FILE_PATH)
+      strcpy(stVqeConfig->stAiTalkConfig.aParamFilePath, p.second.c_str());
+    }
+  } else if (stVqeConfig->u32VQEMode == VQE_MODE_AI_RECORD) {
+    for (auto &p : params) {
+      const std::string &key = p.first;
+      if (key == KEY_VQE_OPEN_MASK)
+        stVqeConfig->stAiRecordConfig.u32OpenMask = stoi(p.second);
+      else if (key == KEY_VQE_WORK_SAMPLE_RATE)
+        stVqeConfig->stAiRecordConfig.s32WorkSampleRate = stoi(p.second);
+      else if (key == KEY_VQE_FRAME_SAMPLE)
+        stVqeConfig->stAiRecordConfig.s32FrameSample = stoi(p.second);
+      else if (key == KEY_ANR_POST_ADD_GAIN)
+        stVqeConfig->stAiRecordConfig.stAnrConfig.fPostAddGain = stoi(p.second);
+      else if (key == KEY_ANR_GMIN)
+        stVqeConfig->stAiRecordConfig.stAnrConfig.fGmin = stoi(p.second);
+      else if (key == KEY_ANR_NOISE_FACTOR)
+        stVqeConfig->stAiRecordConfig.stAnrConfig.fNoiseFactor = stoi(p.second);
+    }
+  } else if (stVqeConfig->u32VQEMode == VQE_MODE_AO) {
+    for (auto &p : params) {
+      const std::string &key = p.first;
+      if (key == KEY_VQE_OPEN_MASK)
+        stVqeConfig->stAoConfig.u32OpenMask = stoi(p.second);
+      else if (key == KEY_VQE_WORK_SAMPLE_RATE)
+        stVqeConfig->stAoConfig.s32WorkSampleRate = stoi(p.second);
+      else if (key == KEY_VQE_FRAME_SAMPLE)
+        stVqeConfig->stAoConfig.s32FrameSample = stoi(p.second);
+      else if (key == KEY_VQE_PARAM_FILE_PATH)
+      strcpy(stVqeConfig->stAoConfig.aParamFilePath, p.second.c_str());
+    }
+  }
+
+  return ret;
+}
+
 // open device, and set format/channel/samplerate.
 snd_pcm_t *AlsaCommonOpenSetHwParams(const char *device,
                                      snd_pcm_stream_t stream, int mode,

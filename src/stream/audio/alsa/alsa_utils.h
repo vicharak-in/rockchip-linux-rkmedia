@@ -39,6 +39,9 @@ int ParseAlsaParams(const char *param,
                     std::map<std::string, std::string> &params,
                     std::string &device, SampleInfo &sample_info,
                     AI_LAYOUT_E &layout);
+int ParseVQEParams(const char *param,
+                    std::map<std::string, std::string> &params,
+                    bool *bVqeEnable, VQE_CONFIG_S *stVqeConfig);
 
 snd_pcm_t *AlsaCommonOpenSetHwParams(const char *device,
                                      snd_pcm_stream_t stream, int mode,

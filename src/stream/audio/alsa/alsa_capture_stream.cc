@@ -80,6 +80,17 @@ AlsaCaptureStream::AlsaCaptureStream(const char *param)
   if (layout == AI_LAYOUT_MIC_REF || layout == AI_LAYOUT_REF_MIC) {
     alsa_sample_info.channels = 2;
   }
+
+  ParseVQEParams(param, params, &bVqeEnable, &stVqeConfig);
+  LOGD("VqeEnable is %d\n", bVqeEnable);
+  LOGD("VqeConfig.u32VQEMode is %d\n", stVqeConfig.u32VQEMode);
+  LOGD("OpenMask is %d\n", stVqeConfig.stAiTalkConfig.u32OpenMask);
+  LOGD("WorkSampleRate is %d\n", stVqeConfig.stAiTalkConfig.s32WorkSampleRate);
+  LOGD("FrameSample is %d\n", stVqeConfig.stAiTalkConfig.s32FrameSample);
+  LOGD("ParamFilePath is %s\n", stVqeConfig.stAiTalkConfig.aParamFilePath);
+  if (bVqeEnable)
+    pstVqeHandle = RK_AUDIO_VQE_Init(alsa_sample_info, layout, &stVqeConfig);
+
   LOG("%s: Layout %d, output chan %d, alsa chan %d\n", __func__, layout, output_sample_info.channels, alsa_sample_info.channels);
 }
 

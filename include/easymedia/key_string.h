@@ -108,6 +108,15 @@
 #define KEY_FRAMES "frame_num"
 #define KEY_FLOAT_QUALITY "compress_quality"
 #define KEY_LAYOUT "layout"
+#define KEY_VQE_ENABLE "vqe_enable"
+#define KEY_VQE_MODE "vqe_mode"
+#define KEY_VQE_OPEN_MASK "vqe_open_mask"
+#define KEY_VQE_WORK_SAMPLE_RATE "vqe_work_sample_rate"
+#define KEY_VQE_FRAME_SAMPLE "vqe_frame_sample"
+#define KEY_VQE_PARAM_FILE_PATH "vqe_param_file_path"
+#define KEY_ANR_POST_ADD_GAIN "anr_post_add_gain"
+#define KEY_ANR_GMIN "gmin"
+#define KEY_ANR_NOISE_FACTOR "noise_factor"
 
 // v4l2 info
 #define KEY_USE_LIBV4L2 "use_libv4l2"
