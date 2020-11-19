@@ -9,6 +9,7 @@ extern "C" {
 #define __STDC_CONSTANT_MACROS
 #include <libavformat/avformat.h>
 #include <libavutil/common.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavutil/samplefmt.h>
 }
@@ -20,6 +21,7 @@ extern "C" {
 namespace easymedia {
 
 enum AVPixelFormat PixFmtToAVPixFmt(PixelFormat fmt);
+PixelFormat AVPixFmtToPixFmt(AVPixelFormat fmt);
 
 enum AVCodecID SampleFmtToAVCodecID(SampleFormat fmt);
 enum AVSampleFormat SampleFmtToAVSamFmt(SampleFormat sfmt);
