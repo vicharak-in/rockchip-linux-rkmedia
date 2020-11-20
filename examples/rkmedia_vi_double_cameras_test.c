@@ -126,6 +126,13 @@ static void *GetIrBuffer(void *arg) {
   return NULL;
 }
 
+void usage(char *name) {
+  printf("%s [-a id_dir] [-W video_width] [-H video_height]\n"
+         "\t[-w disp_width] [-h disp_height] [-u ui(0/1)]\n",
+         name);
+  exit(-1);
+}
+
 int main(int argc, char *argv[]) {
   int ret = 0;
   int ui = 1;
@@ -133,16 +140,36 @@ int main(int argc, char *argv[]) {
   MB_IMAGE_INFO_S disp_info = {scale_width, scale_height, scale_width,
                                scale_height, IMAGE_TYPE_NV12};
   char *iq_dir = NULL;
-  if (argc >= 2) {
-    iq_dir = argv[1];
-    if (access(iq_dir, R_OK)) {
-      printf("Usage: %s [/etc/iqfiles] [noui]\n", argv[0]);
-      exit(0);
+  int ch;
+
+  while ((ch = getopt(argc, argv, "a:W:H:w:h:u:")) != -1) {
+    switch (ch) {
+    case 'a':
+      iq_dir = optarg;
+      if (access(iq_dir, R_OK))
+        usage(argv[0]);
+      break;
+    case 'W':
+      video_width = atoi(optarg);
+      break;
+    case 'H':
+      video_height = atoi(optarg);
+      break;
+    case 'w':
+      disp_width = atoi(optarg);
+      break;
+    case 'h':
+      disp_height = atoi(optarg);
+      break;
+    case 'u':
+      ui = atoi(optarg);
+      if (ui != 0 && ui != 1)
+        usage(argv[0]);
+      break;
+    default:
+      usage(argv[0]);
+      break;
     }
-  }
-  if (argc >= 3) {
-    if (strstr(argv[2], "noui"))
-      ui = 0;
   }
 
 #ifdef RKAIQ

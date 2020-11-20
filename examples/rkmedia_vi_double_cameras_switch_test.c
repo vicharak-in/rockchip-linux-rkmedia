@@ -33,12 +33,12 @@ static void *GetBuffer(void *arg) {
   }
   return NULL;
 }
-void usage(char *s) {
-  printf("Usage: %s\n", s);
-  printf("Usage: %s -rgb\n", s);
-  printf("Usage: %s -ir\n", s);
-  printf("Usage: %s -rgb [/etc/iqfiles] [noui]\n", s);
-  exit(0);
+void usage(char *name) {
+  printf("%s [-a id_dir] [-W video_width] [-H video_height]\n"
+         "\t[-w disp_width] [-h disp_height] [-u ui(0/1)]\n"
+         "\t[-i id(0/1)]\n",
+         name);
+  exit(-1);
 }
 int main(int argc, char *argv[]) {
   int ret = 0;
@@ -49,23 +49,41 @@ int main(int argc, char *argv[]) {
   int id = 0;
   char *iq_dir = NULL;
   int ui = 1;
-  if (argc >= 2) {
-    if (strstr(argv[1], "rgb"))
-      id = 0;
-    else if (strstr(argv[1], "ir"))
-      id = 1;
-    else
-      usage(argv[0]);
-  }
-  if (argc >= 3) {
-    iq_dir = argv[2];
-    if (access(iq_dir, R_OK))
-      usage(argv[0]);
-  }
+  int ch;
 
-  if (argc >= 4) {
-    if (strstr(argv[3], "noui"))
-      ui = 0;
+  while ((ch = getopt(argc, argv, "a:W:H:w:h:u:i:")) != -1) {
+    switch (ch) {
+    case 'a':
+      iq_dir = optarg;
+      if (access(iq_dir, R_OK))
+        usage(argv[0]);
+      break;
+    case 'W':
+      video_width = atoi(optarg);
+      break;
+    case 'H':
+      video_hegith = atoi(optarg);
+      break;
+    case 'w':
+      disp_width = atoi(optarg);
+      break;
+    case 'h':
+      disp_height = atoi(optarg);
+      break;
+    case 'u':
+      ui = atoi(optarg);
+      if (ui != 0 && ui != 1)
+        usage(argv[0]);
+      break;
+    case 'i':
+      id = atoi(optarg);
+      if (id != 0 && id != 1)
+        usage(argv[0]);
+      break;
+    default:
+      usage(argv[0]);
+      break;
+    }
   }
 
 #ifdef RKAIQ
