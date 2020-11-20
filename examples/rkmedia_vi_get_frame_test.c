@@ -32,7 +32,7 @@ static void *GetMediaBuffer(void *arg) {
   char *save_path = outArgs->file_path;
   int save_cnt = outArgs->frame_cnt;
   FILE *save_file = NULL;
-  if (save_cnt > 0) {
+  if (save_path) {
     save_file = fopen(save_path, "w");
     if (!save_file)
       printf("ERROR: Open %s failed!\n", save_path);
@@ -115,23 +115,22 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t-w | --width: VI width, Default:1920\n");
   printf("\t-h | --heght: VI height, Default:1080\n");
   printf("\t-d | --device_name set pcDeviceName, Default:rkispp_scale0\n");
-  printf("\t-c | --frame_cnt: record frame, Default:10, set -1 to disable "
-         "record\n");
-  printf("\t-o | --output: output path, Default:/tmp/1080p.nv12\n");
+  printf("\t-c | --frame_cnt: record frame, Default:-1, set -1 to unlimit\n");
+  printf("\t-o | --output: output path, Default:/tmp/1080p.nv12,"\
+          "nothing would be output without this\n");
   printf("Notice: fmt always NV12\n");
 }
 
 int main(int argc, char *argv[]) {
   RK_U32 u32Width = 1920;
   RK_U32 u32Height = 1080;
-  RK_U32 u32FrameCnt = 10;
+  int frameCnt = -1;
   RK_CHAR *pDeviceName = "rkispp_scale0";
-  RK_CHAR *pOutPath = "/tmp/1080p.nv12";
+  RK_CHAR *pOutPath = NULL;
   RK_CHAR *pIqfilesPath = NULL;
   int c;
   int ret = 0;
   while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
-    printf("get op is %d, a is %d\n", c, 'a');
     const char *tmp_optarg = optarg;
     switch (c) {
     case 'a':
@@ -151,7 +150,7 @@ int main(int argc, char *argv[]) {
       u32Height = atoi(optarg);
       break;
     case 'c':
-      u32FrameCnt = atoi(optarg);
+      frameCnt = atoi(optarg);
       break;
     case 'o':
       pOutPath = optarg;
@@ -166,12 +165,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf(">>>>>>>>>>>>>>> Test START <<<<<<<<<<<<<<<<<<<<<<\n");
-  printf("#Device: %s\n", pDeviceName);
-  printf("#Resolution: %dx%d\n", u32Width, u32Height);
-  printf("#Frame Count to save: %d\n", u32FrameCnt);
-  printf("#Output Path: %s\n", pOutPath);
-  printf("#Aiq xml dirpath: %s\n\n", pIqfilesPath);
+  printf("#####Device: %s\n", pDeviceName);
+  printf("#####Resolution: %dx%d\n", u32Width, u32Height);
+  printf("#####Frame Count to save: %d\n", frameCnt);
+  printf("#####Output Path: %s\n", pOutPath);
+  printf("#####Aiq xml dirpath: %s\n\n", pIqfilesPath);
 
   if (pIqfilesPath) {
 #ifdef RKAIQ
@@ -187,7 +185,7 @@ int main(int argc, char *argv[]) {
   RK_MPI_SYS_Init();
   VI_CHN_ATTR_S vi_chn_attr;
   vi_chn_attr.pcVideoNode = pDeviceName;
-  vi_chn_attr.u32BufCnt = 4;
+  vi_chn_attr.u32BufCnt = 3;
   vi_chn_attr.u32Width = u32Width;
   vi_chn_attr.u32Height = u32Height;
   vi_chn_attr.enPixFmt = IMAGE_TYPE_NV12;
@@ -203,7 +201,7 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, sigterm_handler);
 
   pthread_t read_thread;
-  OutputArgs outArgs = {pOutPath, u32FrameCnt};
+  OutputArgs outArgs = {pOutPath, frameCnt};
   pthread_create(&read_thread, NULL, GetMediaBuffer, &outArgs);
   ret = RK_MPI_VI_StartStream(0, 0);
   if (ret) {
@@ -215,7 +213,6 @@ int main(int argc, char *argv[]) {
     usleep(500000);
   }
 
-  printf("%s exit!\n", __func__);
   RK_MPI_VI_DisableChn(0, 0);
 
 #ifdef RKAIQ
@@ -223,6 +220,6 @@ int main(int argc, char *argv[]) {
     SAMPLE_COMM_ISP_Stop();
 #endif
 
-  printf(">>>>>>>>>>>>>>> Test END <<<<<<<<<<<<<<<<<<<<<<\n");
+  printf("%s exit!\n", __func__);
   return 0;
 }

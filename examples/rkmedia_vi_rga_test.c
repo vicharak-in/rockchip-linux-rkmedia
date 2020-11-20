@@ -60,10 +60,10 @@ static void *GetMediaBuffer(void *arg) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:a::h";
+static RK_CHAR optstr[] = "?::a::";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
-    {"help", no_argument, NULL, 'h'},
+    {"help", no_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
@@ -97,9 +97,6 @@ int main(int argc, char *argv[]) {
         iq_file_dir = "/oem/etc/iqfiles";
       }
       break;
-    case 'h':
-      print_usage(argv[0]);
-      return 0;
     case '?':
     default:
       print_usage(argv[0]);

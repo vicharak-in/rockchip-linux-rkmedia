@@ -17,6 +17,7 @@
 #include "rkmedia_api.h"
 #include "rkmedia_venc.h"
 
+static RK_CHAR *g_pOutPath = "/tmp/";
 static bool quit = false;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
@@ -31,8 +32,8 @@ void video_packet_cb(MEDIA_BUFFER mb) {
          RK_MPI_MB_GetSize(mb), RK_MPI_MB_GetModeID(mb),
          RK_MPI_MB_GetChannelID(mb), RK_MPI_MB_GetTimestamp(mb));
 
-  char jpeg_path[64];
-  sprintf(jpeg_path, "/tmp/test_jpeg%d.jpeg", jpeg_id);
+  char jpeg_path[128];
+  sprintf(jpeg_path, "%s/test_jpeg%d.jpeg", g_pOutPath, jpeg_id);
   FILE *file = fopen(jpeg_path, "w");
   if (file) {
     fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), file);
@@ -53,9 +54,14 @@ static void set_argb8888_buffer(RK_U32 *buf, RK_U32 size, RK_U32 color) {
     *(buf + i) = color;
 }
 
-static RK_CHAR optstr[] = "?::a::";
+static RK_CHAR optstr[] = "?::a::w:h:W:H:o:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
+    {"width", required_argument, NULL, 'w'},
+    {"height", required_argument, NULL, 'h'},
+    {"Width", required_argument, NULL, 'W'},
+    {"Height", required_argument, NULL, 'H'},
+    {"output", required_argument, NULL, 'o'},
     {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
@@ -63,14 +69,32 @@ static const struct option long_options[] = {
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
-  printf("\t%s [-a [iqfiles_dir]]\n", name);
+  printf("\t%s [-a [iqfiles_dir]]" \
+          "[-H 1920] "
+          "[-W 1080] "
+          "[-h 720] "
+          "[-w 480] "
+          "[-o output_dir] "
+          "\n", name);
   printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
          "/oem/etc/iqfiles/, "
          "set dirpath empty to using path by default, without this option aiq "
          "should run in other application\n");
 #else
-  printf("\t%s\n", name);
+  printf("\t%s"\
+         "[-H 1920] "
+         "[-W 1080] "
+         "[-h 720] "
+         "[-w 480] "
+         "[-o output_dir] "
+         "\n", name);
 #endif
+  printf("\t-H | --Height: source height, Default:1080\n");
+  printf("\t-W | --Width: source width, Default:1920\n");
+  printf("\t-h | --height: destination height, Default:720\n");
+  printf("\t-w | --width: destination width, Default:480\n");
+  printf("\t-o | --output: output dirpath, Default:/tmp/\n");
+  printf("\t tip: destination resolution should not over 4096*4096\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -96,6 +120,21 @@ int main(int argc, char *argv[]) {
         iq_file_dir = "/oem/etc/iqfiles/";
       }
       break;
+    case 'w':
+      u32DstWidth = atoi(optarg);
+      break;
+    case 'h':
+      u32DstHeight = atoi(optarg);
+      break;
+    case 'W':
+      u32SrcWidth = atoi(optarg);
+      break;
+    case 'H':
+      u32SrcHeight = atoi(optarg);
+      break;
+    case 'o':
+      g_pOutPath = optarg;
+      break;
     case '?':
     default:
       print_usage(argv[0]);
@@ -103,6 +142,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  printf("#SrcWidth: %d\n", u32SrcWidth);
+  printf("#u32SrcHeight: %d\n", u32SrcHeight);
+  printf("#u32DstWidth: %d\n", u32DstWidth);
+  printf("#u32DstHeight: %d\n", u32DstHeight);
+  printf("#output dirpath: %s\n", g_pOutPath);
   if (iq_file_dir) {
 #ifdef RKAIQ
     printf("#Aiq xml dirpath: %s\n\n", iq_file_dir);
@@ -243,7 +287,6 @@ int main(int argc, char *argv[]) {
     usleep(30000); // sleep 30 ms.
   }
 
-  printf("%s exit!\n", __func__);
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   RK_MPI_VENC_DestroyChn(0);
   RK_MPI_VI_DisableChn(0, 1);
@@ -253,5 +296,7 @@ int main(int argc, char *argv[]) {
     SAMPLE_COMM_ISP_Stop();
 #endif
   }
+
+  printf("%s exit!\n", __func__);
   return 0;
 }

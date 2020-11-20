@@ -30,7 +30,6 @@
 #define MAX_RKNN_LIST_NUM 10
 #define UPALIGNTO(value, align) ((value + align - 1) & (~(align - 1)))
 #define UPALIGNTO16(value) UPALIGNTO(value, 16)
-#define RKNN_RUNTIME_LIB_PATH "/usr/lib/librknn_runtime.so"
 #define DETECT_RCD_NUM 64
 #define DETECT_RECT_DIFF 25
 #define DETECT_ACTIVE_CNT 5

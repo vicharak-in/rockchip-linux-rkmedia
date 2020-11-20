@@ -117,7 +117,7 @@ static void *GetMediaBuffer(void *path) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:d:c:r:o:";
+static RK_CHAR optstr[] = "?::d:c:r:o:";
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
   printf("\t%s [-d default] [-r 16000] [-c 2] -o /tmp/aenc.aac\n", name);

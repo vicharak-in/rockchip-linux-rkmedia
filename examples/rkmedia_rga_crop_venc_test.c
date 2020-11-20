@@ -186,8 +186,8 @@ static void print_usage(const RK_CHAR *name) {
 #endif
   printf("\t-H | --vi_height: VI height, Default:1080\n");
   printf("\t-W | --vi_width: VI width, Default:1920\n");
-  printf("\t-h | --crop_height: record frame, Default:640\n");
-  printf("\t-w | --crop_width: output path, Default:640\n");
+  printf("\t-h | --crop_height: crop_height, Default:640\n");
+  printf("\t-w | --crop_width: crop_width, Default:640\n");
   printf("\t-x  | --crop_x: start x of cropping, Default:300\n");
   printf("\t-y  | --crop_y: start y of cropping, Default:300\n");
   printf("\t-r  | --rotation, option[0, 90, 180, 270], Default:0\n");
@@ -291,7 +291,7 @@ int main(int argc, char *argv[]) {
 
   VI_CHN_ATTR_S vi_chn_attr;
   vi_chn_attr.pcVideoNode = device_name;
-  vi_chn_attr.u32BufCnt = 4;
+  vi_chn_attr.u32BufCnt = 3;
   vi_chn_attr.u32Width = demo_arg.vi_width;
   vi_chn_attr.u32Height = demo_arg.vi_height;
   vi_chn_attr.enPixFmt = g_enPixFmt;

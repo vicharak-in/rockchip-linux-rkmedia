@@ -21,7 +21,7 @@ static void sigterm_handler(int sig) {
   quit = true;
 }
 
-static RK_CHAR optstr[] = "?:d:c:r:s:i:";
+static RK_CHAR optstr[] = "?::d:c:r:s:i:";
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
   printf("\t%s [-d default] [-r 16000] [-c 2] [-s 1024] -i /tmp/ao.pcm\n",
