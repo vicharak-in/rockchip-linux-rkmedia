@@ -81,6 +81,7 @@ int ParseAlsaParams(const char *param,
   return ret;
 }
 
+#ifdef AUDIO_ALGORITHM_ENABLE
 int ParseVQEParams(const char *param,
                     std::map<std::string, std::string> &params,
                     bool *bVqeEnable, VQE_CONFIG_S *stVqeConfig) {
@@ -142,6 +143,7 @@ int ParseVQEParams(const char *param,
 
   return ret;
 }
+#endif
 
 // open device, and set format/channel/samplerate.
 snd_pcm_t *AlsaCommonOpenSetHwParams(const char *device,
