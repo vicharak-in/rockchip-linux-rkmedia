@@ -7,6 +7,7 @@
 
 #include <cstddef>
 
+#include "alsa/alsa_utils.h"
 #include "filter.h"
 #include "sound.h"
 
