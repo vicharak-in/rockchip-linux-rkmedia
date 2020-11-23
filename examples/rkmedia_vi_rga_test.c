@@ -23,9 +23,8 @@ static void sigterm_handler(int sig) {
   quit = true;
 }
 
-static void *GetMediaBuffer(void *arg) {
-  printf("#Start %s thread, arg:%p\n", __func__, arg);
-  const char *save_path = "/userdata/output.nv12";
+static void GetMediaBuffer() {
+  const char *save_path = "/tmp/output.nv12";
   FILE *save_file = fopen(save_path, "w");
   if (!save_file)
     printf("ERROR: Open %s failed!\n", save_path);
@@ -56,8 +55,6 @@ static void *GetMediaBuffer(void *arg) {
 
   if (save_file)
     fclose(save_file);
-
-  return NULL;
 }
 
 static RK_CHAR optstr[] = "?::a::";
@@ -155,9 +152,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  pthread_t read_thread;
-  pthread_create(&read_thread, NULL, GetMediaBuffer, NULL);
-
   MPP_CHN_S stSrcChn;
   stSrcChn.enModId = RK_ID_VI;
   stSrcChn.s32DevId = 0;
@@ -175,18 +169,18 @@ int main(int argc, char *argv[]) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
 
-  while (!quit) {
-    usleep(100);
-  }
+  GetMediaBuffer();
 
   printf("%s exit!\n", __func__);
   RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   RK_MPI_RGA_DestroyChn(0);
   RK_MPI_VI_DisableChn(0, 1);
 
+  if (iq_file_dir) {
 #ifdef RKAIQ
-  SAMPLE_COMM_ISP_Stop();
+    SAMPLE_COMM_ISP_Stop();
 #endif
+  }
 
   return 0;
 }

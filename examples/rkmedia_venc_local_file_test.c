@@ -69,7 +69,7 @@ static const struct option long_options[] = {
 
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
-  printf("\t%s [-i in.nv12] [-o out.h264] [-w 1920] [-h 1080] [-t h264]", name);
+  printf("\t%s [-i in.nv12] [-o out.h264] [-w 1920] [-h 1080] [-t h264]\n", name);
   printf("\t-i | --input: Input image file\n");
   printf("\t-o | --output: Output file\n");
   printf("\t-w | --width: Image width\n");
@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
     }
     RK_MPI_MB_SetSzie(mb, s32ReadSize);
     RK_MPI_MB_SetTimestamp(mb, u32FrameId * u64TimePeriod);
-    printf("#Send frame[%d] fd=%d to vo[0]...\n", u32FrameId++,
+    printf("#Send frame[%d] fd=%d to out...\n", u32FrameId++,
            RK_MPI_MB_GetFD(mb));
     RK_MPI_SYS_SendMediaBuffer(RK_ID_VENC, 0, mb);
     // mb must be release. The encoder has internal references to the data sent

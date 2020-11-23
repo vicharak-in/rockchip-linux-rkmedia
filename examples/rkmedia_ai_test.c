@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, sigterm_handler);
 
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);

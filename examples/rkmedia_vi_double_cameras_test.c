@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "common/sample_double_cam_isp.h"
 #include "rkmedia_api.h"
@@ -318,7 +319,7 @@ int main(int argc, char *argv[]) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);

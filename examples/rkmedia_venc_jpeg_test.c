@@ -70,29 +70,29 @@ static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
 #ifdef RKAIQ
   printf("\t%s [-a [iqfiles_dir]]" \
-          "[-H 1920] "
-          "[-W 1080] "
-          "[-h 720] "
-          "[-w 480] "
-          "[-o output_dir] "
+          "[-H 1920] "\
+          "[-W 1080] "\
+          "[-h 720] "\
+          "[-w 480] "\
+          "[-o output_dir] "\
           "\n", name);
-  printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "
-         "/oem/etc/iqfiles/, "
-         "set dirpath empty to using path by default, without this option aiq "
+  printf("\t-a | --aiq: enable aiq with dirpath provided, eg:-a "\
+         "/oem/etc/iqfiles/, "\
+         "set dirpath empty to using path by default, without this option aiq "\
          "should run in other application\n");
 #else
   printf("\t%s"\
-         "[-H 1920] "
-         "[-W 1080] "
-         "[-h 720] "
-         "[-w 480] "
-         "[-o output_dir] "
+         "[-W 1080] "\
+         "[-H 1920] "\
+         "[-w 480] "\
+         "[-h 720] "\
+         "[-o output_dir] "\
          "\n", name);
 #endif
-  printf("\t-H | --Height: source height, Default:1080\n");
   printf("\t-W | --Width: source width, Default:1920\n");
-  printf("\t-h | --height: destination height, Default:720\n");
-  printf("\t-w | --width: destination width, Default:480\n");
+  printf("\t-H | --Height: source height, Default:1080\n");
+  printf("\t-w | --width: destination width, Default:720\n");
+  printf("\t-h | --height: destination height, Default:480\n");
   printf("\t-o | --output: output dirpath, Default:/tmp/\n");
   printf("\t tip: destination resolution should not over 4096*4096\n");
 }

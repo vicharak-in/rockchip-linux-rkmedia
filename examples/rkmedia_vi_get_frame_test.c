@@ -58,9 +58,10 @@ static void *GetMediaBuffer(void *arg) {
            RK_MPI_MB_GetTimestamp(mb), stImageInfo.u32Width,
            stImageInfo.u32Height, stImageInfo.enImgType);
 
-    if (save_file && (save_cnt-- > 0)) {
+    if (save_file) {
       fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), save_file);
       printf("#Save frame-%d to %s\n", save_cnt, save_path);
+      save_cnt--;
     }
 
     RK_MPI_MB_ReleaseBuffer(mb);
