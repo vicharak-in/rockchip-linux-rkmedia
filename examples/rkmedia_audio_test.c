@@ -75,7 +75,7 @@ static RK_VOID AI_AO() {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);
@@ -124,7 +124,7 @@ static RK_VOID AI_AENC_FILE(char *file_path) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   RK_MPI_SYS_UnBind(&mpp_chn_ai, &mpp_chn_aenc);
@@ -311,7 +311,7 @@ RK_S32 AI_VqeProcess_AO(RK_VOID) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
 
   printf("%s exit!\n", __func__);

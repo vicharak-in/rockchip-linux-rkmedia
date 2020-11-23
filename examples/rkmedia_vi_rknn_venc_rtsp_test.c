@@ -15,6 +15,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <rga/im2d.h>
+#include <rga/rga.h>
+
 #ifdef RKAIQ
 #include "common/sample_common.h"
 #endif
@@ -538,29 +541,19 @@ void init_yuv420p_table() {
 
 int rgb24_resize(unsigned char *input_rgb, unsigned char *output_rgb, int width,
                  int height, int outwidth, int outheight) {
-  int in = 0, out = 0;
-  int ox, oy;   // the pixel site is after changed
-  int rx, ry;   // the pixel site is before changed
-  int temp = 0; // turn site(x,y) to memory storage
-
-  for (oy = 0; oy < outheight; oy++) {
-    ry = (int)(oy / 0.5 + 0.5);
-    if (ry >= height)
-      ry--;
-    temp = ry * width * 3; // origion pixel site of which width
-
-    for (ox = 0; ox < outwidth; ox++) {
-      rx = (int)(ox / 0.5 + 0.5);
-      if (rx >= width)
-        rx--;
-      in = temp + rx * 3; // change site(x,y) to storage
-
-      output_rgb[out + 0] = input_rgb[in + 0];
-      output_rgb[out + 1] = input_rgb[in + 1];
-      output_rgb[out + 2] = input_rgb[in + 2];
-
-      out += 3;
-    }
+  rga_buffer_t src =
+      wrapbuffer_virtualaddr(input_rgb, width, height, RK_FORMAT_RGB_888);
+  rga_buffer_t dst = wrapbuffer_virtualaddr(output_rgb, outwidth, outheight,
+                                            RK_FORMAT_RGB_888);
+  rga_buffer_t pat = {0};
+  im_rect src_rect = {0, 0, width, height};
+  im_rect dst_rect = {0, 0, outwidth, outheight};
+  im_rect pat_rect = {0};
+  IM_STATUS STATUS = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0);
+  if (STATUS != IM_STATUS_SUCCESS) {
+    printf("imcrop failed: %s\n", imStrError(STATUS));
+    g_flag_run = 0;
+    return -1;
   }
   return 0;
 }
@@ -1062,14 +1055,14 @@ static void SAMPLE_COMMON_VENC_Start(struct Session *session) {
   RK_MPI_VENC_CreateChn(session->stVenChn.s32ChnId, &venc_chn_attr);
 }
 
-static RK_CHAR optstr[] = "?a::c:b:l:p:";
+static RK_CHAR optstr[] = "?::a::c:b:l:p:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"cfg_path", required_argument, NULL, 'c'},
     {"box_priors", required_argument, NULL, 'b'},
     {"labels_list", required_argument, NULL, 'l'},
     {"ssd_path", required_argument, NULL, 'p'},
-    {"help", no_argument, NULL, '?'},
+    {"help", optional_argument, NULL, '?'},
     {NULL, 0, NULL, 0},
 };
 
@@ -1237,6 +1230,9 @@ int main(int argc, char **argv) {
     }
     rtsp_do_event(g_rtsplive);
   }
+
+  pthread_join(read_thread, NULL);
+  pthread_join(main_stream_thread, NULL);
 
   rtsp_del_demo(g_rtsplive);
   for (int i = 0; i < cfg.session_count; i++) {

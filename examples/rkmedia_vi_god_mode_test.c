@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "common/sample_common.h"
 #include "rkmedia_api.h"
@@ -158,6 +159,7 @@ int main(int argc, char *argv[]) {
   }
 
   VENC_CHN_ATTR_S venc_chn_attr;
+  memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
   venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
   venc_chn_attr.stVencAttr.u32PicWidth = 1920;

@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
   printf("%s initial finish\n", __func__);
   signal(SIGINT, sigterm_handler);
   while (!quit) {
-    usleep(100);
+    usleep(500000);
   }
   printf("%s exit!\n", __func__);
   pthread_join(th, NULL);

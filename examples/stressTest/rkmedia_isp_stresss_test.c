@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "common/sample_common.h"
 #include "librtsp/rtsp_demo.h"

@@ -141,7 +141,7 @@ static void *GetMediaBuffer(void *arg) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?:a::x:y:d:H:W:w:h:r:";
+static RK_CHAR optstr[] = "?::a::x:y:d:H:W:w:h:r:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"vi_height", required_argument, NULL, 'H'},
@@ -193,6 +193,7 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t-r  | --rotation, option[0, 90, 180, 270], Default:0\n");
   printf("\t-d  | --device_name set pcDeviceName, Default:rkispp_scale0\n");
   printf("\t  option: [rkispp_scale0, rkispp_scale1, rkispp_scale2]\n");
+  printf("\trstp: rtsp://<ip>/live/main_stream\n");
 }
 
 int main(int argc, char *argv[]) {
