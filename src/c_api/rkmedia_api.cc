@@ -41,6 +41,7 @@ typedef struct _RkmediaVencAttr {
   VENC_CHN_ATTR_S attr;
   VENC_RC_PARAM_S stRcPara;
   VENC_ROI_ATTR_S astRoiAttr[8];
+  RK_BOOL bFullFunc;
 } RkmediaVencAttr;
 
 typedef struct _RkmediaVIAttr { VI_CHN_ATTR_S attr; } RkmediaVIAttr;
@@ -1569,6 +1570,7 @@ static RK_S32 RkmediaCreateJpegSnapPipeline(RkmediaChannel *VenChn) {
   }
   VenChn->status = CHN_STATUS_OPEN;
 
+  VenChn->venc_attr.bFullFunc = RK_TRUE;
   return RK_ERR_SYS_OK;
 }
 
@@ -1821,7 +1823,7 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, VENC_CHN_ATTR_S *stVencChnAttr) {
   }
   g_venc_chns[VeChn].status = CHN_STATUS_OPEN;
   g_venc_mtx.unlock();
-  if (stVencChnAttr->stGopAttr.enGopMode >= VENC_GOPMODE_NORMALP) {
+  if (stVencChnAttr->stGopAttr.enGopMode > VENC_GOPMODE_NORMALP) {
     RK_MPI_VENC_SetGopMode(VeChn, &stVencChnAttr->stGopAttr);
   }
   LOG("\n%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG, __func__, VeChn,
@@ -1851,6 +1853,335 @@ RK_S32 RK_MPI_VENC_GetVencChnAttr(VENC_CHN VeChn,
   return RK_ERR_SYS_OK;
 }
 
+static RK_S32 RK_MPI_VENC_SetAvcProfile_If_Change(VENC_CHN VeChn,
+                                                  VENC_ATTR_S *stVencAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.enType != RK_CODEC_TYPE_H264)
+    return ret;
+
+  if (stVencAttr->u32Profile !=
+          g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32Profile ||
+      stVencAttr->stAttrH264e.u32Level !=
+          g_venc_chns[VeChn].venc_attr.attr.stVencAttr.stAttrH264e.u32Level) {
+    ret = RK_MPI_VENC_SetAvcProfile(VeChn, stVencAttr->u32Profile,
+                                    stVencAttr->stAttrH264e.u32Level);
+  }
+  return ret;
+}
+
+static RK_S32 RK_MPI_VENC_SetResolution_If_Change(VENC_CHN VeChn,
+                                                  VENC_ATTR_S *stVencAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32VirWidth !=
+          stVencAttr->u32VirWidth ||
+      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32VirHeight !=
+          stVencAttr->u32VirHeight ||
+      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32PicWidth !=
+          stVencAttr->u32PicWidth ||
+      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32PicHeight !=
+          stVencAttr->u32PicHeight) {
+    VENC_RESOLUTION_PARAM_S solution_attr;
+    solution_attr.u32VirWidth = stVencAttr->u32VirWidth;
+    solution_attr.u32VirHeight = stVencAttr->u32VirHeight;
+    solution_attr.u32Width = stVencAttr->u32PicWidth;
+    solution_attr.u32Height = stVencAttr->u32PicHeight;
+    ret = RK_MPI_VENC_SetResolution(VeChn, solution_attr);
+    if (ret)
+      return ret;
+  }
+  return ret;
+}
+
+static RK_S32 RK_MPI_VENC_SetRcMode_If_Change(VENC_CHN VeChn,
+                                              VENC_RC_ATTR_S *stRcAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.enType == RK_CODEC_TYPE_JPEG)
+    return ret;
+  if (stRcAttr->enRcMode !=
+      g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
+    ret = RK_MPI_VENC_SetRcMode(VeChn, stRcAttr->enRcMode);
+  }
+  return ret;
+}
+
+static RK_S32 RK_MPI_VENC_SetBitrate_If_Change(VENC_CHN VeChn,
+                                               VENC_RC_ATTR_S *stRcAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  RK_U32 u32BitRate = 0;
+  RK_U32 u32MinBitRate = 0;
+  RK_U32 u32MaxBitRate = 0;
+  RK_BOOL bRateChange = RK_FALSE;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.enType == RK_CODEC_TYPE_JPEG)
+    return ret;
+  switch (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
+  case VENC_RC_MODE_H264CBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Cbr.u32BitRate !=
+        stRcAttr->stH264Cbr.u32BitRate) {
+      u32BitRate = stRcAttr->stH264Cbr.u32BitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_H264VBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Vbr.u32MaxBitRate !=
+        stRcAttr->stH264Vbr.u32MaxBitRate) {
+      u32MaxBitRate = stRcAttr->stH264Vbr.u32MaxBitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_H264AVBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Avbr.u32MaxBitRate !=
+        stRcAttr->stH264Avbr.u32MaxBitRate) {
+      u32MaxBitRate = stRcAttr->stH264Avbr.u32MaxBitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_MJPEGCBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stMjpegCbr.u32BitRate !=
+        stRcAttr->stMjpegCbr.u32BitRate) {
+      u32BitRate = stRcAttr->stMjpegCbr.u32BitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_MJPEGVBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stMjpegVbr.u32BitRate !=
+        stRcAttr->stMjpegVbr.u32BitRate) {
+      u32BitRate = stRcAttr->stMjpegVbr.u32BitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_H265CBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Cbr.u32BitRate !=
+        stRcAttr->stH265Cbr.u32BitRate) {
+      u32BitRate = stRcAttr->stH265Cbr.u32BitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_H265VBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Vbr.u32MaxBitRate !=
+        stRcAttr->stH265Vbr.u32MaxBitRate) {
+      u32MaxBitRate = stRcAttr->stH265Vbr.u32MaxBitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_H265AVBR:
+    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Avbr.u32MaxBitRate !=
+        stRcAttr->stH265Avbr.u32MaxBitRate) {
+      u32MaxBitRate = stRcAttr->stH265Avbr.u32MaxBitRate;
+      bRateChange = RK_TRUE;
+    }
+    break;
+  case VENC_RC_MODE_BUTT:
+    break;
+  }
+  if (u32BitRate != 0 || u32MinBitRate != 0 || u32MaxBitRate != 0) {
+    ret =
+        RK_MPI_VENC_SetBitrate(VeChn, u32BitRate, u32MinBitRate, u32MaxBitRate);
+  } else if (bRateChange) {
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+  }
+  return ret;
+}
+
+static RK_S32 RK_MPI_VENC_SetFps_If_Change(VENC_CHN VeChn,
+                                           VENC_RC_ATTR_S *stRcAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.enType == RK_CODEC_TYPE_JPEG)
+    return ret;
+  switch (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
+  case VENC_RC_MODE_H264CBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum !=
+            stRcAttr->stH264Cbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen !=
+            stRcAttr->stH264Cbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Cbr.fr32DstFrameRateNum !=
+            stRcAttr->stH264Cbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Cbr.fr32DstFrameRateDen !=
+            stRcAttr->stH264Cbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH264Cbr.u32SrcFrameRateNum,
+                               stRcAttr->stH264Cbr.u32SrcFrameRateDen,
+                               stRcAttr->stH264Cbr.fr32DstFrameRateNum,
+                               stRcAttr->stH264Cbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_H264VBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Vbr.u32SrcFrameRateNum !=
+            stRcAttr->stH264Vbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Vbr.u32SrcFrameRateDen !=
+            stRcAttr->stH264Vbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Vbr.fr32DstFrameRateNum !=
+            stRcAttr->stH264Vbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Vbr.fr32DstFrameRateDen !=
+            stRcAttr->stH264Vbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH264Vbr.u32SrcFrameRateNum,
+                               stRcAttr->stH264Vbr.u32SrcFrameRateDen,
+                               stRcAttr->stH264Vbr.fr32DstFrameRateNum,
+                               stRcAttr->stH264Vbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_H264AVBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Avbr.u32SrcFrameRateNum !=
+            stRcAttr->stH264Avbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Avbr.u32SrcFrameRateDen !=
+            stRcAttr->stH264Avbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Avbr.fr32DstFrameRateNum !=
+            stRcAttr->stH264Avbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH264Avbr.fr32DstFrameRateDen !=
+            stRcAttr->stH264Avbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH264Avbr.u32SrcFrameRateNum,
+                               stRcAttr->stH264Avbr.u32SrcFrameRateDen,
+                               stRcAttr->stH264Avbr.fr32DstFrameRateNum,
+                               stRcAttr->stH264Avbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_MJPEGCBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegCbr.u32SrcFrameRateNum !=
+            stRcAttr->stMjpegCbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegCbr.u32SrcFrameRateDen !=
+            stRcAttr->stMjpegCbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegCbr.fr32DstFrameRateNum !=
+            stRcAttr->stMjpegCbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegCbr.fr32DstFrameRateDen !=
+            stRcAttr->stMjpegCbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stMjpegCbr.u32SrcFrameRateNum,
+                               stRcAttr->stMjpegCbr.u32SrcFrameRateDen,
+                               stRcAttr->stMjpegCbr.fr32DstFrameRateNum,
+                               stRcAttr->stMjpegCbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_MJPEGVBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegVbr.u32SrcFrameRateNum !=
+            stRcAttr->stMjpegVbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegVbr.u32SrcFrameRateDen !=
+            stRcAttr->stMjpegVbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegVbr.fr32DstFrameRateNum !=
+            stRcAttr->stMjpegVbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stMjpegVbr.fr32DstFrameRateDen !=
+            stRcAttr->stMjpegVbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stMjpegVbr.u32SrcFrameRateNum,
+                               stRcAttr->stMjpegVbr.u32SrcFrameRateDen,
+                               stRcAttr->stMjpegVbr.fr32DstFrameRateNum,
+                               stRcAttr->stMjpegVbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_H265CBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Cbr.u32SrcFrameRateNum !=
+            stRcAttr->stH265Cbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Cbr.u32SrcFrameRateDen !=
+            stRcAttr->stH265Cbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Cbr.fr32DstFrameRateNum !=
+            stRcAttr->stH265Cbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Cbr.fr32DstFrameRateDen !=
+            stRcAttr->stH265Cbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH265Cbr.u32SrcFrameRateNum,
+                               stRcAttr->stH265Cbr.u32SrcFrameRateDen,
+                               stRcAttr->stH265Cbr.fr32DstFrameRateNum,
+                               stRcAttr->stH265Cbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_H265VBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Vbr.u32SrcFrameRateNum !=
+            stRcAttr->stH265Vbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Vbr.u32SrcFrameRateDen !=
+            stRcAttr->stH265Vbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Vbr.fr32DstFrameRateNum !=
+            stRcAttr->stH265Vbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Vbr.fr32DstFrameRateDen !=
+            stRcAttr->stH265Vbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH265Vbr.u32SrcFrameRateNum,
+                               stRcAttr->stH265Vbr.u32SrcFrameRateDen,
+                               stRcAttr->stH265Vbr.fr32DstFrameRateNum,
+                               stRcAttr->stH265Vbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_H265AVBR:
+    if (g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Avbr.u32SrcFrameRateNum !=
+            stRcAttr->stH265Avbr.u32SrcFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Avbr.u32SrcFrameRateDen !=
+            stRcAttr->stH265Avbr.u32SrcFrameRateDen ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Avbr.fr32DstFrameRateNum !=
+            stRcAttr->stH265Avbr.fr32DstFrameRateNum ||
+        g_venc_chns[VeChn]
+                .venc_attr.attr.stRcAttr.stH265Avbr.fr32DstFrameRateDen !=
+            stRcAttr->stH265Avbr.fr32DstFrameRateDen) {
+      ret = RK_MPI_VENC_SetFps(VeChn, stRcAttr->stH265Avbr.u32SrcFrameRateNum,
+                               stRcAttr->stH265Avbr.u32SrcFrameRateDen,
+                               stRcAttr->stH265Avbr.fr32DstFrameRateNum,
+                               stRcAttr->stH265Avbr.fr32DstFrameRateDen);
+      if (ret)
+        return ret;
+    }
+    break;
+  case VENC_RC_MODE_BUTT:
+    break;
+  }
+  return ret;
+}
+
+static RK_S32 RK_MPI_VENC_SetGopMode_If_Change(VENC_CHN VeChn,
+                                               VENC_GOP_ATTR_S *stGopAttr) {
+  RK_S32 ret = RK_ERR_SYS_OK;
+  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.enType == RK_CODEC_TYPE_JPEG)
+    return ret;
+  if (stGopAttr->enGopMode !=
+          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.enGopMode ||
+      stGopAttr->u32GopSize !=
+          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.u32GopSize ||
+      stGopAttr->s32IPQpDelta !=
+          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.s32IPQpDelta ||
+      stGopAttr->u32BgInterval !=
+          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.u32BgInterval ||
+      stGopAttr->s32ViQpDelta !=
+          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.s32ViQpDelta) {
+    ret = RK_MPI_VENC_SetGopMode(VeChn, stGopAttr);
+  }
+  return ret;
+}
+
 RK_S32 RK_MPI_VENC_SetVencChnAttr(VENC_CHN VeChn,
                                   VENC_CHN_ATTR_S *stVencChnAttr) {
   if (!stVencChnAttr)
@@ -1859,279 +2190,33 @@ RK_S32 RK_MPI_VENC_SetVencChnAttr(VENC_CHN VeChn,
   if ((VeChn < 0) || (VeChn >= VENC_MAX_CHN_NUM))
     return -RK_ERR_VENC_INVALID_CHNID;
 
-  int ret = 0;
+  RK_S32 ret = RK_ERR_SYS_OK;
   // set venc other para
-  if (stVencChnAttr->stVencAttr.u32Profile !=
-          g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32Profile ||
-      stVencChnAttr->stVencAttr.stAttrH264e.u32Level !=
-          g_venc_chns[VeChn].venc_attr.attr.stVencAttr.stAttrH264e.u32Level) {
-    ret |= RK_MPI_VENC_SetAvcProfile(
-        VeChn, stVencChnAttr->stVencAttr.u32Profile,
-        stVencChnAttr->stVencAttr.stAttrH264e.u32Level);
-  }
+  ret = RK_MPI_VENC_SetAvcProfile_If_Change(VeChn, &stVencChnAttr->stVencAttr);
   if (ret)
     return ret;
 
-  if (g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32VirWidth !=
-          stVencChnAttr->stVencAttr.u32VirWidth ||
-      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32VirHeight !=
-          stVencChnAttr->stVencAttr.u32VirHeight ||
-      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32PicWidth !=
-          stVencChnAttr->stVencAttr.u32PicWidth ||
-      g_venc_chns[VeChn].venc_attr.attr.stVencAttr.u32PicHeight !=
-          stVencChnAttr->stVencAttr.u32PicHeight) {
-    VENC_RESOLUTION_PARAM_S solution_attr;
-    solution_attr.u32VirWidth = stVencChnAttr->stVencAttr.u32VirWidth;
-    solution_attr.u32VirHeight = stVencChnAttr->stVencAttr.u32VirHeight;
-    solution_attr.u32Width = stVencChnAttr->stVencAttr.u32PicWidth;
-    solution_attr.u32Height = stVencChnAttr->stVencAttr.u32PicHeight;
-    ret |= RK_MPI_VENC_SetResolution(VeChn, solution_attr);
-  }
+  ret = RK_MPI_VENC_SetResolution_If_Change(VeChn, &stVencChnAttr->stVencAttr);
   if (ret)
     return ret;
 
   // set rc
-  if (stVencChnAttr->stRcAttr.enRcMode !=
-      g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
-    ret |= RK_MPI_VENC_SetRcMode(VeChn, stVencChnAttr->stRcAttr.enRcMode);
-  }
+  ret = RK_MPI_VENC_SetRcMode_If_Change(VeChn, &stVencChnAttr->stRcAttr);
+  if (ret)
+    return ret;
 
-  RK_U32 u32BitRate = 0;
-  RK_U32 u32MinBitRate = 0;
-  RK_U32 u32MaxBitRate = 0;
-  switch (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
-  case VENC_RC_MODE_H264CBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Cbr.u32BitRate !=
-        stVencChnAttr->stRcAttr.stH264Cbr.u32BitRate)
-      u32BitRate = stVencChnAttr->stRcAttr.stH264Cbr.u32BitRate;
-    break;
-  case VENC_RC_MODE_H264VBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Vbr.u32MaxBitRate !=
-        stVencChnAttr->stRcAttr.stH264Vbr.u32MaxBitRate)
-      u32MaxBitRate = stVencChnAttr->stRcAttr.stH264Vbr.u32MaxBitRate;
-    break;
-  case VENC_RC_MODE_H264AVBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH264Avbr.u32MaxBitRate !=
-        stVencChnAttr->stRcAttr.stH264Avbr.u32MaxBitRate)
-      u32MaxBitRate = stVencChnAttr->stRcAttr.stH264Avbr.u32MaxBitRate;
-    break;
-  case VENC_RC_MODE_MJPEGCBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stMjpegCbr.u32BitRate !=
-        stVencChnAttr->stRcAttr.stMjpegCbr.u32BitRate)
-      u32BitRate = stVencChnAttr->stRcAttr.stMjpegCbr.u32BitRate;
-    break;
-  case VENC_RC_MODE_MJPEGVBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stMjpegVbr.u32BitRate !=
-        stVencChnAttr->stRcAttr.stMjpegVbr.u32BitRate)
-      u32BitRate = stVencChnAttr->stRcAttr.stMjpegVbr.u32BitRate;
-    break;
-  case VENC_RC_MODE_H265CBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Cbr.u32BitRate !=
-        stVencChnAttr->stRcAttr.stH265Cbr.u32BitRate)
-      u32BitRate = stVencChnAttr->stRcAttr.stH265Cbr.u32BitRate;
-    break;
-  case VENC_RC_MODE_H265VBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Vbr.u32MaxBitRate !=
-        stVencChnAttr->stRcAttr.stH265Vbr.u32MaxBitRate)
-      u32MaxBitRate = stVencChnAttr->stRcAttr.stH265Vbr.u32MaxBitRate;
-    break;
-  case VENC_RC_MODE_H265AVBR:
-    if (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.stH265Avbr.u32MaxBitRate !=
-        stVencChnAttr->stRcAttr.stH265Avbr.u32MaxBitRate)
-      u32MaxBitRate = stVencChnAttr->stRcAttr.stH265Avbr.u32MaxBitRate;
-    break;
-  case VENC_RC_MODE_BUTT:
-    break;
-  }
-  if (u32BitRate != 0 || u32MinBitRate != 0 || u32MaxBitRate != 0) {
-    ret |=
-        RK_MPI_VENC_SetBitrate(VeChn, u32BitRate, u32MinBitRate, u32MaxBitRate);
-    if (ret)
-      return ret;
-  } else {
-    return -RK_ERR_VENC_ILLEGAL_PARAM;
-  }
+  ret = RK_MPI_VENC_SetBitrate_If_Change(VeChn, &stVencChnAttr->stRcAttr);
+  if (ret)
+    return ret;
 
-  switch (g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode) {
-  case VENC_RC_MODE_H264CBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Cbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Cbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Cbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Cbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Cbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Cbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH264Cbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Cbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH264Cbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Cbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_H264VBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Vbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Vbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Vbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Vbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Vbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Vbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Vbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Vbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH264Vbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Vbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH264Vbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Vbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_H264AVBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Avbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Avbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Avbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Avbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Avbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH264Avbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH264Avbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH264Avbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH264Avbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Avbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH264Avbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH264Avbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_MJPEGCBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegCbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stMjpegCbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegCbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stMjpegCbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegCbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stMjpegCbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegCbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stMjpegCbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stMjpegCbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stMjpegCbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stMjpegCbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stMjpegCbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_MJPEGVBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegVbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stMjpegVbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegVbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stMjpegVbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegVbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stMjpegVbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stMjpegVbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stMjpegVbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stMjpegVbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stMjpegVbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stMjpegVbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stMjpegVbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_H265CBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Cbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Cbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Cbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Cbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Cbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Cbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Cbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Cbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH265Cbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Cbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH265Cbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Cbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_H265VBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Vbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Vbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Vbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Vbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Vbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Vbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Vbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Vbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH265Vbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Vbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH265Vbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Vbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_H265AVBR:
-    if (g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Avbr.u32SrcFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Avbr.u32SrcFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Avbr.u32SrcFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Avbr.u32SrcFrameRateDen ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Avbr.fr32DstFrameRateNum !=
-            stVencChnAttr->stRcAttr.stH265Avbr.fr32DstFrameRateNum ||
-        g_venc_chns[VeChn]
-                .venc_attr.attr.stRcAttr.stH265Avbr.fr32DstFrameRateDen !=
-            stVencChnAttr->stRcAttr.stH265Avbr.fr32DstFrameRateDen) {
-      ret |= RK_MPI_VENC_SetFps(
-          VeChn, stVencChnAttr->stRcAttr.stH265Avbr.u32SrcFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Avbr.u32SrcFrameRateDen,
-          stVencChnAttr->stRcAttr.stH265Avbr.fr32DstFrameRateNum,
-          stVencChnAttr->stRcAttr.stH265Avbr.fr32DstFrameRateDen);
-    }
-    break;
-  case VENC_RC_MODE_BUTT:
-    break;
-  }
+  ret = RK_MPI_VENC_SetFps_If_Change(VeChn, &stVencChnAttr->stRcAttr);
   if (ret)
     return ret;
 
   // set gop
-  if (stVencChnAttr->stGopAttr.enGopMode !=
-          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.enGopMode ||
-      stVencChnAttr->stGopAttr.u32GopSize !=
-          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.u32GopSize ||
-      stVencChnAttr->stGopAttr.s32IPQpDelta !=
-          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.s32IPQpDelta ||
-      stVencChnAttr->stGopAttr.u32BgInterval !=
-          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.u32BgInterval ||
-      stVencChnAttr->stGopAttr.s32ViQpDelta !=
-          g_venc_chns[VeChn].venc_attr.attr.stGopAttr.s32ViQpDelta) {
-    ret |= RK_MPI_VENC_SetGopMode(VeChn, &stVencChnAttr->stGopAttr);
-  }
+  ret = RK_MPI_VENC_SetGopMode_If_Change(VeChn, &stVencChnAttr->stGopAttr);
+  if (ret)
+    return ret;
 
   return ret;
 }
@@ -2286,6 +2371,7 @@ RK_S32 RK_MPI_VENC_CreateJpegLightChn(VENC_CHN VeChn,
   g_venc_chns[VeChn].status = CHN_STATUS_OPEN;
   g_venc_mtx.unlock();
 
+  g_venc_chns[VeChn].venc_attr.bFullFunc = RK_FALSE;
   return RK_ERR_SYS_OK;
 }
 
@@ -2411,6 +2497,9 @@ RK_S32 RK_MPI_VENC_SetRcMode(VENC_CHN VeChn, VENC_RC_MODE_E RcMode) {
     ret = ret ? -RK_ERR_VENC_ILLEGAL_PARAM : RK_ERR_SYS_OK;
   } else {
     ret = -RK_ERR_VENC_NOTREADY;
+  }
+  if (!ret) {
+    g_venc_chns[VeChn].venc_attr.attr.stRcAttr.enRcMode = RcMode;
   }
   g_venc_mtx.unlock();
 
@@ -2706,7 +2795,7 @@ RK_S32 RK_MPI_VENC_GetRoiAttr(VENC_CHN VeChn, VENC_ROI_ATTR_S *pstRoiAttr,
     return -RK_ERR_VENC_INVALID_CHNID;
   if (g_venc_chns[VeChn].status < CHN_STATUS_OPEN)
     return -RK_ERR_VENC_NOTREADY;
-  if (roi_index < 0 || roi_index > 8)
+  if (roi_index < 0 || roi_index > 7)
     return -RK_ERR_VENC_ILLEGAL_PARAM;
 
   g_venc_mtx.lock();
@@ -2794,6 +2883,9 @@ RK_S32 RK_MPI_VENC_SetResolution(VENC_CHN VeChn,
     return -RK_ERR_VENC_INVALID_CHNID;
   if (g_venc_chns[VeChn].status < CHN_STATUS_OPEN)
     return -RK_ERR_VENC_NOTREADY;
+  if (g_venc_chns[VeChn].venc_attr.bFullFunc) {
+    return -RK_ERR_VENC_NOT_SUPPORT;
+  }
 
   g_venc_mtx.lock();
   VideoResolutionCfg vid_cfg;
