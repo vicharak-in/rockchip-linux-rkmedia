@@ -329,6 +329,26 @@ target_link_libraries(rkmedia_vi_luma_only_mode_test easymedia)
 target_include_directories(rkmedia_vi_luma_only_mode_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
 install(TARGETS rkmedia_vi_luma_only_mode_test RUNTIME DESTINATION "bin")
 
+if(DRM_DISPLAY)
+#--------------------------
+#  rkmedia_vi_double_cameras_test
+#--------------------------
+add_executable(rkmedia_vi_double_cameras_test rkmedia_vi_double_cameras_test.c ${COMMON_SRC})
+add_dependencies(rkmedia_vi_double_cameras_test easymedia)
+target_link_libraries(rkmedia_vi_double_cameras_test easymedia)
+target_include_directories(rkmedia_vi_double_cameras_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+install(TARGETS rkmedia_vi_double_cameras_test RUNTIME DESTINATION "bin")
+
+#--------------------------
+#  rkmedia_vi_double_cameras_switch_test
+#--------------------------
+add_executable(rkmedia_vi_double_cameras_switch_test rkmedia_vi_double_cameras_switch_test.c ${COMMON_SRC})
+add_dependencies(rkmedia_vi_double_cameras_switch_test easymedia)
+target_link_libraries(rkmedia_vi_double_cameras_switch_test easymedia)
+target_include_directories(rkmedia_vi_double_cameras_switch_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+install(TARGETS rkmedia_vi_double_cameras_switch_test RUNTIME DESTINATION "bin")
+endif() #if(DRM_DISPLAY)
+
 if(RKMPP_ENCODER)
 #--------------------------
 #  rkmedia_vi_god_mode_test
@@ -347,15 +367,6 @@ add_dependencies(rkmedia_vi_multi_bind_test easymedia)
 target_link_libraries(rkmedia_vi_multi_bind_test easymedia)
 target_include_directories(rkmedia_vi_multi_bind_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
 install(TARGETS rkmedia_vi_multi_bind_test RUNTIME DESTINATION "bin")
-
-#--------------------------
-#  rkmedia_vi_double_cameras_switch_test
-#--------------------------
-add_executable(rkmedia_vi_double_cameras_switch_test rkmedia_vi_double_cameras_switch_test.c ${COMMON_SRC})
-add_dependencies(rkmedia_vi_double_cameras_switch_test easymedia)
-target_link_libraries(rkmedia_vi_double_cameras_switch_test easymedia)
-target_include_directories(rkmedia_vi_double_cameras_switch_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-install(TARGETS rkmedia_vi_double_cameras_switch_test RUNTIME DESTINATION "bin")
 endif() #if(RKMPP_ENCODER)
 endif() #if(V4L2_CAPTURE)
 
