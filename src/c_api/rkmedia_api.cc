@@ -67,7 +67,7 @@ typedef ALGO_MD_ATTR_S RkmediaMDAttr;
 typedef ALGO_OD_ATTR_S RkmediaODAttr;
 typedef VO_CHN_ATTR_S RkmediaVOAttr;
 
-#define RKMEDIA_CHNNAL_BUFFER_LIMIT 3
+#define RKMEDIA_CHNNAL_BUFFER_LIMIT 2
 #define RKMEDIA_CHNNAL_BUFFER_GOD_MODE_LIMIT 1
 
 typedef struct _RkmediaChannel {
@@ -176,8 +176,10 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
 
   ptrChn->buffer_list_mtx.lock();
   if (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_LIMIT) {
-    LOG("WARN: Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
-        ptrChn->mode_id, ptrChn->chn_id);
+    if (ptrChn->status != CHN_STATUS_BIND) {
+      LOG("WARN: Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
+          ptrChn->mode_id, ptrChn->chn_id);
+    }
     MEDIA_BUFFER mb = ptrChn->buffer_list.front();
     ptrChn->buffer_list.pop_front();
     RK_MPI_MB_ReleaseBuffer(mb);
