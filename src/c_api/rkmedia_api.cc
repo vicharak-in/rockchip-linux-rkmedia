@@ -29,6 +29,13 @@ using namespace easymedia;
 
 #define LOG_TAG "RKMEDIA:"
 
+typedef enum rkCHN_OUT_CB_STATUS {
+  CHN_OUT_CB_INIT, // out_cb enable by chn init
+  CHN_OUT_CB_USER, // out_cb enable by user set
+  CHN_OUT_CB_LUMA, // out_cb enable by luma api
+  CHN_OUT_CB_CLOSE // out_cb disable
+} CHN_OUT_CB_STATUS;
+
 typedef enum rkCHN_STATUS {
   CHN_STATUS_CLOSED,
   CHN_STATUS_READY, // params is confirmed.
@@ -76,7 +83,7 @@ typedef struct _RkmediaChannel {
   // rkmedia_flow : vi flow
   // rkmedia_flow_list : venc flow : file save flow.
   std::list<std::shared_ptr<easymedia::Flow>> rkmedia_flow_list;
-  OutCbFunc cb;
+  OutCbFunc out_cb;
   EventCbFunc event_cb;
   union {
     RkmediaVIAttr vi_attr;
@@ -91,11 +98,13 @@ typedef struct _RkmediaChannel {
     RkmediaVDECAttr vdec_attr;
   };
   RK_U16 bind_ref;
-  std::mutex buffer_mtx;
-  std::condition_variable buffer_cond;
-  bool buffer_cond_quit;
+  std::mutex buffer_list_mtx;
+  std::condition_variable buffer_list_cond;
+  bool buffer_list_quit;
   int wake_fd[2];
   std::list<MEDIA_BUFFER> buffer_list;
+  // protect by g_xxx_mtx.
+  CHN_OUT_CB_STATUS rkmedia_out_cb_status;
 
   // used for venc osd.
   RK_BOOL bColorTblInit;
@@ -165,18 +174,8 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
   if (!ptrChn || !buffer)
     return -1;
 
-  ptrChn->buffer_mtx.lock();
-  if ((ptrChn->mode_id == RK_ID_VI) &&
-      (ptrChn->vi_attr.attr.enWorkMode == VI_WORK_MODE_GOD_MODE) &&
-      (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_GOD_MODE_LIMIT)) {
-    LOGD("WARN: Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
-         ptrChn->mode_id, ptrChn->chn_id);
-    MEDIA_BUFFER mb = ptrChn->buffer_list.front();
-    ptrChn->buffer_list.pop_front();
-    RK_MPI_MB_ReleaseBuffer(mb);
-    if (ptrChn->wake_fd[0] > 0)
-      RkmediaPopPipFd(ptrChn->wake_fd[0]);
-  } else if (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_LIMIT) {
+  ptrChn->buffer_list_mtx.lock();
+  if (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_LIMIT) {
     LOG("WARN: Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
         ptrChn->mode_id, ptrChn->chn_id);
     MEDIA_BUFFER mb = ptrChn->buffer_list.front();
@@ -185,7 +184,7 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
     if (ptrChn->wake_fd[0] > 0)
       RkmediaPopPipFd(ptrChn->wake_fd[0]);
   }
-  if (!ptrChn->buffer_cond_quit) {
+  if (!ptrChn->buffer_list_quit) {
     ptrChn->buffer_list.push_back(buffer);
     if (ptrChn->wake_fd[1] > 0)
       RkmediaPushPipFd(ptrChn->wake_fd[1]);
@@ -193,8 +192,8 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
     RK_MPI_MB_ReleaseBuffer(buffer);
   }
 
-  ptrChn->buffer_cond.notify_all();
-  ptrChn->buffer_mtx.unlock();
+  ptrChn->buffer_list_cond.notify_all();
+  ptrChn->buffer_list_mtx.unlock();
   pthread_yield();
 
   return 0;
@@ -205,12 +204,12 @@ static MEDIA_BUFFER RkmediaChnPopBuffer(RkmediaChannel *ptrChn,
   if (!ptrChn)
     return NULL;
 
-  std::unique_lock<std::mutex> lck(ptrChn->buffer_mtx);
+  std::unique_lock<std::mutex> lck(ptrChn->buffer_list_mtx);
   if (ptrChn->buffer_list.empty()) {
-    if (s32MilliSec < 0 && !ptrChn->buffer_cond_quit) {
-      ptrChn->buffer_cond.wait(lck);
+    if (s32MilliSec < 0 && !ptrChn->buffer_list_quit) {
+      ptrChn->buffer_list_cond.wait(lck);
     } else if (s32MilliSec > 0) {
-      if (ptrChn->buffer_cond.wait_for(
+      if (ptrChn->buffer_list_cond.wait_for(
               lck, std::chrono::milliseconds(s32MilliSec)) ==
           std::cv_status::timeout) {
         LOG("INFO: %s: Mode[%d]:Chn[%d] get mediabuffer timeout!\n", __func__,
@@ -237,9 +236,9 @@ static void RkmediaChnInitBuffer(RkmediaChannel *ptrChn) {
   if (!ptrChn)
     return;
 
-  ptrChn->buffer_mtx.lock();
-  ptrChn->buffer_cond_quit = false;
-  ptrChn->buffer_mtx.unlock();
+  ptrChn->buffer_list_mtx.lock();
+  ptrChn->buffer_list_quit = false;
+  ptrChn->buffer_list_mtx.unlock();
 }
 
 static void RkmediaChnClearBuffer(RkmediaChannel *ptrChn) {
@@ -249,15 +248,15 @@ static void RkmediaChnClearBuffer(RkmediaChannel *ptrChn) {
   LOGD("#%p Mode[%d]:Chn[%d] clear media buffer start...\n", ptrChn,
        ptrChn->mode_id, ptrChn->chn_id);
   MEDIA_BUFFER mb = NULL;
-  ptrChn->buffer_mtx.lock();
+  ptrChn->buffer_list_mtx.lock();
   while (!ptrChn->buffer_list.empty()) {
     mb = ptrChn->buffer_list.front();
     ptrChn->buffer_list.pop_front();
     RK_MPI_MB_ReleaseBuffer(mb);
   }
-  ptrChn->buffer_cond_quit = true;
-  ptrChn->buffer_cond.notify_all();
-  ptrChn->buffer_mtx.unlock();
+  ptrChn->buffer_list_quit = true;
+  ptrChn->buffer_list_cond.notify_all();
+  ptrChn->buffer_list_mtx.unlock();
   LOGD("#%p Mode[%d]:Chn[%d] clear media buffer end...\n", ptrChn,
        ptrChn->mode_id, ptrChn->chn_id);
 }
@@ -270,7 +269,7 @@ static void Reset_Channel_Table(RkmediaChannel *tbl, int cnt, MOD_ID_E mid) {
     tbl[i].mode_id = mid;
     tbl[i].chn_id = i;
     tbl[i].status = CHN_STATUS_CLOSED;
-    tbl[i].cb = nullptr;
+    tbl[i].out_cb = nullptr;
     tbl[i].event_cb = nullptr;
     tbl[i].bind_ref = 0;
     tbl[i].bColorTblInit = RK_FALSE;
@@ -317,7 +316,7 @@ RK_VOID RK_MPI_SYS_DumpChn(MOD_ID_E enModId) {
   for (RK_U16 i = 0; i < u16ChnMaxCnt; i++) {
     LOG("  Chn[%d]->status:%d\n", i, pChns[i].status);
     LOG("  Chn[%d]->bind_ref:%d\n", i, pChns[i].bind_ref);
-    LOG("  Chn[%d]->output_cb:%p\n", i, pChns[i].cb);
+    LOG("  Chn[%d]->output_cb:%p\n", i, pChns[i].out_cb);
     LOG("  Chn[%d]->event_cb:%p\n\n", i, pChns[i].event_cb);
   }
 }
@@ -328,6 +327,8 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   std::shared_ptr<easymedia::Flow> sink;
   RkmediaChannel *src_chn = NULL;
   RkmediaChannel *dst_chn = NULL;
+  std::mutex *src_mutex = NULL;
+  std::mutex *dst_mutex = NULL;
 
   if (!pstSrcChn || !pstDestChn)
     return -RK_ERR_SYS_ILLEGAL_PARAM;
@@ -340,30 +341,37 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   case RK_ID_VI:
     src = g_vi_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_vi_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vi_mtx;
     break;
   case RK_ID_VENC:
     src = g_venc_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_venc_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_venc_mtx;
     break;
   case RK_ID_AI:
     src = g_ai_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_ai_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_ai_mtx;
     break;
   case RK_ID_AENC:
     src = g_aenc_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_aenc_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vi_mtx;
     break;
   case RK_ID_RGA:
     src = g_rga_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_rga_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_rga_mtx;
     break;
   case RK_ID_ADEC:
     src = g_adec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_adec_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_adec_mtx;
     break;
   case RK_ID_VDEC:
     src = g_vdec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_vdec_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vdec_mtx;
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -379,38 +387,47 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   case RK_ID_VENC:
     sink = g_venc_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_venc_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_venc_mtx;
     break;
   case RK_ID_AO:
     sink = g_ao_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_ao_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_ao_mtx;
     break;
   case RK_ID_AENC:
     sink = g_aenc_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_aenc_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_aenc_mtx;
     break;
   case RK_ID_ALGO_MD:
     sink = g_algo_md_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_algo_md_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_algo_md_mtx;
     break;
   case RK_ID_ALGO_OD:
     sink = g_algo_od_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_algo_od_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_algo_od_mtx;
     break;
   case RK_ID_RGA:
     sink = g_rga_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_rga_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_rga_mtx;
     break;
   case RK_ID_ADEC:
     sink = g_adec_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_adec_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_adec_mtx;
     break;
   case RK_ID_VO:
     sink = g_vo_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vo_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_vo_mtx;
     break;
   case RK_ID_VDEC:
     sink = g_vdec_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vdec_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_vdec_mtx;
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -422,20 +439,26 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
     return -RK_ERR_SYS_NOTREADY;
   }
 
+  src_mutex->lock();
   // Rkmedia flow bind
   src->AddDownFlow(sink, 0, 0);
-  // Generally, after the previous Chn is bound to the next stage,
-  // FlowOutputCallback will be disabled.Because the VI needs to calculate
-  // the brightness, the VI still retains the FlowOutputCallback after
-  // binding the lower-level Chn.
-  if (src_chn->mode_id != RK_ID_VI)
+  if ((src_chn->rkmedia_out_cb_status == CHN_OUT_CB_INIT) ||
+      (src_chn->rkmedia_out_cb_status == CHN_OUT_CB_CLOSE)) {
+    LOGD("%s: disable rkmedia flow output callback!\n", __func__);
+    src_chn->rkmedia_out_cb_status = CHN_OUT_CB_CLOSE;
     src->SetOutputCallBack(NULL, NULL);
+    RkmediaChnClearBuffer(src_chn);
+  }
 
   // change status frome OPEN to BIND.
   src_chn->status = CHN_STATUS_BIND;
   src_chn->bind_ref++;
+  src_mutex->unlock();
+
+  dst_mutex->lock();
   dst_chn->status = CHN_STATUS_BIND;
   dst_chn->bind_ref++;
+  dst_mutex->unlock();
 
   return RK_ERR_SYS_OK;
 }
@@ -446,6 +469,8 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
   std::shared_ptr<easymedia::Flow> sink;
   RkmediaChannel *src_chn = NULL;
   RkmediaChannel *dst_chn = NULL;
+  std::mutex *src_mutex = NULL;
+  std::mutex *dst_mutex = NULL;
 
   LOG("\n%s %s: UnBind Mode[%d]:Chn[%d] to Mode[%d]:Chn[%d]...\n", LOG_TAG,
       __func__, pstSrcChn->enModId, pstSrcChn->s32ChnId, pstDestChn->enModId,
@@ -455,34 +480,37 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
   case RK_ID_VI:
     src = g_vi_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_vi_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vi_mtx;
     break;
   case RK_ID_VENC:
     src = g_venc_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_venc_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_venc_mtx;
     break;
   case RK_ID_AI:
     src = g_ai_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_ai_chns[pstSrcChn->s32ChnId];
-    break;
-  case RK_ID_AO:
-    src = g_ao_chns[pstSrcChn->s32ChnId].rkmedia_flow;
-    src_chn = &g_ao_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_ai_mtx;
     break;
   case RK_ID_AENC:
     src = g_aenc_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_aenc_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vi_mtx;
     break;
   case RK_ID_RGA:
     src = g_rga_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_rga_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_rga_mtx;
     break;
   case RK_ID_ADEC:
     src = g_adec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_adec_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_adec_mtx;
     break;
   case RK_ID_VDEC:
     src = g_vdec_chns[pstSrcChn->s32ChnId].rkmedia_flow;
     src_chn = &g_vdec_chns[pstSrcChn->s32ChnId];
+    src_mutex = &g_vdec_mtx;
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -499,49 +527,50 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
   }
 
   switch (pstDestChn->enModId) {
-  case RK_ID_VI:
-    sink = g_vi_chns[pstDestChn->s32ChnId].rkmedia_flow;
-    dst_chn = &g_vi_chns[pstDestChn->s32ChnId];
-    break;
   case RK_ID_VENC:
     sink = g_venc_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_venc_chns[pstDestChn->s32ChnId];
-    break;
-  case RK_ID_AI:
-    sink = g_ai_chns[pstDestChn->s32ChnId].rkmedia_flow;
-    dst_chn = &g_ai_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_venc_mtx;
     break;
   case RK_ID_AO:
     sink = g_ao_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_ao_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_ao_mtx;
     break;
   case RK_ID_AENC:
     sink = g_aenc_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_aenc_chns[pstDestChn->s32ChnId];
-    break;
-  case RK_ID_RGA:
-    sink = g_rga_chns[pstDestChn->s32ChnId].rkmedia_flow;
-    dst_chn = &g_rga_chns[pstDestChn->s32ChnId];
-    break;
-  case RK_ID_ADEC:
-    sink = g_adec_chns[pstDestChn->s32ChnId].rkmedia_flow;
-    dst_chn = &g_adec_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_aenc_mtx;
     break;
   case RK_ID_ALGO_MD:
     sink = g_algo_md_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_algo_md_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_algo_md_mtx;
     break;
   case RK_ID_ALGO_OD:
     sink = g_algo_od_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_algo_od_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_algo_od_mtx;
+    break;
+  case RK_ID_RGA:
+    sink = g_rga_chns[pstDestChn->s32ChnId].rkmedia_flow;
+    dst_chn = &g_rga_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_rga_mtx;
+    break;
+  case RK_ID_ADEC:
+    sink = g_adec_chns[pstDestChn->s32ChnId].rkmedia_flow;
+    dst_chn = &g_adec_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_adec_mtx;
     break;
   case RK_ID_VO:
     sink = g_vo_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vo_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_vo_mtx;
     break;
   case RK_ID_VDEC:
     sink = g_vdec_chns[pstDestChn->s32ChnId].rkmedia_flow;
     dst_chn = &g_vdec_chns[pstDestChn->s32ChnId];
+    dst_mutex = &g_vdec_mtx;
     break;
   default:
     return -RK_ERR_SYS_NOT_SUPPORT;
@@ -557,6 +586,7 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
     return -RK_ERR_SYS_NOT_PERM;
   }
 
+  src_mutex->lock();
   // Rkmedia flow unbind
   src->RemoveDownFlow(sink);
 
@@ -567,10 +597,14 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
     src_chn->status = CHN_STATUS_OPEN;
     src_chn->bind_ref = 0;
   }
+  src_mutex->unlock();
+
+  dst_mutex->lock();
   if (dst_chn->bind_ref == 0) {
     dst_chn->status = CHN_STATUS_OPEN;
     dst_chn->bind_ref = 0;
   }
+  dst_mutex->unlock();
 
   return RK_ERR_SYS_OK;
 }
@@ -638,9 +672,7 @@ FlowOutputCallback(void *handle,
     // FlowOutputCallback will be disabled. Because the VI needs to
     // calculate the brightness, the VI still retains the FlowOutputCallback
     // after binding the lower-level Chn.
-    if (((target_chn->status == CHN_STATUS_BIND) &&
-         (target_chn->vi_attr.attr.enWorkMode != VI_WORK_MODE_GOD_MODE)) ||
-        (target_chn->vi_attr.attr.enWorkMode == VI_WORK_MODE_LUMA_ONLY))
+    if (target_chn->vi_attr.attr.enWorkMode == VI_WORK_MODE_LUMA_ONLY)
       return;
   }
 
@@ -679,8 +711,8 @@ FlowOutputCallback(void *handle,
   }
   // RK_MPI_SYS_GetMediaBuffer and output callback function,
   // can only choose one.
-  if (target_chn->cb)
-    target_chn->cb(mb);
+  if (target_chn->out_cb)
+    target_chn->out_cb(mb);
   else
     RkmediaChnPushBuffer(target_chn, mb);
 }
@@ -733,7 +765,7 @@ RK_S32 RK_MPI_SYS_RegisterOutCb(const MPP_CHN_S *pstChn, OutCbFunc cb) {
     return -RK_ERR_SYS_NOT_PERM;
   }
 
-  target_chn->cb = cb;
+  target_chn->out_cb = cb;
   // flow->SetOutputCallBack(target_chn, FlowOutputCallback);
 
   return RK_ERR_SYS_OK;
@@ -834,6 +866,169 @@ RK_S32 RK_MPI_SYS_RegisterEventCb(const MPP_CHN_S *pstChn, EventCbFunc cb) {
   return RK_ERR_SYS_OK;
 }
 
+RK_S32 RK_MPI_SYS_StartGetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID) {
+  RkmediaChannel *target_chn = NULL;
+  std::mutex *target_mutex = NULL;
+
+  switch (enModID) {
+  case RK_ID_VI:
+    if (s32ChnID < 0 || s32ChnID >= VI_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid VI ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_vi_chns[s32ChnID];
+    target_mutex = &g_vi_mtx;
+    break;
+  case RK_ID_VENC:
+    if (s32ChnID < 0 || s32ChnID >= VENC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AENC ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_venc_chns[s32ChnID];
+    target_mutex = &g_venc_mtx;
+    break;
+  case RK_ID_AI:
+    if (s32ChnID < 0 || s32ChnID >= AI_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AI ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_ai_chns[s32ChnID];
+    target_mutex = &g_ai_mtx;
+    break;
+  case RK_ID_AENC:
+    if (s32ChnID < 0 || s32ChnID > AENC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AENC ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_aenc_chns[s32ChnID];
+    target_mutex = &g_aenc_mtx;
+    break;
+  case RK_ID_RGA:
+    if (s32ChnID < 0 || s32ChnID > RGA_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_rga_chns[s32ChnID];
+    target_mutex = &g_rga_mtx;
+    break;
+  case RK_ID_ADEC:
+    if (s32ChnID < 0 || s32ChnID > ADEC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_adec_chns[s32ChnID];
+    target_mutex = &g_adec_mtx;
+    break;
+  case RK_ID_VDEC:
+    if (s32ChnID < 0 || s32ChnID > VDEC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_vdec_chns[s32ChnID];
+    target_mutex = &g_vdec_mtx;
+    break;
+  default:
+    LOG("ERROR: %s invalid modeID[%d]\n", __func__, enModID);
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
+  }
+
+  if (target_chn->status < CHN_STATUS_OPEN)
+    return -RK_ERR_SYS_NOT_PERM;
+
+  RkmediaChnInitBuffer(target_chn);
+  target_mutex->lock();
+  if (target_chn->rkmedia_out_cb_status == CHN_OUT_CB_USER) {
+    target_mutex->unlock();
+    return RK_ERR_SYS_OK;
+  } else if (target_chn->rkmedia_out_cb_status == CHN_OUT_CB_CLOSE) {
+    LOGD("%s: enable rkmedia output callback!\n", __func__);
+    target_chn->rkmedia_flow->SetOutputCallBack(target_chn, FlowOutputCallback);
+  }
+  target_chn->rkmedia_out_cb_status = CHN_OUT_CB_USER;
+  target_mutex->unlock();
+
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_SYS_StopGetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID) {
+  RkmediaChannel *target_chn = NULL;
+  std::mutex *target_mutex = NULL;
+
+  switch (enModID) {
+  case RK_ID_VI:
+    if (s32ChnID < 0 || s32ChnID >= VI_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid VI ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_vi_chns[s32ChnID];
+    target_mutex = &g_vi_mtx;
+    break;
+  case RK_ID_VENC:
+    if (s32ChnID < 0 || s32ChnID >= VENC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AENC ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_venc_chns[s32ChnID];
+    target_mutex = &g_venc_mtx;
+    break;
+  case RK_ID_AI:
+    if (s32ChnID < 0 || s32ChnID >= AI_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AI ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_ai_chns[s32ChnID];
+    target_mutex = &g_ai_mtx;
+    break;
+  case RK_ID_AENC:
+    if (s32ChnID < 0 || s32ChnID > AENC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid AENC ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_aenc_chns[s32ChnID];
+    target_mutex = &g_aenc_mtx;
+    break;
+  case RK_ID_RGA:
+    if (s32ChnID < 0 || s32ChnID > RGA_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_rga_chns[s32ChnID];
+    target_mutex = &g_rga_mtx;
+    break;
+  case RK_ID_ADEC:
+    if (s32ChnID < 0 || s32ChnID > ADEC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_adec_chns[s32ChnID];
+    target_mutex = &g_adec_mtx;
+    break;
+  case RK_ID_VDEC:
+    if (s32ChnID < 0 || s32ChnID > VDEC_MAX_CHN_NUM) {
+      LOG("ERROR: %s invalid RGA ChnID[%d]\n", __func__, s32ChnID);
+      return -RK_ERR_SYS_ILLEGAL_PARAM;
+    }
+    target_chn = &g_vdec_chns[s32ChnID];
+    target_mutex = &g_vdec_mtx;
+    break;
+  default:
+    LOG("ERROR: %s invalid modeID[%d]\n", __func__, enModID);
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
+  }
+
+  if (target_chn->status < CHN_STATUS_OPEN)
+    return -RK_ERR_SYS_NOT_PERM;
+
+  RkmediaChnClearBuffer(target_chn);
+  target_mutex->lock();
+  target_chn->rkmedia_out_cb_status = CHN_OUT_CB_CLOSE;
+  target_chn->rkmedia_flow->SetOutputCallBack(NULL, NULL);
+  LOGD("%s: disable rkmedia output callback!\n", __func__);
+  target_mutex->unlock();
+
+  return RK_ERR_SYS_OK;
+}
+
 MEDIA_BUFFER RK_MPI_SYS_GetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
                                        RK_S32 s32MilliSec) {
   RkmediaChannel *target_chn = NULL;
@@ -897,6 +1092,12 @@ MEDIA_BUFFER RK_MPI_SYS_GetMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
     LOG("ERROR: %s Mode[%d]:Chn[%d] in status[%d], "
         "this operation is not allowed!\n",
         __func__, enModID, s32ChnID, target_chn->status);
+    return NULL;
+  }
+
+  if (RK_MPI_SYS_StartGetMediaBuffer(enModID, s32ChnID)) {
+    LOG("ERROR: %s Mode[%d]:Chn[%d] start get mediabuffer failed!\n", __func__,
+        enModID, s32ChnID);
     return NULL;
   }
 
@@ -1165,8 +1366,21 @@ RK_S32 RK_MPI_VI_StartRegionLuma(VI_CHN ViChn) {
     return -RK_ERR_VI_NOTREADY;
 
   g_vi_chns[ViChn].luma_buf_mtx.lock();
+  if (g_vi_chns[ViChn].luma_buf_start) {
+    g_vi_chns[ViChn].luma_buf_mtx.unlock();
+    return RK_ERR_SYS_OK;
+  }
   g_vi_chns[ViChn].luma_buf_start = true;
   g_vi_chns[ViChn].luma_buf_mtx.unlock();
+
+  g_vi_mtx.lock();
+  if (g_vi_chns[ViChn].rkmedia_out_cb_status == CHN_OUT_CB_CLOSE) {
+    LOGD("%s: luma mode: enable rkmedia out callback\n", __func__);
+    g_vi_chns[ViChn].rkmedia_out_cb_status = CHN_OUT_CB_LUMA;
+    g_vi_chns[ViChn].rkmedia_flow->SetOutputCallBack(&g_vi_chns[ViChn],
+                                                     FlowOutputCallback);
+  }
+  g_vi_mtx.unlock();
 
   return RK_ERR_SYS_OK;
 }
@@ -1182,6 +1396,15 @@ RK_S32 RK_MPI_VI_StopRegionLuma(VI_CHN ViChn) {
   g_vi_chns[ViChn].luma_rkmedia_buf.reset();
   g_vi_chns[ViChn].luma_buf_mtx.unlock();
 
+  g_vi_mtx.lock();
+  if (g_vi_chns[ViChn].rkmedia_out_cb_status == CHN_OUT_CB_LUMA) {
+    LOGD("%s: luma mode: disable rkmedia out callback\n", __func__);
+    g_vi_chns[ViChn].rkmedia_out_cb_status = CHN_OUT_CB_CLOSE;
+    g_vi_chns[ViChn].rkmedia_flow->SetOutputCallBack(&g_vi_chns[ViChn],
+                                                     FlowOutputCallback);
+  }
+  g_vi_mtx.unlock();
+
   return RK_ERR_SYS_OK;
 }
 
@@ -1192,6 +1415,7 @@ RK_S32 RK_MPI_VI_GetChnRegionLuma(VI_PIPE ViPipe, VI_CHN ViChn,
   RK_U32 u32ImgHeight = 0;
   RK_U32 u32XOffset = 0;
   RK_U32 u32YOffset = 0;
+  RK_S32 s32Ret = 0;
 
   if ((ViPipe < 0) || (ViChn < 0) || (ViChn > VI_MAX_CHN_NUM))
     return -RK_ERR_VI_INVALID_CHNID;
@@ -1225,12 +1449,16 @@ RK_S32 RK_MPI_VI_GetChnRegionLuma(VI_PIPE ViPipe, VI_CHN ViChn,
     }
   }
 
+  s32Ret = RK_MPI_VI_StartRegionLuma(ViChn);
+  if (s32Ret)
+    return s32Ret;
+
   {
     // The {} here is to limit the scope of locking. The lock is only
     // used to find the buffer, and the accumulation of the buffer is
     // outside the lock range. This is good for frame rate.
     std::unique_lock<std::mutex> lck(target_chn->luma_buf_mtx);
-    target_chn->luma_buf_start = true;
+    // target_chn->luma_buf_start = true;
     if (!target_chn->luma_rkmedia_buf) {
       if (s32MilliSec < 0 && !target_chn->luma_buf_quit) {
         target_chn->luma_buf_cond.wait(lck);
@@ -2991,10 +3219,10 @@ RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VeChn, VENC_CHN_STATUS_S *pstStatus) {
   pstStatus->u32LeftFrames = u32BufferUsedCnt;
   pstStatus->u32TotalFrames = u32BufferTotalCnt;
 
-  g_venc_chns[VeChn].buffer_mtx.lock();
+  g_venc_chns[VeChn].buffer_list_mtx.lock();
   pstStatus->u32TotalPackets = RKMEDIA_CHNNAL_BUFFER_LIMIT;
   pstStatus->u32LeftPackets = g_venc_chns[VeChn].buffer_list.size();
-  g_venc_chns[VeChn].buffer_mtx.unlock();
+  g_venc_chns[VeChn].buffer_list_mtx.unlock();
 
   return RK_ERR_SYS_OK;
 }
@@ -4293,6 +4521,7 @@ RK_S32 RK_MPI_RGA_DestroyChn(RGA_CHN RgaChn) {
   }
   LOG("\n%s %s: Disable RGA[%d] Start...\n", LOG_TAG, __func__, RgaChn);
   g_rga_chns[RgaChn].rkmedia_flow.reset();
+  RkmediaChnClearBuffer(&g_rga_chns[RgaChn]);
   g_rga_chns[RgaChn].status = CHN_STATUS_CLOSED;
   g_rga_mtx.unlock();
   LOG("\n%s %s: Disable RGA[%d] End...\n", LOG_TAG, __func__, RgaChn);
@@ -4691,6 +4920,7 @@ RK_S32 RK_MPI_VDEC_DestroyChn(VDEC_CHN VdChn) {
   }
 
   g_vdec_chns[VdChn].rkmedia_flow.reset();
+  RkmediaChnClearBuffer(&g_vdec_chns[VdChn]);
   g_vdec_chns[VdChn].status = CHN_STATUS_CLOSED;
   g_vdec_mtx.unlock();
 

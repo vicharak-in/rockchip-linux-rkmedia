@@ -1,29 +1,31 @@
 // Copyright 2020 Rockchip Electronics Co., Ltd. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#include "librtsp/rtsp_demo.h"
-#include "rkmedia_api.h"
-#include "rkmedia_api.h"
-#include "rkmedia_venc.h"
+
 #include <getopt.h>
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 #include <unistd.h>
+
+#include <sys/time.h>
 
 #include <rga/im2d.h>
 #include <rga/rga.h>
 
+#include "librtsp/rtsp_demo.h"
+#include "rkmedia_api.h"
+#include "rkmedia_api.h"
+#include "rkmedia_venc.h"
+#include "rknn_api.h"
+
 #ifdef RKAIQ
 #include "common/sample_common.h"
 #endif
-
-#include "stdbool.h"
-#include "rknn_api.h"
 
 #define MAX_SESSION_NUM 2
 #define DRAW_INDEX 0
@@ -1169,10 +1171,7 @@ int main(int argc, char **argv) {
     printf("VI create\n");
     cfg.session_cfg[i].stViChn.enModId = RK_ID_VI;
     cfg.session_cfg[i].stViChn.s32ChnId = i;
-    if (i == RK_NN_INDEX)
-      SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_GOD_MODE);
-    else
-      SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_NORMAL);
+    SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_NORMAL);
     // VENC create
     printf("VENC create\n");
     cfg.session_cfg[i].stVenChn.enModId = RK_ID_VENC;

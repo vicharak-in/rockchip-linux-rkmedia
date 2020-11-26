@@ -15,10 +15,7 @@ typedef enum rkVI_CHN_WORK_MODE {
   // In this mode, vi has no output,
   // and data cannot be obtained from vi.
   VI_WORK_MODE_LUMA_ONLY,
-  // In this mode, data can still be obtained
-  // through the RK_MPI_SYS_GetMediaBuffer interface
-  // after the VI is bound.
-  VI_WORK_MODE_GOD_MODE,
+  VI_WORK_MODE_BUTT
 } VI_CHN_WORK_MODE;
 
 typedef enum rkVI_CHN_BUF_TYPE {
@@ -31,14 +28,14 @@ typedef struct rkVI_CHN_ATTR_S {
   RK_U32 u32Width;
   RK_U32 u32Height;
   IMAGE_TYPE_E enPixFmt;
-  RK_U32 u32BufCnt; // VI capture video buffer cnt.
+  RK_U32 u32BufCnt;          // VI capture video buffer cnt.
   VI_CHN_BUF_TYPE enBufType; // VI capture video buffer type.
   VI_CHN_WORK_MODE enWorkMode;
 } VI_CHN_ATTR_S;
 
 typedef struct rkVIDEO_REGION_INFO_S {
   RK_U32 u32RegionNum; /* count of the region */
-  RECT_S *pstRegion; /* region attribute */
+  RECT_S *pstRegion;   /* region attribute */
 } VIDEO_REGION_INFO_S;
 
 #ifdef __cplusplus

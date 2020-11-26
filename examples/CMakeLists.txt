@@ -351,15 +351,6 @@ endif() #if(DRM_DISPLAY)
 
 if(RKMPP_ENCODER)
 #--------------------------
-#  rkmedia_vi_god_mode_test
-#--------------------------
-add_executable(rkmedia_vi_god_mode_test rkmedia_vi_god_mode_test.c ${COMMON_SRC})
-add_dependencies(rkmedia_vi_god_mode_test easymedia)
-target_link_libraries(rkmedia_vi_god_mode_test easymedia)
-target_include_directories(rkmedia_vi_god_mode_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-install(TARGETS rkmedia_vi_god_mode_test RUNTIME DESTINATION "bin")
-
-#--------------------------
 #  rkmedia_vi_multi_bind_test
 #--------------------------
 add_executable(rkmedia_vi_multi_bind_test rkmedia_vi_multi_bind_test.c ${COMMON_SRC})

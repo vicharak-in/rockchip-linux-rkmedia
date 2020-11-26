@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,18 +12,17 @@
 #include <time.h>
 #include <unistd.h>
 
-/* stdbool.h should be before at rockx.h*/
-#include "stdbool.h"
-#include "rockx.h"
-
 #include <rga/im2d.h>
 #include <rga/rga.h>
+
 #ifdef RKAIQ
 #include "common/sample_common.h"
 #endif
+
 #include "librtsp/rtsp_demo.h"
 #include "rkmedia_api.h"
 #include "rkmedia_venc.h"
+#include "rockx.h"
 
 #define MAX_SESSION_NUM 2
 #define DRAW_INDEX 0
@@ -1095,10 +1095,7 @@ int main(int argc, char **argv) {
     printf("VI create\n");
     cfg.session_cfg[i].stViChn.enModId = RK_ID_VI;
     cfg.session_cfg[i].stViChn.s32ChnId = i;
-    if (i == RK_NN_INDEX)
-      ret = SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_GOD_MODE);
-    else
-      ret = SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_NORMAL);
+    ret = SAMPLE_COMMON_VI_Start(&cfg.session_cfg[i], VI_WORK_MODE_NORMAL);
     if (ret) {
       printf("vi start fail, ret is %d, order is %d\n", ret, i);
       return -1;
