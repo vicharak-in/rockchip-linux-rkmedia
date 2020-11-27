@@ -168,9 +168,10 @@ bool do_filters(Flow *f, MediaBufferVector &input_vector) {
     } else {
       if (info.vir_width > 0 && info.vir_height > 0) {
         if (flow->buffer_pool) {
-          auto mb = flow->buffer_pool->GetBuffer();
+          auto mb = flow->buffer_pool->GetBuffer(false);
           if (!mb) {
-            RKMEDIA_LOGE("buffer_pool get null buffer!\n");
+            RKMEDIA_LOGE("%s: buffer_pool get null buffer!\n",
+                         flow->GetFlowTag());
             return false;
           }
           out_buffer = std::make_shared<ImageBuffer>(*(mb.get()), info);
