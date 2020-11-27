@@ -309,6 +309,10 @@ RK_VOID RK_MPI_SYS_DumpChn(MOD_ID_E enModId) {
     u16ChnMaxCnt = VENC_MAX_CHN_NUM;
     pChns = g_venc_chns;
     break;
+  case RK_ID_RGA:
+    u16ChnMaxCnt = RGA_MAX_CHN_NUM;
+    pChns = g_rga_chns;
+    break;
   default:
     RKMEDIA_LOGE("To do...\n");
     return;
@@ -458,7 +462,7 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   src_mutex->unlock();
 
   dst_mutex->lock();
-  dst_chn->status = CHN_STATUS_BIND;
+  // dst_chn->status = CHN_STATUS_BIND;
   dst_chn->bind_ref++;
   dst_mutex->unlock();
 
@@ -4531,8 +4535,8 @@ RK_S32 RK_MPI_RGA_DestroyChn(RGA_CHN RgaChn) {
   }
   RKMEDIA_LOGI("\n%s %s: Disable RGA[%d] Start...\n", LOG_TAG, __func__,
                RgaChn);
-  g_rga_chns[RgaChn].rkmedia_flow.reset();
   RkmediaChnClearBuffer(&g_rga_chns[RgaChn]);
+  g_rga_chns[RgaChn].rkmedia_flow.reset();
   g_rga_chns[RgaChn].status = CHN_STATUS_CLOSED;
   g_rga_mtx.unlock();
   RKMEDIA_LOGI("\n%s %s: Disable RGA[%d] End...\n", LOG_TAG, __func__, RgaChn);
