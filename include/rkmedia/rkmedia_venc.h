@@ -344,6 +344,26 @@ typedef struct rkVENC_CHN_STATUS_S {
   RK_U32 u32TotalPackets; // The capacity of the output buffer.
 } VENC_CHN_STATUS_S;
 
+typedef enum rkRC_SUPERFRM_MODE_E {
+  SUPERFRM_NONE = 0,
+  SUPERFRM_DISCARD,
+  SUPERFRM_REENCODE,
+  SUPERFRM_BUTT
+} VENC_SUPERFRM_MODE_E;
+
+typedef enum rkVENC_RC_PRIORITY_E {
+  VENC_RC_PRIORITY_BITRATE_FIRST = 1,
+  VENC_RC_PRIORITY_FRAMEBITS_FIRST,
+  VENC_RC_PRIORITY_BUTT,
+} VENC_RC_PRIORITY_E;
+
+typedef struct rkVENC_SUPERFRAME_CFG_S {
+  VENC_SUPERFRM_MODE_E enSuperFrmMode;
+  RK_U32 u32SuperIFrmBitsThr;
+  RK_U32 u32SuperPFrmBitsThr;
+  VENC_RC_PRIORITY_E enRcPriority;
+} VENC_SUPERFRAME_CFG_S;
+
 #ifdef __cplusplus
 }
 #endif

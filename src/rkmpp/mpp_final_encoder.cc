@@ -1525,6 +1525,56 @@ bool MPPCommonConfig::CheckConfigChange(MPPEncoder &mpp_enc, uint32_t change,
     iconfig.image_info.height = vid_cfg->height;
     iconfig.image_info.vir_width = vid_cfg->vir_width;
     iconfig.image_info.vir_height = vid_cfg->vir_height;
+  } else if (change & VideoEncoder::kSuperFrmChange) {
+    if (val->GetSize() != sizeof(VencSuperFrmCfg)) {
+      RKMEDIA_LOGE("MPP Encoder: invalid super frame cfg size\n");
+      return false;
+    }
+    VencSuperFrmCfg *super_cfg = (VencSuperFrmCfg *)val->GetPtr();
+    MppEncRcSuperFrameMode new_mode;
+    switch (super_cfg->SuperFrmMode) {
+    case RKMEDIA_SUPERFRM_NONE:
+      new_mode = MPP_ENC_RC_SUPER_FRM_NONE;
+      break;
+    case RKMEDIA_SUPERFRM_DISCARD:
+      new_mode = MPP_ENC_RC_SUPER_FRM_DROP;
+      break;
+    case RKMEDIA_SUPERFRM_REENCODE:
+      new_mode = MPP_ENC_RC_SUPER_FRM_REENC;
+      break;
+    default:
+      RKMEDIA_LOGE("MPP Encoder: invalid super fram mode:%d\n",
+                   super_cfg->SuperFrmMode);
+      return false;
+    }
+    MppEncRcPriority new_rc_priority;
+    switch (super_cfg->RcPriority) {
+    case RKMEDIA_VENC_RC_PRIORITY_BITRATE_FIRST:
+      new_rc_priority = MPP_ENC_RC_BY_BITRATE_FIRST;
+      break;
+    case RKMEDIA_VENC_RC_PRIORITY_FRAMEBITS_FIRST:
+      new_rc_priority = MPP_ENC_RC_BY_FRM_SIZE_FIRST;
+      break;
+    default:
+      RKMEDIA_LOGE("MPP Encoder: invalid rc priortiy:%d\n",
+                   super_cfg->SuperFrmMode);
+      return false;
+    }
+    RKMEDIA_LOGI("MPP Encoder: super frame: mode:%d, priority:%d, "
+                 "IThd:%d, PThd:%d\n",
+                 super_cfg->SuperFrmMode, super_cfg->RcPriority,
+                 super_cfg->SuperIFrmBitsThr, super_cfg->SuperPFrmBitsThr);
+    ret |= mpp_enc_cfg_set_u32(enc_cfg, "rc:super_mode", new_mode);
+    ret |= mpp_enc_cfg_set_u32(enc_cfg, "rc:priority", new_rc_priority);
+    ret |= mpp_enc_cfg_set_u32(enc_cfg, "rc:super_i_thd",
+                               super_cfg->SuperIFrmBitsThr);
+    ret |= mpp_enc_cfg_set_u32(enc_cfg, "rc:super_p_thd",
+                               super_cfg->SuperPFrmBitsThr);
+    ret = mpp_enc.EncodeControl(MPP_ENC_SET_CFG, enc_cfg);
+    if (ret) {
+      RKMEDIA_LOGE("MPP Encoder: set super frm cfg failed ret %d\n", ret);
+      return false;
+    }
   } else {
     RKMEDIA_LOGI("Unsupport request change 0x%08x!\n", change);
     return false;

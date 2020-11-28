@@ -782,4 +782,19 @@ int video_encoder_enable_statistics(std::shared_ptr<Flow> &enc_flow,
   return 0;
 }
 
+int video_encoder_set_super_frame(std::shared_ptr<Flow> &enc_flow,
+                                  VencSuperFrmCfg *super_frm_cfg) {
+  if (!enc_flow || !super_frm_cfg)
+    return -EINVAL;
+
+  VencSuperFrmCfg *cfg = (VencSuperFrmCfg *)malloc(sizeof(VencSuperFrmCfg));
+  memcpy((void *)cfg, (void *)super_frm_cfg, sizeof(VencSuperFrmCfg));
+
+  auto pbuff = std::make_shared<ParameterBuffer>(0);
+  pbuff->SetPtr(cfg, sizeof(VencSuperFrmCfg));
+  enc_flow->Control(VideoEncoder::kSuperFrmChange, pbuff);
+
+  return 0;
+}
+
 } // namespace easymedia

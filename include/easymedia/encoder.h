@@ -84,9 +84,10 @@ public:
   static const uint32_t kGopModeChange = (1 << 12);
   static const uint32_t kProfileChange = (1 << 13);
   static const uint32_t kUserDataChange = (1 << 14);
+  static const uint32_t kResolutionChange = (1 << 15);
+  static const uint32_t kSuperFrmChange = (1 << 16);
   // enable fps/bps statistics.
   static const uint32_t kEnableStatistics = (1 << 31);
-  static const uint32_t kResolutionChange = (1 << 15);
 
   VideoEncoder() : codec_type(CODEC_TYPE_NONE) {}
   virtual ~VideoEncoder() = default;

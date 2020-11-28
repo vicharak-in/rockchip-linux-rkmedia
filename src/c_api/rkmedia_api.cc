@@ -3612,6 +3612,76 @@ RK_S32 RK_MPI_VENC_StartRecvFrame(VENC_CHN VeChn,
   return RK_ERR_SYS_OK;
 }
 
+RK_S32 RK_MPI_VENC_SetSuperFrameStrategy(
+    VENC_CHN VeChn, const VENC_SUPERFRAME_CFG_S *pstSuperFrmParam) {
+  if ((VeChn < 0) || (VeChn >= VENC_MAX_CHN_NUM))
+    return -RK_ERR_VENC_INVALID_CHNID;
+
+  if (!pstSuperFrmParam)
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+
+  if (g_venc_chns[VeChn].status != CHN_STATUS_OPEN)
+    return -RK_ERR_VENC_NOTREADY;
+
+  if (!g_venc_chns[VeChn].rkmedia_flow)
+    return -RK_ERR_VENC_NOTREADY;
+
+  VencSuperFrmCfg rkmedia_super_frm_cfg;
+  switch (pstSuperFrmParam->enSuperFrmMode) {
+  case SUPERFRM_NONE:
+    rkmedia_super_frm_cfg.SuperFrmMode = RKMEDIA_SUPERFRM_NONE;
+    break;
+  case SUPERFRM_DISCARD:
+    rkmedia_super_frm_cfg.SuperFrmMode = RKMEDIA_SUPERFRM_DISCARD;
+    break;
+  case SUPERFRM_REENCODE:
+    rkmedia_super_frm_cfg.SuperFrmMode = RKMEDIA_SUPERFRM_REENCODE;
+    break;
+  default:
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+  }
+  switch (pstSuperFrmParam->enRcPriority) {
+  case VENC_RC_PRIORITY_BITRATE_FIRST:
+    rkmedia_super_frm_cfg.RcPriority = RKMEDIA_VENC_RC_PRIORITY_BITRATE_FIRST;
+    break;
+  case VENC_RC_PRIORITY_FRAMEBITS_FIRST:
+    rkmedia_super_frm_cfg.RcPriority = RKMEDIA_VENC_RC_PRIORITY_FRAMEBITS_FIRST;
+    break;
+  default:
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+  }
+  rkmedia_super_frm_cfg.SuperIFrmBitsThr =
+      pstSuperFrmParam->u32SuperIFrmBitsThr;
+  rkmedia_super_frm_cfg.SuperPFrmBitsThr =
+      pstSuperFrmParam->u32SuperPFrmBitsThr;
+  int ret = easymedia::video_encoder_set_super_frame(
+      g_venc_chns[VeChn].rkmedia_flow, &rkmedia_super_frm_cfg);
+  if (ret)
+    ret = -RK_ERR_VENC_ILLEGAL_PARAM;
+
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32
+RK_MPI_VENC_GetSuperFrameStrategy(VENC_CHN VeChn,
+                                  VENC_SUPERFRAME_CFG_S *pstSuperFrmParam) {
+  if ((VeChn < 0) || (VeChn >= VENC_MAX_CHN_NUM))
+    return -RK_ERR_VENC_INVALID_CHNID;
+
+  if (!pstSuperFrmParam)
+    return -RK_ERR_VENC_ILLEGAL_PARAM;
+
+  if (g_venc_chns[VeChn].status != CHN_STATUS_OPEN)
+    return -RK_ERR_VENC_NOTREADY;
+
+  if (!g_venc_chns[VeChn].rkmedia_flow)
+    return -RK_ERR_VENC_NOTREADY;
+
+  // ToDO....
+
+  return RK_ERR_SYS_OK;
+}
+
 /********************************************************************
  * Ai api
  ********************************************************************/

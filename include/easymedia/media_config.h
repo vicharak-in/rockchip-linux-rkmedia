@@ -145,6 +145,26 @@ typedef struct {
   int vir_height;
 } VideoResolutionCfg;
 
+typedef enum EncSuperFrmMode_ {
+  RKMEDIA_SUPERFRM_NONE = 0,
+  RKMEDIA_SUPERFRM_DISCARD,
+  RKMEDIA_SUPERFRM_REENCODE,
+  RKMEDIA_SUPERFRM_BUTT
+} EncSuperFrmMode;
+
+typedef enum VencRcPriority_ {
+  RKMEDIA_VENC_RC_PRIORITY_BITRATE_FIRST = 0,
+  RKMEDIA_VENC_RC_PRIORITY_FRAMEBITS_FIRST,
+  RKMEDIA_VENC_RC_PRIORITY_BUTT,
+} VencRcPriority;
+
+typedef struct VencSuperFrmCfg_ {
+  EncSuperFrmMode SuperFrmMode;
+  unsigned int SuperIFrmBitsThr;
+  unsigned int SuperPFrmBitsThr;
+  VencRcPriority RcPriority;
+} VencSuperFrmCfg;
+
 #include <map>
 
 namespace easymedia {
@@ -198,7 +218,8 @@ _API int video_move_detect_set_rects(std::shared_ptr<Flow> &md_flow,
                                      std::string rects_param);
 _API int video_encoder_set_avc_profile(std::shared_ptr<Flow> &enc_flow,
                                        int profile_idc, int level = 0);
-
+_API int video_encoder_set_super_frame(std::shared_ptr<Flow> &enc_flow,
+                                       VencSuperFrmCfg *super_frm_cfg);
 // mode: slice split mode
 // 0 - No slice is split
 // 1 - Slice is split by byte number

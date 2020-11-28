@@ -152,6 +152,11 @@ _CAPI RK_S32 RK_MPI_VENC_GetFd(VENC_CHN VencChn);
 _CAPI RK_S32 RK_MPI_VENC_QueryStatus(VENC_CHN VencChn,
                                      VENC_CHN_STATUS_S *pstStatus);
 
+_CAPI RK_S32 RK_MPI_VENC_SetSuperFrameStrategy(
+    VENC_CHN VeChn, const VENC_SUPERFRAME_CFG_S *pstSuperFrmParam);
+_CAPI RK_S32 RK_MPI_VENC_GetSuperFrameStrategy(
+    VENC_CHN VeChn, VENC_SUPERFRAME_CFG_S *pstSuperFrmParam);
+
 /********************************************************************
  * Ai api
  ********************************************************************/
