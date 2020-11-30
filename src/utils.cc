@@ -45,10 +45,10 @@ short g_level_list[LOG_MOD_MAX_NUM] = {
     LOG_LEVEL_INFO  // g_rga_log_level
 };
 
-char mod_tag_list[][10] = {"UNKNOW",  "VB",      "SYS",   "VDEC", "VENC",
-                           "H264E",   "JPEGE",   "H265E", "VO",   "VI",
-                           "AIO",     "AI",      "AO",    "AENC", "ADEC",
-                           "ALGO_MD", "ALGO_OD", "RGA"};
+char mod_tag_list[][LOG_MOD_MAX_LEN] = {
+    "UNKNOW", "VB",    "SYS",  "VDEC",    "VENC",    "H264E",
+    "JPEGE",  "H265E", "VO",   "VI",      "AIO",     "AI",
+    "AO",     "AENC",  "ADEC", "ALGO_MD", "ALGO_OD", "RGA"};
 
 #define LOG_FILE_PATH "/tmp/loglevel"
 static bool monitor_log_level_quit = false;
@@ -179,14 +179,21 @@ _API void LOG_INIT() {
 #endif //#ifdef RKMEDIA_SUPPORT_MINILOG
 
   ptr = getenv("RKMEDIA_LOG_LEVEL");
-  if (ptr && strstr(ptr, "DBG"))
+  if (ptr && strstr(ptr, "ERROR"))
+    rkmedia_log_level = LOG_LEVEL_ERROR;
+  else if (ptr && strstr(ptr, "WARN"))
+    rkmedia_log_level = LOG_LEVEL_WARN;
+  else if (ptr && strstr(ptr, "DBG"))
     rkmedia_log_level = LOG_LEVEL_DBG;
   else
     rkmedia_log_level = LOG_LEVEL_INFO;
   fprintf(stderr, "##RKMEDIA Log level: %d\n", rkmedia_log_level);
 
-  int log_file_fd = open(LOG_FILE_PATH, O_RDONLY | O_CREAT | O_TRUNC);
+  int log_file_fd = open(LOG_FILE_PATH, O_RDWR | O_CREAT | O_TRUNC);
   if (log_file_fd != -1) {
+    char init_log_level[6];
+    sprintf(init_log_level, "all=%d", rkmedia_log_level);
+    write(log_file_fd, init_log_level, 6);
     close(log_file_fd);
     read_log_level();
     pthread_t log_level_read_thread;

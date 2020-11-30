@@ -1187,6 +1187,30 @@ RK_S32 RK_MPI_SYS_SendMediaBuffer(MOD_ID_E enModID, RK_S32 s32ChnID,
   return RK_ERR_SYS_OK;
 }
 
+RK_S32 RK_MPI_LOG_SetLevelConf(LOG_LEVEL_CONF_S *pstConf) {
+  if (!strcmp(pstConf->cModName, "all")) {
+    for (int i = 0; i < LOG_MOD_MAX_NUM; i++) {
+      g_level_list[i] = pstConf->s32Level;
+    }
+    return RK_ERR_SYS_OK;
+  }
+
+  if ((pstConf->enModId < 0) || (pstConf->enModId > LOG_MOD_MAX_NUM))
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
+  g_level_list[pstConf->enModId] = pstConf->s32Level;
+
+  return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_LOG_GetLevelConf(LOG_LEVEL_CONF_S *pstConf) {
+  if ((pstConf->enModId < 0) || (pstConf->enModId > LOG_MOD_MAX_NUM))
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
+  pstConf->s32Level = g_level_list[pstConf->enModId];
+  strncpy(pstConf->cModName, mod_tag_list[pstConf->enModId], LOG_MOD_MAX_LEN);
+
+  return RK_ERR_SYS_OK;
+}
+
 /********************************************************************
  * Vi api
  ********************************************************************/

@@ -317,6 +317,12 @@ typedef struct rkRECT_S {
   RK_U32 u32Height;
 } RECT_S;
 
+typedef struct rkLOG_LEVEL_CONF_S {
+  MOD_ID_E enModId;
+  RK_S32 s32Level;
+  RK_CHAR cModName[16];
+} LOG_LEVEL_CONF_S;
+
 #ifdef __cplusplus
 }
 #endif
