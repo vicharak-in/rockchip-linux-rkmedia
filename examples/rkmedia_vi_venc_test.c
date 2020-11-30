@@ -19,26 +19,42 @@
 
 static bool quit = false;
 static FILE *g_output_file;
-static RK_U32 g_u32FrameCnt = 150;
+static RK_S32 g_s32FrameCnt = -1;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
   quit = true;
 }
 
 void video_packet_cb(MEDIA_BUFFER mb) {
-  static RK_U32 packet_cnt = 0;
-  if (g_output_file &&
-      ((g_u32FrameCnt == 0) || (packet_cnt++ < g_u32FrameCnt))) {
+  static RK_S32 packet_cnt = 0;
+  if (quit)
+    return;
+
+  const char *nalu_type = "Jpeg data";
+  switch (RK_MPI_MB_GetFlag(mb)) {
+  case VENC_NALU_IDRSLICE:
+    nalu_type = "IDR Slice";
+    break;
+  case VENC_NALU_PSLICE:
+    nalu_type = "P Slice";
+    break;
+  default:
+    break;
+  }
+
+  if (g_output_file) {
     fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), g_output_file);
-    printf("write order: %d, size %d\n", packet_cnt, RK_MPI_MB_GetSize(mb));
-  } else if (!g_output_file) {
-    quit = true;
-    printf("target file is null, exit!\n");
-  } else if (packet_cnt >= g_u32FrameCnt) {
-    quit = true;
-    printf("Output is completed!\n");
+    printf("#Write packet-%d, %s, size %d\n", packet_cnt, nalu_type,
+           RK_MPI_MB_GetSize(mb));
+  } else {
+    printf("#Get packet-%d, %s, size %d\n", packet_cnt, nalu_type,
+           RK_MPI_MB_GetSize(mb));
   }
   RK_MPI_MB_ReleaseBuffer(mb);
+
+  packet_cnt++;
+  if ((g_s32FrameCnt >= 0) && (packet_cnt < g_s32FrameCnt))
+    quit = true;
 }
 
 static RK_CHAR optstr[] = "?::a::w:h:c:o:e:d:";
@@ -82,18 +98,18 @@ static void print_usage(const RK_CHAR *name) {
   printf("\t-c | --frame_cnt: frame number of output, Default:150\n");
   printf("\t-d | --device_name set pcDeviceName, Default:rkispp_scale0, "
          "Option:[rkispp_scale0, rkispp_scale1, rkispp_scale2]\n");
-  printf("\t-e | --encode: encode type, Default:0, set 0 to use H264, set 1 to "
-         "use H265\n");
-  printf("\t-o | --output_path: output path, Default:/tmp/venc_output.h264\n");
+  printf("\t-e | --encode: encode type, Default:h264, Value:h264, h265, mjpeg\n");
+  printf("\t-o | --output_path: output path, Default:NULL\n");
 }
 
 int main(int argc, char *argv[]) {
   RK_U32 u32Width = 1920;
   RK_U32 u32Height = 1080;
   RK_CHAR *pDeviceName = "rkispp_scale0";
-  RK_CHAR *pOutPath = "/tmp/venc_output.h264";
+  RK_CHAR *pOutPath = NULL;
   RK_CHAR *pIqfilesPath = NULL;
-  int encode_type = 0;
+  CODEC_TYPE_E enCodecType = RK_CODEC_TYPE_H264;
+  RK_CHAR *pCodecName = "H264";
   int c;
   int ret = 0;
   while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
@@ -117,7 +133,7 @@ int main(int argc, char *argv[]) {
       u32Height = atoi(optarg);
       break;
     case 'c':
-      g_u32FrameCnt = atoi(optarg);
+      g_s32FrameCnt = atoi(optarg);
       break;
     case 'o':
       pOutPath = optarg;
@@ -126,7 +142,19 @@ int main(int argc, char *argv[]) {
       pDeviceName = optarg;
       break;
     case 'e':
-      encode_type = atoi(optarg);
+      if (!strcmp(optarg, "h264")) {
+        enCodecType = RK_CODEC_TYPE_H264;
+        pCodecName = "H264";
+      } else if (!strcmp(optarg, "h265")) {
+        enCodecType = RK_CODEC_TYPE_H265;
+        pCodecName = "H265";
+      } else if (!strcmp(optarg, "mjpeg")) {
+        enCodecType = RK_CODEC_TYPE_MJPEG;
+        pCodecName = "MJPEG";
+      } else {
+        printf("ERROR: Invalid encoder type.\n");
+        return 0;
+      }
       break;
     case '?':
     default:
@@ -135,10 +163,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf(">>>>>>>>>>>>>>> Test START <<<<<<<<<<<<<<<<<<<<<<\n");
   printf("#Device: %s\n", pDeviceName);
+  printf("#CodecName:%s\n", pCodecName);
   printf("#Resolution: %dx%d\n", u32Width, u32Height);
-  printf("#Frame Count to save: %d\n", g_u32FrameCnt);
+  printf("#Frame Count to save: %d\n", g_s32FrameCnt);
   printf("#Output Path: %s\n", pOutPath);
 #ifdef RKAIQ
   printf("#Aiq xml dirpath: %s\n\n", pIqfilesPath);
@@ -153,6 +181,14 @@ int main(int argc, char *argv[]) {
     SAMPLE_COMM_ISP_Run();
     SAMPLE_COMM_ISP_SetFrameRate(fps);
 #endif
+  }
+
+  if (pOutPath) {
+    g_output_file = fopen(pOutPath, "w");
+    if (!g_output_file) {
+      printf("ERROR: open file: %s fail, exit\n", pOutPath);
+      return 0;
+    }
   }
 
   RK_MPI_SYS_Init();
@@ -172,18 +208,38 @@ int main(int argc, char *argv[]) {
 
   VENC_CHN_ATTR_S venc_chn_attr;
   memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
-  switch (encode_type) {
-  case 0:
-    venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
-    venc_chn_attr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
-    break;
-  case 1:
+  switch (enCodecType) {
+  case RK_CODEC_TYPE_H265:
     venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H265;
     venc_chn_attr.stRcAttr.enRcMode = VENC_RC_MODE_H265CBR;
+    venc_chn_attr.stRcAttr.stH265Cbr.u32Gop = 30;
+    venc_chn_attr.stRcAttr.stH265Cbr.u32BitRate = u32Width * u32Height;
+    // frame rate: in 30/1, out 30/1.
+    venc_chn_attr.stRcAttr.stH265Cbr.fr32DstFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stH265Cbr.fr32DstFrameRateNum = 30;
+    venc_chn_attr.stRcAttr.stH265Cbr.u32SrcFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stH265Cbr.u32SrcFrameRateNum = 30;
     break;
+  case RK_CODEC_TYPE_MJPEG:
+    venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_MJPEG;
+    venc_chn_attr.stRcAttr.enRcMode = VENC_RC_MODE_MJPEGCBR;
+    venc_chn_attr.stRcAttr.stMjpegCbr.fr32DstFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stMjpegCbr.fr32DstFrameRateNum = 30;
+    venc_chn_attr.stRcAttr.stMjpegCbr.u32SrcFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stMjpegCbr.u32SrcFrameRateNum = 30;
+    venc_chn_attr.stRcAttr.stMjpegCbr.u32BitRate = u32Width * u32Height * 8;
+    break;
+  case RK_CODEC_TYPE_H264:
   default:
     venc_chn_attr.stVencAttr.enType = RK_CODEC_TYPE_H264;
     venc_chn_attr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
+    venc_chn_attr.stRcAttr.stH264Cbr.u32Gop = 30;
+    venc_chn_attr.stRcAttr.stH264Cbr.u32BitRate = u32Width * u32Height;
+    // frame rate: in 30/1, out 30/1.
+    venc_chn_attr.stRcAttr.stH264Cbr.fr32DstFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stH264Cbr.fr32DstFrameRateNum = 30;
+    venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
+    venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum = 30;
     break;
   }
   venc_chn_attr.stVencAttr.imageType = IMAGE_TYPE_NV12;
@@ -192,12 +248,6 @@ int main(int argc, char *argv[]) {
   venc_chn_attr.stVencAttr.u32VirWidth = u32Width;
   venc_chn_attr.stVencAttr.u32VirHeight = u32Height;
   venc_chn_attr.stVencAttr.u32Profile = 77;
-  venc_chn_attr.stRcAttr.stH264Cbr.u32Gop = 30;
-  venc_chn_attr.stRcAttr.stH264Cbr.u32BitRate = u32Width * u32Height * 30 / 14;
-  venc_chn_attr.stRcAttr.stH264Cbr.fr32DstFrameRateDen = 0;
-  venc_chn_attr.stRcAttr.stH264Cbr.fr32DstFrameRateNum = 30;
-  venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 0;
-  venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum = 30;
   ret = RK_MPI_VENC_CreateChn(0, &venc_chn_attr);
   if (ret) {
     printf("ERROR: create VENC[0] error! ret=%d\n", ret);
@@ -208,11 +258,6 @@ int main(int argc, char *argv[]) {
   stEncChn.enModId = RK_ID_VENC;
   stEncChn.s32DevId = 0;
   stEncChn.s32ChnId = 0;
-  g_output_file = fopen(pOutPath, "w");
-  if (!g_output_file) {
-    printf("ERROR: open file: %s fail, exit\n", pOutPath);
-    return 0;
-  }
   ret = RK_MPI_SYS_RegisterOutCb(&stEncChn, video_packet_cb);
   if (ret) {
     printf("ERROR: register output callback for VENC[0] error! ret=%d\n", ret);
@@ -244,7 +289,6 @@ int main(int argc, char *argv[]) {
     fclose(g_output_file);
 
   printf("%s exit!\n", __func__);
-  printf(">>>>>>>>>>>>>>> Test END <<<<<<<<<<<<<<<<<<<<<<\n");
   // unbind first
   ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
   if (ret) {
