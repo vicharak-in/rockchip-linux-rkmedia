@@ -17,7 +17,7 @@
 #define LOG_LEVEL_DBG 3
 
 #define LOG_MOD_MAX_NUM 18
-#define LOG_MOD_MAX_LEN 10
+#define LOG_MOD_MAX_LEN 16
 
 #ifndef MOD_TAG
 #define MOD_TAG 2
