@@ -15,6 +15,13 @@
 
 #include "rkmedia_api.h"
 
+typedef struct AudioParams_ {
+  RK_U32 u32SampleRate;
+  RK_U32 u32ChnCnt;
+  Sample_Format_E enSampleFmt;
+  const RK_CHAR *pOutPath;
+} AudioParams;
+
 static bool quit = false;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
@@ -22,53 +29,27 @@ static void sigterm_handler(int sig) {
 }
 
 #define AAC_PROFILE_LOW 1
+
+typedef struct AacFreqIdx_ {
+  RK_S32 u32SmpRate;
+  RK_U8 u8FreqIdx;
+} AacFreqIdx;
+
+AacFreqIdx AacFreqIdxTbl[13] = {{96000, 0}, {88200, 1}, {64000, 2},  {48000, 3},
+                                {44100, 4}, {32000, 5}, {24000, 6},  {22050, 7},
+                                {16000, 8}, {12000, 9}, {11025, 10}, {8000, 11},
+                                {7350, 12}};
+
 static void GetAdtsHeader(RK_U8 *pu8AdtsHdr, RK_S32 u32SmpRate, RK_U8 u8Channel,
                           RK_U32 u32DataLen) {
   RK_U8 u8FreqIdx = 0;
-  switch (u32SmpRate) {
-  case 96000:
-    u8FreqIdx = 0;
-    break;
-  case 88200:
-    u8FreqIdx = 1;
-    break;
-  case 64000:
-    u8FreqIdx = 2;
-    break;
-  case 48000:
-    u8FreqIdx = 3;
-    break;
-  case 44100:
-    u8FreqIdx = 4;
-    break;
-  case 32000:
-    u8FreqIdx = 5;
-    break;
-  case 24000:
-    u8FreqIdx = 6;
-    break;
-  case 22050:
-    u8FreqIdx = 7;
-    break;
-  case 16000:
-    u8FreqIdx = 8;
-    break;
-  case 12000:
-    u8FreqIdx = 9;
-    break;
-  case 11025:
-    u8FreqIdx = 10;
-    break;
-  case 8000:
-    u8FreqIdx = 11;
-    break;
-  case 7350:
-    u8FreqIdx = 12;
-    break;
-  default:
-    u8FreqIdx = 4;
-    break;
+  for (int i = 0; i < 13; i++) {
+    if (u32SmpRate == AacFreqIdxTbl[i].u32SmpRate) {
+      u8FreqIdx = AacFreqIdxTbl[i].u8FreqIdx;
+      break;
+    }
   }
+
   RK_U32 u32PacketLen = u32DataLen + 7;
   pu8AdtsHdr[0] = 0xFF;
   pu8AdtsHdr[1] = 0xF1;
@@ -80,16 +61,23 @@ static void GetAdtsHeader(RK_U8 *pu8AdtsHdr, RK_S32 u32SmpRate, RK_U8 u8Channel,
   pu8AdtsHdr[6] = 0xFC;
 }
 
-static void *GetMediaBuffer(void *path) {
-  char *save_path = (char *)path;
-  printf("#Start %s thread, arg:%s\n", __func__, save_path);
-  FILE *save_file = fopen(save_path, "w");
-  if (!save_file)
-    printf("ERROR: Open %s failed!\n", save_path);
-
+static void *GetMediaBuffer(void *params) {
+  AudioParams *pstAudioParams = (AudioParams *)params;
   RK_U8 aac_header[7];
   MEDIA_BUFFER mb = NULL;
   int cnt = 0;
+  FILE *save_file = NULL;
+
+  printf("#Start %s thread, SampleRate:%u, Channel:%u, Fmt:%x, Path:%s\n",
+         __func__, pstAudioParams->u32SampleRate, pstAudioParams->u32ChnCnt,
+         pstAudioParams->enSampleFmt, pstAudioParams->pOutPath);
+
+  if (pstAudioParams->pOutPath) {
+    save_file = fopen(pstAudioParams->pOutPath, "w");
+    if (!save_file)
+      printf("ERROR: Open %s failed!\n", pstAudioParams->pOutPath);
+  }
+
   while (!quit) {
     mb = RK_MPI_SYS_GetMediaBuffer(RK_ID_AENC, 0, -1);
     if (!mb) {
@@ -104,7 +92,8 @@ static void *GetMediaBuffer(void *path) {
            RK_MPI_MB_GetTimestamp(mb));
 
     if (save_file) {
-      GetAdtsHeader(aac_header, 48000, 2, RK_MPI_MB_GetSize(mb));
+      GetAdtsHeader(aac_header, pstAudioParams->u32SampleRate,
+                    pstAudioParams->u32ChnCnt, RK_MPI_MB_GetSize(mb));
       fwrite(aac_header, 1, 7, save_file);
       fwrite(RK_MPI_MB_GetPtr(mb), 1, RK_MPI_MB_GetSize(mb), save_file);
     }
@@ -117,24 +106,29 @@ static void *GetMediaBuffer(void *path) {
   return NULL;
 }
 
-static RK_CHAR optstr[] = "?::d:c:r:o:";
+static RK_CHAR optstr[] = "?::d:c:r:o:f:b:";
 static void print_usage(const RK_CHAR *name) {
   printf("usage example:\n");
-  printf("\t%s [-d default] [-r 16000] [-c 2] -o /tmp/aenc.aac\n", name);
+  printf("\t%s [-d default] [-r 16000] [-c 2] -o /tmp/aenc.adts\n", name);
   printf("\t-d: device name, Default:\"default\"\n");
   printf("\t-r: sample rate, Default:16000\n");
   printf("\t-c: channel count, Default:2\n");
-  printf("\t-o: output path, Default:\"/tmp/aenc.aac\"\n");
-  printf("Notice: fmt always be s16_le\n");
+  printf("\t-f: the fmt of AI, Default:\"fltp\", Value:\"fltp\",\"s16le\"\n");
+  printf("\t-b: encoder bit rate, Default:64000\n");
+  printf("\t-o: output path, Default:\"/tmp/aenc.adts\"\n");
+  printf("Notice:\n\taac encoder only support fltp or s16le fmt!\n");
+  printf("\tthe frameCnt for aac encoder must be 1024!\n");
 }
 
 int main(int argc, char *argv[]) {
   RK_U32 u32SampleRate = 16000;
+  RK_U32 u32BitRate = 64000; // 64kbps
   RK_U32 u32ChnCnt = 2;
-  RK_U32 u32FrameCnt = 1024;
+  RK_U32 u32FrameCnt = 1024; // always 1024 for aac
+  Sample_Format_E enSampleFmt = RK_SAMPLE_FMT_FLTP;
   // default:CARD=rockchiprk809co
   RK_CHAR *pDeviceName = "default";
-  RK_CHAR *pOutPath = "/tmp/aenc.aac";
+  RK_CHAR *pOutPath = "/tmp/aenc.adts";
   int ret = 0;
   int c;
 
@@ -148,6 +142,19 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       u32ChnCnt = atoi(optarg);
+      break;
+    case 'b':
+      u32BitRate = atoi(optarg);
+      break;
+    case 'f':
+      if (!strcmp(optarg, "fltp")) {
+        enSampleFmt = RK_SAMPLE_FMT_FLTP;
+      } else if (!strcmp(optarg, "s16le")) {
+        enSampleFmt = RK_SAMPLE_FMT_S16;
+      } else {
+        printf("ERROR: Invalid SampleFormat:%s\n", optarg);
+        return 0;
+      }
       break;
     case 'o':
       pOutPath = optarg;
@@ -163,7 +170,16 @@ int main(int argc, char *argv[]) {
   printf("#SampleRate: %d\n", u32SampleRate);
   printf("#Channel Count: %d\n", u32ChnCnt);
   printf("#Frame Count: %d\n", u32FrameCnt);
+  printf("#BitRate: %d\n", u32BitRate);
+  printf("#SampleFmt: %s\n",
+         (enSampleFmt == RK_SAMPLE_FMT_S16) ? "s16le" : "fltp");
   printf("#Output Path: %s\n", pOutPath);
+
+  AudioParams stAudioParams;
+  stAudioParams.u32SampleRate = u32SampleRate;
+  stAudioParams.u32ChnCnt = u32ChnCnt;
+  stAudioParams.enSampleFmt = enSampleFmt;
+  stAudioParams.pOutPath = pOutPath;
 
   RK_MPI_SYS_Init();
 
@@ -176,7 +192,7 @@ int main(int argc, char *argv[]) {
   // 1. create AI
   AI_CHN_ATTR_S ai_attr;
   ai_attr.pcAudioNode = pDeviceName;
-  ai_attr.enSampleFormat = RK_SAMPLE_FMT_S16;
+  ai_attr.enSampleFormat = enSampleFmt;
   ai_attr.u32NbSamples = u32FrameCnt;
   ai_attr.u32SampleRate = u32SampleRate;
   ai_attr.u32Channels = u32ChnCnt;
@@ -191,7 +207,7 @@ int main(int argc, char *argv[]) {
   // 2. create AENC
   AENC_CHN_ATTR_S aenc_attr;
   aenc_attr.enCodecType = RK_CODEC_TYPE_AAC;
-  aenc_attr.u32Bitrate = u32SampleRate;
+  aenc_attr.u32Bitrate = u32BitRate;
   aenc_attr.u32Quality = 1;
   aenc_attr.stAencAAC.u32Channels = u32ChnCnt;
   aenc_attr.stAencAAC.u32SampleRate = u32SampleRate;
@@ -202,7 +218,7 @@ int main(int argc, char *argv[]) {
   }
 
   pthread_t read_thread;
-  pthread_create(&read_thread, NULL, GetMediaBuffer, pOutPath);
+  pthread_create(&read_thread, NULL, GetMediaBuffer, &stAudioParams);
 
   // 3. bind AI-AENC
   ret = RK_MPI_SYS_Bind(&mpp_chn_ai, &mpp_chn_aenc);

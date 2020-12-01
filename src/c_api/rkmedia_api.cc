@@ -4243,6 +4243,7 @@ RK_S32 RK_MPI_AENC_CreateChn(AENC_CHN AencChn, const AENC_CHN_ATTR_S *pstAttr) {
   enc_param.append(
       easymedia::to_param_string(enc_config, CodecToString(codec_type)));
   param = easymedia::JoinFlowParam(param, 1, enc_param);
+  RKMEDIA_LOGD("#AENC Flow Params:%s\n", param.c_str());
   g_aenc_chns[AencChn].rkmedia_flow = easymedia::REFLECTOR(
       Flow)::Create<easymedia::Flow>(flow_name.c_str(), param.c_str());
   if (!g_aenc_chns[AencChn].rkmedia_flow) {

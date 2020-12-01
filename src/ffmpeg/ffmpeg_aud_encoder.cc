@@ -177,11 +177,14 @@ int FFMPEGAudioEncoder::GetNbSamples() { return avctx ? avctx->frame_size : 0; }
 
 int FFMPEGAudioEncoder::SendInput(const std::shared_ptr<MediaBuffer> &input) {
   int ret = 0;
-  if (input->IsValid()) {
-    assert(input && input->GetType() == Type::Audio);
+  if (input && input->IsValid()) {
+    if ((input->GetType() != Type::Audio)) {
+      RKMEDIA_LOGE("AENC: input buffer not Audio type.\n");
+      return 0;
+    }
     auto in = std::static_pointer_cast<SampleBuffer>(input);
     if ((av_codec->id == AV_CODEC_ID_AAC) &&
-        (input->GetSampleFormat() != SAMPLE_FMT_FLTP)) {
+        (in->GetSampleFormat() != SAMPLE_FMT_FLTP)) {
       SampleInfo sampleinfo;
       sampleinfo.fmt = SAMPLE_FMT_FLTP;
       sampleinfo.channels = avctx->channels;
