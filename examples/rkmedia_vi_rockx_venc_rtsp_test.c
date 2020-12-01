@@ -625,10 +625,10 @@ static void *MainStream(void *arg) {
             printf("ERROR: RK_MPI_MB_CreateImageBuffer get null buffer!\n");
             break;
           }
-          src = wrapbuffer_virtualaddr(
-              RK_MPI_MB_GetPtr(mb), cfg.session_cfg[DRAW_INDEX].u32Width,
+          src = wrapbuffer_fd(
+              RK_MPI_MB_GetFD(mb), cfg.session_cfg[DRAW_INDEX].u32Width,
               cfg.session_cfg[DRAW_INDEX].u32Height, RK_FORMAT_YCbCr_420_SP);
-          dst = wrapbuffer_virtualaddr(RK_MPI_MB_GetPtr(dst_mb), rga_width,
+          dst = wrapbuffer_fd(RK_MPI_MB_GetFD(dst_mb), rga_width,
                                        rga_height, RK_FORMAT_YCbCr_420_SP);
           im_rect src_rect = {rga_x, rga_y, rga_width, rga_height};
           im_rect dst_rect = {0};

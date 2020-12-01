@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -25,6 +26,7 @@ static RK_U32 g_snap_limit = 1;
 static RK_U32 g_raw_img_limit = 0;
 static RK_U32 g_unused_num = 0;
 static RK_CHAR *g_pOutPath = "/tmp/";
+static RK_U32 g_mode_boundary = 3;
 static bool quit = false;
 static void sigterm_handler(int sig) {
   fprintf(stderr, "signal %d\n", sig);
@@ -40,6 +42,21 @@ typedef struct rga_arg_s {
   RK_U32 u32RgaHeight;
   RK_U32 u32Mode;
 } rga_arg_t;
+
+static long getCurrentTimeMsec() {
+  long msec = 0;
+  char str[20] = {0};
+  struct timeval stuCurrentTime;
+
+  gettimeofday(&stuCurrentTime, NULL);
+  sprintf(str, "%ld%03ld", stuCurrentTime.tv_sec,
+          (stuCurrentTime.tv_usec) / 1000);
+  for (size_t i = 0; i < strlen(str); i++) {
+    msec = msec * 10 + (str[i] - '0');
+  }
+
+  return msec;
+}
 
 void video_packet_cb(MEDIA_BUFFER mb) {
   static RK_U32 jpeg_id = 0;
@@ -67,26 +84,38 @@ void video_packet_cb(MEDIA_BUFFER mb) {
     quit = true;
 }
 
-static void set_argb8888_buffer(RK_U32 *buf, RK_U32 size, RK_U32 color) {
-  for (RK_U32 i = 0; buf && (i < size); i++)
-    *(buf + i) = color;
+int nv12_border(char *pic, int pic_w, int pic_h, int rect_x, int rect_y,
+                int rect_w, int rect_h, int R, int G, int B) {
+  /* Set up the rectangle border size */
+  const int border = 5;
+  /* RGB convert YUV */
+  int Y, U, V;
+  Y = 0.299 * R + 0.587 * G + 0.114 * B;
+  U = -0.1687 * R + 0.3313 * G + 0.5 * B + 128;
+  V = 0.5 * R - 0.4187 * G - 0.0813 * B + 128;
+  /* Locking the scope of rectangle border range */
+  int j, k;
+  for (j = rect_y; j < rect_y + rect_h; j++) {
+    for (k = rect_x; k < rect_x + rect_w; k++) {
+      if (k < (rect_x + border) || k > (rect_x + rect_w - border) ||
+          j < (rect_y + border) || j > (rect_y + rect_h - border)) {
+        /* Components of YUV's storage address index */
+        int y_index = j * pic_w + k;
+        int u_index =
+            (y_index / 2 - pic_w / 2 * ((j + 1) / 2)) * 2 + pic_w * pic_h;
+        int v_index = u_index + 1;
+        /* set up YUV's conponents value of rectangle border */
+        pic[y_index] = Y;
+        pic[u_index] = U;
+        pic[v_index] = V;
+      }
+    }
+  }
+
+  return 0;
 }
 
-static IM_STATUS RGA_Rect_draw(rga_buffer_t buf, RK_U32 x, RK_U32 y,
-                               RK_U32 width, RK_U32 height, RK_U32 line_pixel) {
-  im_rect rect_up = {x, y, width, line_pixel};
-  im_rect rect_buttom = {x, y + height - line_pixel, width, line_pixel};
-  im_rect rect_left = {x, y, line_pixel, height};
-  im_rect rect_right = {x + width - line_pixel, y, line_pixel, height};
-  im_rect rect_all = {x, y, width, height};
-  IM_STATUS STATUS = imfill(buf, rect_all, 0x00000000);
-  STATUS |= imfill(buf, rect_up, 0x0000ff00);
-  STATUS |= imfill(buf, rect_buttom, 0x0000ff00);
-  STATUS |= imfill(buf, rect_left, 0x0000ff00);
-  STATUS |= imfill(buf, rect_right, 0x0000ff00);
-  return STATUS;
-}
-
+// not set buffer 0x00000000 before draw
 static IM_STATUS RGA_Rect_draw2(rga_buffer_t buf, RK_U32 x, RK_U32 y,
                                 RK_U32 width, RK_U32 height,
                                 RK_U32 line_pixel) {
@@ -98,6 +127,12 @@ static IM_STATUS RGA_Rect_draw2(rga_buffer_t buf, RK_U32 x, RK_U32 y,
   STATUS |= imfill(buf, rect_buttom, 0x0000ff00);
   STATUS |= imfill(buf, rect_left, 0x0000ff00);
   STATUS |= imfill(buf, rect_right, 0x0000ff00);
+  return STATUS;
+}
+
+static IM_STATUS RGA_Clear_Rect(rga_buffer_t buf, RK_U32 width, RK_U32 height) {
+  im_rect rect_all = {0, 0, width, height};
+  IM_STATUS STATUS = imfill(buf, rect_all, 0x00000000);
   return STATUS;
 }
 
@@ -115,6 +150,7 @@ static void *GetMediaBuffer(void *arg) {
   rga_arg_t *rga_arg = (rga_arg_t *)arg;
   MEDIA_BUFFER mb;
   RK_U32 get_cnt = 0;
+  srand((unsigned)time(NULL));
   while (!quit) {
     mb = RK_MPI_SYS_GetMediaBuffer(RK_ID_VI, 0, -1);
     if (!mb) {
@@ -123,44 +159,69 @@ static void *GetMediaBuffer(void *arg) {
     }
     if (get_cnt > g_unused_num + g_raw_img_limit &&
         get_cnt <= g_unused_num + g_raw_img_limit + g_snap_limit) {
-      if (rga_arg->u32Mode < 3) {
+      if (rga_arg->u32Mode < g_mode_boundary) {
+        long before_time = getCurrentTimeMsec();
         rga_buffer_t pat;
         rga_buffer_t src;
         MEDIA_BUFFER pat_mb = NULL;
         IM_STATUS STATUS;
         MB_IMAGE_INFO_S stImageInfo = {
-            rga_arg->u32RgaWidth, rga_arg->u32RgaHeight, rga_arg->u32RgaWidth,
-            rga_arg->u32RgaHeight, IMAGE_TYPE_ARGB8888};
+            rga_arg->u32SrcWidth, rga_arg->u32SrcHeight, rga_arg->u32SrcWidth,
+            rga_arg->u32SrcHeight, IMAGE_TYPE_ARGB8888};
         pat_mb = RK_MPI_MB_CreateImageBuffer(&stImageInfo, RK_TRUE, 0);
         if (!pat_mb) {
           printf("ERROR: RK_MPI_MB_CreateImageBuffer get null buffer!\n");
           break;
         }
-        pat = wrapbuffer_virtualaddr(
-            RK_MPI_MB_GetPtr(pat_mb), rga_arg->u32RgaWidth,
-            rga_arg->u32RgaHeight, RK_FORMAT_RGBA_8888);
-        if (rga_arg->u32Mode == 0) {
-          STATUS = RGA_Rect_Fill(pat, 0, 0, rga_arg->u32RgaWidth,
-                                 rga_arg->u32RgaHeight);
-        } else if (rga_arg->u32Mode == 1) {
-          STATUS = RGA_Rect_draw(pat, 0, 0, rga_arg->u32RgaWidth,
-                                 rga_arg->u32RgaHeight, 4);
-        } else if (rga_arg->u32Mode ==
-                   2) { // different way to init rect, only for reference
-          set_argb8888_buffer(RK_MPI_MB_GetPtr(pat_mb),
-                              rga_arg->u32RgaWidth * rga_arg->u32RgaHeight,
-                              0x00000000);
-          STATUS = RGA_Rect_draw2(pat, 0, 0, rga_arg->u32RgaWidth,
-                                  rga_arg->u32RgaHeight, 4);
-        }
-        src = wrapbuffer_virtualaddr(RK_MPI_MB_GetPtr(mb), rga_arg->u32SrcWidth,
+        src = wrapbuffer_fd(RK_MPI_MB_GetFD(mb), rga_arg->u32SrcWidth,
                                      rga_arg->u32SrcHeight,
                                      RK_FORMAT_YCbCr_420_SP);
-        im_rect pat_rect = {0, 0, rga_arg->u32RgaWidth, rga_arg->u32RgaHeight};
-        im_rect src_rect = {rga_arg->u32RgaX, rga_arg->u32RgaY,
+        if (rga_arg->u32Mode == 0) {
+          pat = wrapbuffer_fd(
+              RK_MPI_MB_GetFD(pat_mb), rga_arg->u32RgaWidth,
+              rga_arg->u32RgaHeight, RK_FORMAT_RGBA_8888);
+          STATUS = RGA_Rect_Fill(pat, 0, 0, rga_arg->u32RgaWidth,
+                                 rga_arg->u32RgaHeight);
+          if (STATUS != IM_STATUS_SUCCESS)
+            printf(">>>>>>>>>>>>>>>>RGA_Rect_Fill failed: %s\n", imStrError(STATUS));
+          im_rect pat_rect = {0, 0, rga_arg->u32RgaWidth, rga_arg->u32RgaHeight};
+          im_rect src_rect = {rga_arg->u32RgaX, rga_arg->u32RgaY,
                             rga_arg->u32RgaWidth, rga_arg->u32RgaHeight};
-        STATUS = improcess(src, src, pat, src_rect, src_rect, pat_rect,
-                           IM_ALPHA_BLEND_DST_OVER);
+          STATUS = improcess(src, src, pat, src_rect, src_rect, pat_rect,
+                            IM_ALPHA_BLEND_DST_OVER);
+        } else if (rga_arg->u32Mode == 1) {
+          pat = wrapbuffer_fd(
+              RK_MPI_MB_GetFD(pat_mb), rga_arg->u32SrcWidth,
+              rga_arg->u32SrcHeight, RK_FORMAT_RGBA_8888);
+          RGA_Clear_Rect(pat, rga_arg->u32SrcWidth, rga_arg->u32SrcHeight);
+          STATUS = RGA_Rect_draw2(pat, rga_arg->u32RgaX, rga_arg->u32RgaY, rga_arg->u32RgaWidth,
+                                 rga_arg->u32RgaHeight, 4);
+          if (STATUS != IM_STATUS_SUCCESS)
+            printf(">>>>>>>>>>>>>>>>RGA_Rect_draw failed: %s\n", imStrError(STATUS));
+          STATUS = imcomposite(src, pat, src, IM_ALPHA_BLEND_DST_OVER);
+        } else if (rga_arg->u32Mode ==
+                   2) { // different way to init rect, only for reference
+          pat = wrapbuffer_fd(
+              RK_MPI_MB_GetFD(pat_mb), rga_arg->u32SrcWidth,
+              rga_arg->u32SrcHeight, RK_FORMAT_RGBA_8888);
+          RGA_Clear_Rect(pat, rga_arg->u32SrcWidth, rga_arg->u32SrcHeight);
+          int i;
+          for (i = 0; i < 10; i++) {
+            RK_U32 x = rand() % rga_arg->u32SrcWidth;
+            RK_U32 y = rand() % rga_arg->u32SrcHeight;
+            RK_U32 w = rand() % rga_arg->u32RgaWidth;
+            RK_U32 h = rand() % rga_arg->u32RgaHeight;
+            w = (x + w) > rga_arg->u32SrcWidth ? rga_arg->u32SrcWidth - x : w;
+            h = (y + h) > rga_arg->u32SrcHeight ? rga_arg->u32SrcHeight - y : h;
+            printf(">> %d, %d, %d, %d\n", x, y, w, h);
+            STATUS = RGA_Rect_draw2(pat, x, y, w, h, 4);
+            if (STATUS != IM_STATUS_SUCCESS)
+              printf(">>>>>>>>>>>>>>>>RGA_Rect_draw2 failed: %s, id:%d\n", imStrError(STATUS), i);
+          }
+          STATUS = imcomposite(src, pat, src, IM_ALPHA_BLEND_DST_OVER);
+          long after_time = getCurrentTimeMsec();
+          printf("rga time-consuming is %ld\n", (after_time - before_time));
+        }
         if (STATUS != IM_STATUS_SUCCESS) {
           printf(">>>>>>>>>>>>>>>>imblend failed: %s\n", imStrError(STATUS));
           RK_MPI_MB_ReleaseBuffer(pat_mb);
@@ -172,23 +233,43 @@ static void *GetMediaBuffer(void *arg) {
         RK_MPI_MB_ReleaseBuffer(pat_mb);
         RK_MPI_MB_ReleaseBuffer(mb);
       } else {
-        // fill rect in nv12, only support white and black
-        rga_buffer_t src;
-        src = wrapbuffer_virtualaddr(RK_MPI_MB_GetPtr(mb), rga_arg->u32SrcWidth,
-                                     rga_arg->u32SrcHeight,
-                                     RK_FORMAT_YCbCr_420_SP);
-        IM_STATUS STATUS =
-            RGA_Rect_draw2(src, rga_arg->u32RgaX, rga_arg->u32RgaY,
-                           rga_arg->u32RgaWidth, rga_arg->u32RgaHeight, 4);
-        if (STATUS != IM_STATUS_SUCCESS) {
-          printf(">>>>>>>>>>>>>>>>RGA_BUF_GET failed: %s\n",
-                 imStrError(STATUS));
+        if (rga_arg->u32Mode == g_mode_boundary) {
+          // fill rect in nv12, only support white and black
+          rga_buffer_t src;
+          src = wrapbuffer_fd(RK_MPI_MB_GetFD(mb), rga_arg->u32SrcWidth,
+                                      rga_arg->u32SrcHeight,
+                                      RK_FORMAT_YCbCr_420_SP);
+          IM_STATUS STATUS =
+              RGA_Rect_draw2(src, rga_arg->u32RgaX, rga_arg->u32RgaY,
+                            rga_arg->u32RgaWidth, rga_arg->u32RgaHeight, 4);
+          if (STATUS != IM_STATUS_SUCCESS) {
+            printf(">>>>>>>>>>>>>>>>RGA_BUF_GET failed: %s\n",
+                  imStrError(STATUS));
+            RK_MPI_MB_ReleaseBuffer(mb);
+            quit = true;
+            break;
+          }
+          RK_MPI_SYS_SendMediaBuffer(RK_ID_VENC, 0, mb);
           RK_MPI_MB_ReleaseBuffer(mb);
-          quit = true;
-          break;
+        } else {
+          long before_time = getCurrentTimeMsec();
+          int i;
+          for (i = 0; i < 10; i++) {
+            RK_U32 x = rand() % rga_arg->u32SrcWidth;
+            RK_U32 y = rand() % rga_arg->u32SrcHeight;
+            RK_U32 w = rand() % rga_arg->u32RgaWidth;
+            RK_U32 h = rand() % rga_arg->u32RgaHeight;
+            w = (x + w) > rga_arg->u32SrcWidth ? rga_arg->u32SrcWidth - x : w;
+            h = (y + h) > rga_arg->u32SrcHeight ? rga_arg->u32SrcHeight - y : h;
+            printf(">> %d, %d, %d, %d\n", x, y, w, h);
+            nv12_border((char *)RK_MPI_MB_GetPtr(mb),
+                    rga_arg->u32SrcWidth, rga_arg->u32RgaHeight, x, y, w, h, 0, 0, 255);
+          }
+          long after_time = getCurrentTimeMsec();
+          printf("nv12-board time-consuming is %ld\n", (after_time - before_time));
+          RK_MPI_SYS_SendMediaBuffer(RK_ID_VENC, 0, mb);
+          RK_MPI_MB_ReleaseBuffer(mb);
         }
-        RK_MPI_SYS_SendMediaBuffer(RK_ID_VENC, 0, mb);
-        RK_MPI_MB_ReleaseBuffer(mb);
       }
     } else if (get_cnt <= g_unused_num + g_raw_img_limit &&
                get_cnt > g_unused_num) {

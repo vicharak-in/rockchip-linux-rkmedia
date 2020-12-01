@@ -66,10 +66,10 @@ static void *GetMediaBuffer(void *arg) {
       break;
     }
 
-    src = wrapbuffer_virtualaddr(RK_MPI_MB_GetPtr(src_mb), crop_arg->vi_width,
+    src = wrapbuffer_fd(RK_MPI_MB_GetFD(src_mb), crop_arg->vi_width,
                                  crop_arg->vi_height, RK_FORMAT_YCbCr_420_SP);
     dst =
-        wrapbuffer_virtualaddr(RK_MPI_MB_GetPtr(dst_mb), crop_arg->target_width,
+        wrapbuffer_fd(RK_MPI_MB_GetFD(dst_mb), crop_arg->target_width,
                                crop_arg->target_height, RK_FORMAT_YCbCr_420_SP);
     im_rect src_rect = {crop_arg->target_x, crop_arg->target_y,
                         crop_arg->target_width, crop_arg->target_height};
