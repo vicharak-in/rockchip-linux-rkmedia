@@ -97,7 +97,8 @@ typedef struct _RkmediaChannel {
     RkmediaVOAttr vo_attr;
     RkmediaVDECAttr vdec_attr;
   };
-  RK_U16 bind_ref;
+  RK_S16 bind_ref_pre;
+  RK_S16 bind_ref_nxt;
   std::mutex buffer_list_mtx;
   std::condition_variable buffer_list_cond;
   bool buffer_list_quit;
@@ -176,7 +177,7 @@ static int RkmediaChnPushBuffer(RkmediaChannel *ptrChn, MEDIA_BUFFER buffer) {
 
   ptrChn->buffer_list_mtx.lock();
   if (ptrChn->buffer_list.size() >= RKMEDIA_CHNNAL_BUFFER_LIMIT) {
-    if (ptrChn->status != CHN_STATUS_BIND) {
+    if (ptrChn->bind_ref_nxt <= 0) {
       RKMEDIA_LOGW("Mode[%d]:Chn[%d] drop buffer, Please get buffer in time!\n",
                    ptrChn->mode_id, ptrChn->chn_id);
     }
@@ -273,7 +274,8 @@ static void Reset_Channel_Table(RkmediaChannel *tbl, int cnt, MOD_ID_E mid) {
     tbl[i].status = CHN_STATUS_CLOSED;
     tbl[i].out_cb = nullptr;
     tbl[i].event_cb = nullptr;
-    tbl[i].bind_ref = 0;
+    tbl[i].bind_ref_pre = 0;
+    tbl[i].bind_ref_nxt = 0;
     tbl[i].bColorTblInit = RK_FALSE;
     tbl[i].bColorDichotomyEnable = RK_FALSE;
     memset(tbl[i].u32ArgbColorTbl, 0, 0);
@@ -321,7 +323,8 @@ RK_VOID RK_MPI_SYS_DumpChn(MOD_ID_E enModId) {
   RKMEDIA_LOGI("Dump Mode:%d:\n", enModId);
   for (RK_U16 i = 0; i < u16ChnMaxCnt; i++) {
     RKMEDIA_LOGI("  Chn[%d]->status:%d\n", i, pChns[i].status);
-    RKMEDIA_LOGI("  Chn[%d]->bind_ref:%d\n", i, pChns[i].bind_ref);
+    RKMEDIA_LOGI("  Chn[%d]->bind_ref_pre:%d\n", i, pChns[i].bind_ref_pre);
+    RKMEDIA_LOGI("  Chn[%d]->bind_ref_nxt:%d\n", i, pChns[i].bind_ref_nxt);
     RKMEDIA_LOGI("  Chn[%d]->output_cb:%p\n", i, pChns[i].out_cb);
     RKMEDIA_LOGI("  Chn[%d]->event_cb:%p\n\n", i, pChns[i].event_cb);
   }
@@ -339,7 +342,7 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
   if (!pstSrcChn || !pstDestChn)
     return -RK_ERR_SYS_ILLEGAL_PARAM;
 
-  RKMEDIA_LOGI("\n%s %s: Bind Mode[%d]:Chn[%d] to Mode[%d]:Chn[%d]...\n",
+  RKMEDIA_LOGI("%s %s: Bind Mode[%d]:Chn[%d] to Mode[%d]:Chn[%d]...\n",
                LOG_TAG, __func__, pstSrcChn->enModId, pstSrcChn->s32ChnId,
                pstDestChn->enModId, pstDestChn->s32ChnId);
 
@@ -458,12 +461,12 @@ RK_S32 RK_MPI_SYS_Bind(const MPP_CHN_S *pstSrcChn,
 
   // change status frome OPEN to BIND.
   src_chn->status = CHN_STATUS_BIND;
-  src_chn->bind_ref++;
+  src_chn->bind_ref_nxt++;
   src_mutex->unlock();
 
   dst_mutex->lock();
-  // dst_chn->status = CHN_STATUS_BIND;
-  dst_chn->bind_ref++;
+  dst_chn->status = CHN_STATUS_BIND;
+  dst_chn->bind_ref_pre++;
   dst_mutex->unlock();
 
   return RK_ERR_SYS_OK;
@@ -478,7 +481,7 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
   std::mutex *src_mutex = NULL;
   std::mutex *dst_mutex = NULL;
 
-  RKMEDIA_LOGI("\n%s %s: UnBind Mode[%d]:Chn[%d] to Mode[%d]:Chn[%d]...\n",
+  RKMEDIA_LOGI("%s %s: UnBind Mode[%d]:Chn[%d] to Mode[%d]:Chn[%d]...\n",
                LOG_TAG, __func__, pstSrcChn->enModId, pstSrcChn->s32ChnId,
                pstDestChn->enModId, pstDestChn->s32ChnId);
 
@@ -519,17 +522,17 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
     src_mutex = &g_vdec_mtx;
     break;
   default:
-    return -RK_ERR_SYS_NOT_SUPPORT;
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
   }
 
   if ((src_chn->status != CHN_STATUS_BIND))
     return -RK_ERR_SYS_NOT_PERM;
 
-  if ((src_chn->bind_ref <= 0) || (!src)) {
-    RKMEDIA_LOGE("%s Src Mode[%d]:Chn[%d]'s parameter does not match the "
-                 "status!\n",
-                 __func__, pstSrcChn->enModId, pstSrcChn->s32ChnId);
-    return -RK_ERR_SYS_NOT_PERM;
+  if ((src_chn->bind_ref_nxt <= 0) || (!src)) {
+    RKMEDIA_LOGE("%s Src Mode[%d]:Chn[%d](nxt-ref:%d):Serious error status!\n",
+                 __func__, pstSrcChn->enModId, pstSrcChn->s32ChnId,
+                 src_chn->bind_ref_nxt);
+    return -RK_ERR_SYS_ERR_STATUS;
   }
 
   switch (pstDestChn->enModId) {
@@ -579,36 +582,38 @@ RK_S32 RK_MPI_SYS_UnBind(const MPP_CHN_S *pstSrcChn,
     dst_mutex = &g_vdec_mtx;
     break;
   default:
-    return -RK_ERR_SYS_NOT_SUPPORT;
+    return -RK_ERR_SYS_ILLEGAL_PARAM;
   }
 
   if ((dst_chn->status != CHN_STATUS_BIND))
     return -RK_ERR_SYS_NOT_PERM;
 
-  if ((dst_chn->bind_ref <= 0) || (!sink)) {
-    RKMEDIA_LOGE("%s Dst Mode[%d]:Chn[%d]'s parameter does not match the "
-                 "status!\n",
-                 __func__, pstDestChn->enModId, pstDestChn->s32ChnId);
-    return -RK_ERR_SYS_NOT_PERM;
+  if ((dst_chn->bind_ref_pre <= 0) || (!sink)) {
+    RKMEDIA_LOGE("%s Dst Mode[%d]:Chn[%d](pre-ref:%d):Serious error status!\n",
+                 __func__, pstDestChn->enModId, pstDestChn->s32ChnId,
+                 dst_chn->bind_ref_pre);
+    return -RK_ERR_SYS_ERR_STATUS;
   }
 
   src_mutex->lock();
   // Rkmedia flow unbind
   src->RemoveDownFlow(sink);
-
-  src_chn->bind_ref--;
-  dst_chn->bind_ref--;
+  src_chn->bind_ref_nxt--;
   // change status frome BIND to OPEN.
-  if (src_chn->bind_ref <= 0) {
+  if ((src_chn->bind_ref_nxt <= 0) && (src_chn->bind_ref_pre <= 0)) {
     src_chn->status = CHN_STATUS_OPEN;
-    src_chn->bind_ref = 0;
+    src_chn->bind_ref_pre = 0;
+    src_chn->bind_ref_nxt = 0;
   }
   src_mutex->unlock();
 
   dst_mutex->lock();
-  if (dst_chn->bind_ref == 0) {
+  dst_chn->bind_ref_pre--;
+  // change status frome BIND to OPEN.
+  if ((dst_chn->bind_ref_nxt <= 0) && (dst_chn->bind_ref_pre <= 0)) {
     dst_chn->status = CHN_STATUS_OPEN;
-    dst_chn->bind_ref = 0;
+    dst_chn->bind_ref_pre = 0;
+    dst_chn->bind_ref_nxt = 0;
   }
   dst_mutex->unlock();
 
@@ -1246,7 +1251,7 @@ RK_S32 RK_MPI_VI_EnableChn(VI_PIPE ViPipe, VI_CHN ViChn) {
                                                         : -RK_ERR_VI_NOT_CONFIG;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable VI[%d:%d]:%s, %dx%d Start...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable VI[%d:%d]:%s, %dx%d Start...\n", LOG_TAG,
                __func__, ViPipe, ViChn,
                g_vi_chns[ViChn].vi_attr.attr.pcVideoNode,
                g_vi_chns[ViChn].vi_attr.attr.u32Width,
@@ -1311,7 +1316,7 @@ RK_S32 RK_MPI_VI_EnableChn(VI_PIPE ViPipe, VI_CHN ViChn) {
   g_vi_chns[ViChn].status = CHN_STATUS_OPEN;
 
   g_vi_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Enable VI[%d:%d]:%s, %dx%d End...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable VI[%d:%d]:%s, %dx%d End...\n", LOG_TAG,
                __func__, ViPipe, ViChn,
                g_vi_chns[ViChn].vi_attr.attr.pcVideoNode,
                g_vi_chns[ViChn].vi_attr.attr.u32Width,
@@ -1330,7 +1335,7 @@ RK_S32 RK_MPI_VI_DisableChn(VI_PIPE ViPipe, VI_CHN ViChn) {
     return -RK_ERR_SYS_NOT_PERM;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Disable VI[%d:%d]:%s, %dx%d Start...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Disable VI[%d:%d]:%s, %dx%d Start...\n", LOG_TAG,
                __func__, ViPipe, ViChn,
                g_vi_chns[ViChn].vi_attr.attr.pcVideoNode,
                g_vi_chns[ViChn].vi_attr.attr.u32Width,
@@ -1345,12 +1350,12 @@ RK_S32 RK_MPI_VI_DisableChn(VI_PIPE ViPipe, VI_CHN ViChn) {
   // VI flow Should be released last
   g_vi_chns[ViChn].rkmedia_flow.reset();
   if (!g_vi_chns[ViChn].buffer_list.empty()) {
-    RKMEDIA_LOGI("\n%s %s: clear buffer list again...\n", LOG_TAG, __func__);
+    RKMEDIA_LOGI("%s %s: clear buffer list again...\n", LOG_TAG, __func__);
     RkmediaChnClearBuffer(&g_vi_chns[ViChn]);
   }
   g_vi_mtx.unlock();
 
-  RKMEDIA_LOGI("\n%s %s: Disable VI[%d:%d]:%s, %dx%d End...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Disable VI[%d:%d]:%s, %dx%d End...\n", LOG_TAG,
                __func__, ViPipe, ViChn,
                g_vi_chns[ViChn].vi_attr.attr.pcVideoNode,
                g_vi_chns[ViChn].vi_attr.attr.u32Width,
@@ -1858,7 +1863,7 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, VENC_CHN_ATTR_S *stVencChnAttr) {
     stVencChnAttr->stVencAttr.enRotation = VENC_ROTATION_0;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable VENC[%d], Type:%d Start...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable VENC[%d], Type:%d Start...\n", LOG_TAG,
                __func__, VeChn, stVencChnAttr->stVencAttr.enType);
 
   // save venc_attr to venc chn.
@@ -1870,7 +1875,7 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, VENC_CHN_ATTR_S *stVencChnAttr) {
       (stVencChnAttr->stVencAttr.enType == RK_CODEC_TYPE_MJPEG)) {
     RK_S32 ret = RkmediaCreateJpegSnapPipeline(&g_venc_chns[VeChn]);
     g_venc_mtx.unlock();
-    RKMEDIA_LOGI("\n%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG,
+    RKMEDIA_LOGI("%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG,
                  __func__, VeChn, stVencChnAttr->stVencAttr.enType);
     return ret;
   }
@@ -2089,7 +2094,7 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, VENC_CHN_ATTR_S *stVencChnAttr) {
   if (stVencChnAttr->stGopAttr.enGopMode > VENC_GOPMODE_NORMALP) {
     RK_MPI_VENC_SetGopMode(VeChn, &stVencChnAttr->stGopAttr);
   }
-  RKMEDIA_LOGI("\n%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG, __func__,
+  RKMEDIA_LOGI("%s %s: Enable VENC[%d], Type:%d End...\n", LOG_TAG, __func__,
                VeChn, stVencChnAttr->stVencAttr.enType);
 
   return RK_ERR_SYS_OK;
@@ -2505,7 +2510,7 @@ RK_S32 RK_MPI_VENC_CreateJpegLightChn(VENC_CHN VeChn,
     return -RK_ERR_VENC_EXIST;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable VENC[%d], Type:%d Start...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable VENC[%d], Type:%d Start...\n", LOG_TAG,
                __func__, VeChn, stVencChnAttr->stVencAttr.enType);
 
   std::shared_ptr<easymedia::Flow> video_jpeg_flow;
@@ -3182,7 +3187,7 @@ RK_S32 RK_MPI_VENC_DestroyChn(VENC_CHN VeChn) {
     g_venc_mtx.unlock();
     return -RK_ERR_VENC_BUSY;
   }
-  RKMEDIA_LOGI("\n%s %s: Disable VENC[%d] Start...\n", LOG_TAG, __func__,
+  RKMEDIA_LOGI("%s %s: Disable VENC[%d] Start...\n", LOG_TAG, __func__,
                VeChn);
   if (g_venc_chns[VeChn].rkmedia_flow) {
     if (!g_venc_chns[VeChn].rkmedia_flow_list.empty()) {
@@ -3212,7 +3217,7 @@ RK_S32 RK_MPI_VENC_DestroyChn(VENC_CHN VeChn) {
     g_venc_chns[VeChn].wake_fd[1] = 0;
   }
   g_venc_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Disable VENC[%d] End...\n", LOG_TAG, __func__, VeChn);
+  RKMEDIA_LOGI("%s %s: Disable VENC[%d] End...\n", LOG_TAG, __func__, VeChn);
 
   return RK_ERR_SYS_OK;
 }
@@ -3319,19 +3324,19 @@ RK_S32 RK_MPI_VENC_RGN_Init(VENC_CHN VeChn, VENC_COLOR_TBL_S *stColorTbl) {
   RK_U32 u32AVUYColorTbl[VENC_RGN_COLOR_NUM] = {0};
   if (stColorTbl) {
     if (stColorTbl->bColorDichotomyEnable) {
-      RKMEDIA_LOGI("\n%s %s: %d User define color tbl(Dichotomy:True)...\n",
+      RKMEDIA_LOGI("%s %s: %d User define color tbl(Dichotomy:True)...\n",
                    LOG_TAG, __func__, VeChn);
       std::sort(stColorTbl->u32ArgbTbl,
                 stColorTbl->u32ArgbTbl + VENC_RGN_COLOR_NUM);
       g_venc_chns[VeChn].bColorDichotomyEnable = RK_TRUE;
     } else {
-      RKMEDIA_LOGI("\n%s %s: %d User define color tbl(Dichotomy:False)...\n",
+      RKMEDIA_LOGI("%s %s: %d User define color tbl(Dichotomy:False)...\n",
                    LOG_TAG, __func__, VeChn);
       g_venc_chns[VeChn].bColorDichotomyEnable = RK_FALSE;
     }
     pu32ArgbColorTbl = stColorTbl->u32ArgbTbl;
   } else {
-    RKMEDIA_LOGI("\n%s %s: %d Default color tbl(Dichotomy:True)...\n", LOG_TAG,
+    RKMEDIA_LOGI("%s %s: %d Default color tbl(Dichotomy:True)...\n", LOG_TAG,
                  __func__, VeChn);
     g_venc_chns[VeChn].bColorDichotomyEnable = RK_TRUE;
     pu32ArgbColorTbl = u32DftARGB8888ColorTbl;
@@ -4324,7 +4329,7 @@ RK_S32 RK_MPI_ALGO_MD_CreateChn(ALGO_MD_CHN MdChn,
     return -RK_ERR_ALGO_MD_EXIST;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable MD[%d] Start...\n", LOG_TAG, __func__, MdChn);
+  RKMEDIA_LOGI("%s %s: Enable MD[%d] Start...\n", LOG_TAG, __func__, MdChn);
 
   std::string flow_name = "move_detec";
   std::string flow_param = "";
@@ -4365,7 +4370,7 @@ RK_S32 RK_MPI_ALGO_MD_CreateChn(ALGO_MD_CHN MdChn,
   g_algo_md_chns[MdChn].status = CHN_STATUS_OPEN;
 
   g_algo_md_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Enable MD[%d] END...\n", LOG_TAG, __func__, MdChn);
+  RKMEDIA_LOGI("%s %s: Enable MD[%d] END...\n", LOG_TAG, __func__, MdChn);
 
   return RK_ERR_SYS_OK;
 }
@@ -4380,12 +4385,12 @@ RK_S32 RK_MPI_ALGO_MD_DestroyChn(ALGO_MD_CHN MdChn) {
     return -RK_ERR_ALGO_MD_BUSY;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Disable MD[%d] Start...\n", LOG_TAG, __func__, MdChn);
+  RKMEDIA_LOGI("%s %s: Disable MD[%d] Start...\n", LOG_TAG, __func__, MdChn);
   if (g_algo_md_chns[MdChn].rkmedia_flow)
     g_algo_md_chns[MdChn].rkmedia_flow.reset();
   g_algo_md_chns[MdChn].status = CHN_STATUS_CLOSED;
   g_algo_md_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Disable MD[%d] End...\n", LOG_TAG, __func__, MdChn);
+  RKMEDIA_LOGI("%s %s: Disable MD[%d] End...\n", LOG_TAG, __func__, MdChn);
 
   return RK_ERR_SYS_OK;
 }
@@ -4400,7 +4405,7 @@ RK_S32 RK_MPI_ALGO_MD_EnableSwitch(ALGO_MD_CHN MdChn, RK_BOOL bEnable) {
     return -RK_ERR_ALGO_MD_INVALID_CHNID;
   }
   RK_S32 s32Enable = bEnable ? 1 : 0;
-  RKMEDIA_LOGI("\n%s %s: MoveDetection[%d]:set status to %s.\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: MoveDetection[%d]:set status to %s.\n", LOG_TAG,
                __func__, MdChn, s32Enable ? "Enable" : "Disable");
   if (g_algo_md_chns[MdChn].rkmedia_flow)
     g_algo_md_chns[MdChn].rkmedia_flow->Control(easymedia::S_MD_ROI_ENABLE,
@@ -4517,7 +4522,7 @@ RK_S32 RK_MPI_ALGO_OD_EnableSwitch(ALGO_OD_CHN OdChn, RK_BOOL bEnable) {
     return -RK_ERR_ALGO_OD_INVALID_CHNID;
   }
   RK_S32 s32Enable = bEnable ? 1 : 0;
-  RKMEDIA_LOGI("\n%s %s: OcclusionDetection[%d]:set status to %s.\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: OcclusionDetection[%d]:set status to %s.\n", LOG_TAG,
                __func__, OdChn, s32Enable ? "Enable" : "Disable");
   if (g_algo_od_chns[OdChn].rkmedia_flow)
     g_algo_od_chns[OdChn].rkmedia_flow->Control(easymedia::S_OD_ROI_ENABLE,
@@ -4536,7 +4541,7 @@ RK_S32 RK_MPI_RGA_CreateChn(RGA_CHN RgaChn, RGA_ATTR_S *pstRgaAttr) {
   if (!pstRgaAttr)
     return -RK_ERR_RGA_ILLEGAL_PARAM;
 
-  RKMEDIA_LOGI("\n%s %s: Enable RGA[%d], Rect<%d,%d,%d,%d> Start...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable RGA[%d], Rect<%d,%d,%d,%d> Start...\n", LOG_TAG,
                __func__, RgaChn, pstRgaAttr->stImgIn.u32X,
                pstRgaAttr->stImgIn.u32Y, pstRgaAttr->stImgIn.u32Width,
                pstRgaAttr->stImgIn.u32Height);
@@ -4611,7 +4616,7 @@ RK_S32 RK_MPI_RGA_CreateChn(RGA_CHN RgaChn, RGA_ATTR_S *pstRgaAttr) {
                                                      FlowOutputCallback);
   g_rga_chns[RgaChn].status = CHN_STATUS_OPEN;
   g_rga_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Enable RGA[%d], Rect<%d,%d,%d,%d> End...\n", LOG_TAG,
+  RKMEDIA_LOGI("%s %s: Enable RGA[%d], Rect<%d,%d,%d,%d> End...\n", LOG_TAG,
                __func__, RgaChn, pstRgaAttr->stImgIn.u32X,
                pstRgaAttr->stImgIn.u32Y, pstRgaAttr->stImgIn.u32Width,
                pstRgaAttr->stImgIn.u32Height);
@@ -4628,13 +4633,13 @@ RK_S32 RK_MPI_RGA_DestroyChn(RGA_CHN RgaChn) {
     g_rga_mtx.unlock();
     return -RK_ERR_RGA_BUSY;
   }
-  RKMEDIA_LOGI("\n%s %s: Disable RGA[%d] Start...\n", LOG_TAG, __func__,
+  RKMEDIA_LOGI("%s %s: Disable RGA[%d] Start...\n", LOG_TAG, __func__,
                RgaChn);
   RkmediaChnClearBuffer(&g_rga_chns[RgaChn]);
   g_rga_chns[RgaChn].rkmedia_flow.reset();
   g_rga_chns[RgaChn].status = CHN_STATUS_CLOSED;
   g_rga_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Disable RGA[%d] End...\n", LOG_TAG, __func__, RgaChn);
+  RKMEDIA_LOGI("%s %s: Disable RGA[%d] End...\n", LOG_TAG, __func__, RgaChn);
 
   return RK_ERR_SYS_OK;
 }
@@ -4765,7 +4770,7 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
     return -RK_ERR_VO_EXIST;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable VO[%d] Start...\n", LOG_TAG, __func__, VoChn);
+  RKMEDIA_LOGI("%s %s: Enable VO[%d] Start...\n", LOG_TAG, __func__, VoChn);
 
   std::string flow_name = "output_stream";
   std::string flow_param = "";
@@ -4847,7 +4852,7 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
 
   g_vo_chns[VoChn].status = CHN_STATUS_OPEN;
   g_vo_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Enable VO[%d] End!\n", LOG_TAG, __func__, VoChn);
+  RKMEDIA_LOGI("%s %s: Enable VO[%d] End!\n", LOG_TAG, __func__, VoChn);
 
   return ret;
 }
@@ -4947,7 +4952,7 @@ RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
     return -RK_ERR_VDEC_EXIST;
   }
 
-  RKMEDIA_LOGI("\n%s %s: Enable VDEC[%d] Start...\n", LOG_TAG, __func__, VdChn);
+  RKMEDIA_LOGI("%s %s: Enable VDEC[%d] Start...\n", LOG_TAG, __func__, VdChn);
   std::string flow_name;
   std::string flow_param;
   std::shared_ptr<easymedia::Flow> video_decoder_flow;
@@ -5000,7 +5005,7 @@ RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
   PARAM_STRING_APPEND_TO(dec_param, KEY_OUTPUT_TIMEOUT, timeout);
 
   flow_param = easymedia::JoinFlowParam(flow_param, 1, dec_param);
-  RKMEDIA_LOGI("\n#VDEC: flow param:\n%s\n", flow_param.c_str());
+  RKMEDIA_LOGI("#VDEC: flow param:\n%s\n", flow_param.c_str());
   video_decoder_flow = easymedia::REFLECTOR(Flow)::Create<easymedia::Flow>(
       flow_name.c_str(), flow_param.c_str());
   if (!video_decoder_flow) {
@@ -5015,7 +5020,7 @@ RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
   g_vdec_chns[VdChn].rkmedia_flow->SetOutputCallBack(&g_vdec_chns[VdChn],
                                                      FlowOutputCallback);
   g_vdec_mtx.unlock();
-  RKMEDIA_LOGI("\n%s %s: Enable VDEC[%d] End!\n", LOG_TAG, __func__, VdChn);
+  RKMEDIA_LOGI("%s %s: Enable VDEC[%d] End!\n", LOG_TAG, __func__, VdChn);
   return RK_ERR_SYS_OK;
 }
 

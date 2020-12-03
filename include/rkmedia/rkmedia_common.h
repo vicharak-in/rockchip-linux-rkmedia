@@ -135,6 +135,7 @@ enum {
   RK_ERR_SYS_BUSY,
   RK_ERR_SYS_NOT_SUPPORT,
   RK_ERR_SYS_OP_REPEAT,
+  RK_ERR_SYS_ERR_STATUS,
 
   /***********************************
    * VideoInput error types
