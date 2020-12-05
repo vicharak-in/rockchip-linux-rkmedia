@@ -201,7 +201,7 @@ _CAPI RK_S32 RK_MPI_AO_ClearChnBuf(AO_CHN AoChn);
 _CAPI RK_S32 RK_MPI_AENC_CreateChn(AENC_CHN AencChn,
                                    const AENC_CHN_ATTR_S *pstAttr);
 _CAPI RK_S32 RK_MPI_AENC_DestroyChn(AENC_CHN AencChn);
-
+_CAPI RK_S32 RK_MPI_AENC_GetFd(AENC_CHN AencChn);
 /********************************************************************
  * Algorithm::Move Detection api
  ********************************************************************/

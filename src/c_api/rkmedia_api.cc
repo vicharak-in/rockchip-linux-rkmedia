@@ -3759,7 +3759,7 @@ create_alsa_flow(std::string aud_in_path, SampleInfo &info, bool capture,
 
 RK_S32 RK_MPI_AI_SetChnAttr(AI_CHN AiChn, const AI_CHN_ATTR_S *pstAttr) {
   if ((AiChn < 0) || (AiChn >= AI_MAX_CHN_NUM))
-    return -RK_ERR_AI_INVALID_DEVID;
+    return -RK_ERR_AI_INVALID_CHNID;
 
   g_ai_mtx.lock();
   if (!pstAttr || !pstAttr->pcAudioNode)
@@ -3779,7 +3779,7 @@ RK_S32 RK_MPI_AI_SetChnAttr(AI_CHN AiChn, const AI_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_AI_EnableChn(AI_CHN AiChn) {
   if ((AiChn < 0) || (AiChn >= AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status != CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3809,7 +3809,7 @@ RK_S32 RK_MPI_AI_EnableChn(AI_CHN AiChn) {
 
 RK_S32 RK_MPI_AI_DisableChn(AI_CHN AiChn) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
 
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status == CHN_STATUS_BIND) {
@@ -3827,7 +3827,7 @@ RK_S32 RK_MPI_AI_DisableChn(AI_CHN AiChn) {
 
 RK_S32 RK_MPI_AI_SetVolume(AI_CHN AiChn, RK_S32 s32Volume) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3840,7 +3840,7 @@ RK_S32 RK_MPI_AI_SetVolume(AI_CHN AiChn, RK_S32 s32Volume) {
 
 RK_S32 RK_MPI_AI_GetVolume(AI_CHN AiChn, RK_S32 *ps32Volume) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3853,7 +3853,7 @@ RK_S32 RK_MPI_AI_GetVolume(AI_CHN AiChn, RK_S32 *ps32Volume) {
 
 RK_S32 RK_MPI_AI_StartStream(AI_CHN AiChn) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return -RK_ERR_AI_INVALID_DEVID;
+    return -RK_ERR_AI_INVALID_CHNID;
 
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status < CHN_STATUS_OPEN) {
@@ -3874,7 +3874,7 @@ RK_S32 RK_MPI_AI_StartStream(AI_CHN AiChn) {
 
 RK_S32 RK_MPI_AI_EnableVqe(AI_CHN AiChn) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3888,7 +3888,7 @@ RK_S32 RK_MPI_AI_EnableVqe(AI_CHN AiChn) {
 
 RK_S32 RK_MPI_AI_DisableVqe(AI_CHN AiChn) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3903,7 +3903,7 @@ RK_S32 RK_MPI_AI_DisableVqe(AI_CHN AiChn) {
 RK_S32 RK_MPI_AI_SetTalkVqeAttr(AI_CHN AiChn,
                                 AI_TALKVQE_CONFIG_S *pstVqeConfig) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3924,7 +3924,7 @@ RK_S32 RK_MPI_AI_SetTalkVqeAttr(AI_CHN AiChn,
 RK_S32 RK_MPI_AI_GetTalkVqeAttr(AI_CHN AiChn,
                                 AI_TALKVQE_CONFIG_S *pstVqeConfig) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3944,7 +3944,7 @@ RK_S32 RK_MPI_AI_GetTalkVqeAttr(AI_CHN AiChn,
 RK_S32 RK_MPI_AI_SetRecordVqeAttr(AI_CHN AiChn,
                                   AI_RECORDVQE_CONFIG_S *pstVqeConfig) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3968,7 +3968,7 @@ RK_S32 RK_MPI_AI_SetRecordVqeAttr(AI_CHN AiChn,
 RK_S32 RK_MPI_AI_GetRecordVqeAttr(AI_CHN AiChn,
                                   AI_RECORDVQE_CONFIG_S *pstVqeConfig) {
   if ((AiChn < 0) || (AiChn > AI_MAX_CHN_NUM))
-    return RK_ERR_AI_INVALID_DEVID;
+    return RK_ERR_AI_INVALID_CHNID;
   g_ai_mtx.lock();
   if (g_ai_chns[AiChn].status <= CHN_STATUS_READY) {
     g_ai_mtx.unlock();
@@ -3992,7 +3992,7 @@ RK_S32 RK_MPI_AI_GetRecordVqeAttr(AI_CHN AiChn,
  ********************************************************************/
 RK_S32 RK_MPI_AO_SetChnAttr(AO_CHN AoChn, const AO_CHN_ATTR_S *pstAttr) {
   if ((AoChn < 0) || (AoChn >= AO_MAX_CHN_NUM))
-    return -RK_ERR_AO_INVALID_DEVID;
+    return -RK_ERR_AO_INVALID_CHNID;
 
   g_ao_mtx.lock();
   if (!pstAttr || !pstAttr->pcAudioNode)
@@ -4012,7 +4012,7 @@ RK_S32 RK_MPI_AO_SetChnAttr(AO_CHN AoChn, const AO_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_AO_EnableChn(AO_CHN AoChn) {
   if ((AoChn < 0) || (AoChn >= AO_MAX_CHN_NUM))
-    return -RK_ERR_AO_INVALID_DEVID;
+    return -RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status != CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4039,7 +4039,7 @@ RK_S32 RK_MPI_AO_EnableChn(AO_CHN AoChn) {
 
 RK_S32 RK_MPI_AO_DisableChn(AO_CHN AoChn) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return -RK_ERR_AO_INVALID_DEVID;
+    return -RK_ERR_AO_INVALID_CHNID;
 
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status == CHN_STATUS_BIND) {
@@ -4056,7 +4056,7 @@ RK_S32 RK_MPI_AO_DisableChn(AO_CHN AoChn) {
 
 RK_S32 RK_MPI_AO_QueryChnStat(AO_CHN AoChn, AO_CHN_STATE_S *pstStatus) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return -RK_ERR_AO_INVALID_DEVID;
+    return -RK_ERR_AO_INVALID_CHNID;
 
   if (!pstStatus)
     return -RK_ERR_AO_ILLEGAL_PARAM;
@@ -4085,7 +4085,7 @@ RK_S32 RK_MPI_AO_QueryChnStat(AO_CHN AoChn, AO_CHN_STATE_S *pstStatus) {
 
 RK_S32 RK_MPI_AO_ClearChnBuf(AO_CHN AoChn) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return -RK_ERR_AO_INVALID_DEVID;
+    return -RK_ERR_AO_INVALID_CHNID;
 
   g_ao_mtx.lock();
   if ((g_ao_chns[AoChn].status < CHN_STATUS_OPEN) ||
@@ -4102,7 +4102,7 @@ RK_S32 RK_MPI_AO_ClearChnBuf(AO_CHN AoChn) {
 
 RK_S32 RK_MPI_AO_SetVolume(AO_CHN AoChn, RK_S32 s32Volume) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4115,7 +4115,7 @@ RK_S32 RK_MPI_AO_SetVolume(AO_CHN AoChn, RK_S32 s32Volume) {
 
 RK_S32 RK_MPI_AO_GetVolume(AO_CHN AoChn, RK_S32 *ps32Volume) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4128,7 +4128,7 @@ RK_S32 RK_MPI_AO_GetVolume(AO_CHN AoChn, RK_S32 *ps32Volume) {
 
 RK_S32 RK_MPI_AO_EnableVqe(AO_CHN AoChn) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4142,7 +4142,7 @@ RK_S32 RK_MPI_AO_EnableVqe(AO_CHN AoChn) {
 
 RK_S32 RK_MPI_AO_DisableVqe(AO_CHN AoChn) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4156,7 +4156,7 @@ RK_S32 RK_MPI_AO_DisableVqe(AO_CHN AoChn) {
 
 RK_S32 RK_MPI_AO_SetVqeAttr(AO_CHN AoChn, AO_VQE_CONFIG_S *pstVqeConfig) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4176,7 +4176,7 @@ RK_S32 RK_MPI_AO_SetVqeAttr(AO_CHN AoChn, AO_VQE_CONFIG_S *pstVqeConfig) {
 
 RK_S32 RK_MPI_AO_GetVqeAttr(AO_CHN AoChn, AO_VQE_CONFIG_S *pstVqeConfig) {
   if ((AoChn < 0) || (AoChn > AO_MAX_CHN_NUM))
-    return RK_ERR_AO_INVALID_DEVID;
+    return RK_ERR_AO_INVALID_CHNID;
   g_ao_mtx.lock();
   if (g_ao_chns[AoChn].status <= CHN_STATUS_READY) {
     g_ao_mtx.unlock();
@@ -4199,7 +4199,7 @@ RK_S32 RK_MPI_AO_GetVqeAttr(AO_CHN AoChn, AO_VQE_CONFIG_S *pstVqeConfig) {
  ********************************************************************/
 RK_S32 RK_MPI_AENC_CreateChn(AENC_CHN AencChn, const AENC_CHN_ATTR_S *pstAttr) {
   if ((AencChn < 0) || (AencChn >= AENC_MAX_CHN_NUM))
-    return -RK_ERR_AENC_INVALID_DEVID;
+    return -RK_ERR_AENC_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_SYS_NOT_PERM;
@@ -4283,6 +4283,12 @@ RK_S32 RK_MPI_AENC_CreateChn(AENC_CHN AencChn, const AENC_CHN_ATTR_S *pstAttr) {
   g_aenc_chns[AencChn].rkmedia_flow->SetOutputCallBack(&g_aenc_chns[AencChn],
                                                        FlowOutputCallback);
 
+  if (pipe2(g_aenc_chns[AencChn].wake_fd, O_CLOEXEC) == -1) {
+    g_aenc_chns[AencChn].wake_fd[0] = 0;
+    g_aenc_chns[AencChn].wake_fd[1] = 0;
+    RKMEDIA_LOGW("Create pipe failed!\n");
+  }
+
   g_aenc_chns[AencChn].status = CHN_STATUS_OPEN;
   g_aenc_mtx.unlock();
   return RK_ERR_SYS_OK;
@@ -4290,7 +4296,7 @@ RK_S32 RK_MPI_AENC_CreateChn(AENC_CHN AencChn, const AENC_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_AENC_DestroyChn(AENC_CHN AencChn) {
   if ((AencChn < 0) || (AencChn > AENC_MAX_CHN_NUM))
-    return RK_ERR_AENC_INVALID_DEVID;
+    return RK_ERR_AENC_INVALID_CHNID;
 
   g_aenc_mtx.lock();
   if (g_aenc_chns[AencChn].status == CHN_STATUS_BIND) {
@@ -4301,9 +4307,33 @@ RK_S32 RK_MPI_AENC_DestroyChn(AENC_CHN AencChn) {
   g_aenc_chns[AencChn].rkmedia_flow.reset();
   RkmediaChnClearBuffer(&g_aenc_chns[AencChn]);
   g_aenc_chns[AencChn].status = CHN_STATUS_CLOSED;
+  if (g_aenc_chns[AencChn].wake_fd[0] > 0) {
+    close(g_aenc_chns[AencChn].wake_fd[0]);
+    g_aenc_chns[AencChn].wake_fd[0] = 0;
+  }
+  if (g_aenc_chns[AencChn].wake_fd[1] > 0) {
+    close(g_aenc_chns[AencChn].wake_fd[1]);
+    g_aenc_chns[AencChn].wake_fd[1] = 0;
+  }
   g_aenc_mtx.unlock();
 
   return RK_ERR_SYS_OK;
+}
+
+RK_S32 RK_MPI_AENC_GetFd(AENC_CHN AencChn) {
+  if ((AencChn < 0) || (AencChn >= AENC_MAX_CHN_NUM))
+    return -RK_ERR_AENC_INVALID_CHNID;
+
+  int rcv_fd = 0;
+  g_aenc_mtx.lock();
+  if (g_aenc_chns[AencChn].status < CHN_STATUS_OPEN) {
+    g_aenc_mtx.unlock();
+    return -RK_ERR_AENC_NOTREADY;
+  }
+  rcv_fd = g_aenc_chns[AencChn].wake_fd[0];
+  g_aenc_mtx.unlock();
+
+  return rcv_fd;
 }
 
 /********************************************************************
@@ -4649,7 +4679,7 @@ RK_S32 RK_MPI_RGA_DestroyChn(RGA_CHN RgaChn) {
  ********************************************************************/
 RK_S32 RK_MPI_ADEC_CreateChn(ADEC_CHN AdecChn, const ADEC_CHN_ATTR_S *pstAttr) {
   if ((AdecChn < 0) || (AdecChn >= ADEC_MAX_CHN_NUM))
-    return -RK_ERR_ADEC_INVALID_DEVID;
+    return -RK_ERR_ADEC_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_SYS_NOT_PERM;
@@ -4718,7 +4748,7 @@ RK_S32 RK_MPI_ADEC_CreateChn(ADEC_CHN AdecChn, const ADEC_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_ADEC_DestroyChn(ADEC_CHN AdecChn) {
   if ((AdecChn < 0) || (AdecChn > ADEC_MAX_CHN_NUM))
-    return RK_ERR_ADEC_INVALID_DEVID;
+    return RK_ERR_ADEC_INVALID_CHNID;
 
   g_adec_mtx.lock();
   if (g_adec_chns[AdecChn].status == CHN_STATUS_BIND) {
@@ -4742,7 +4772,7 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
   const RK_CHAR *pcPlaneType = NULL;
 
   if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
-    return -RK_ERR_VO_INVALID_DEVID;
+    return -RK_ERR_VO_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_VO_ILLEGAL_PARAM;
@@ -4859,7 +4889,7 @@ RK_S32 RK_MPI_VO_CreateChn(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_VO_SetChnAttr(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
   if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
-    return -RK_ERR_VO_INVALID_DEVID;
+    return -RK_ERR_VO_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_VO_ILLEGAL_PARAM;
@@ -4905,7 +4935,7 @@ RK_S32 RK_MPI_VO_SetChnAttr(VO_CHN VoChn, const VO_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_VO_GetChnAttr(VO_CHN VoChn, VO_CHN_ATTR_S *pstAttr) {
   if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
-    return -RK_ERR_VO_INVALID_DEVID;
+    return -RK_ERR_VO_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_VO_ILLEGAL_PARAM;
@@ -4924,7 +4954,7 @@ RK_S32 RK_MPI_VO_GetChnAttr(VO_CHN VoChn, VO_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn) {
   if ((VoChn < 0) || (VoChn >= VO_MAX_CHN_NUM))
-    return -RK_ERR_VO_INVALID_DEVID;
+    return -RK_ERR_VO_INVALID_CHNID;
 
   g_vo_mtx.lock();
   if (g_vo_chns[VoChn].status == CHN_STATUS_BIND) {
@@ -4941,7 +4971,7 @@ RK_S32 RK_MPI_VO_DestroyChn(VO_CHN VoChn) {
 
 RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
   if ((VdChn < 0) || (VdChn >= VDEC_MAX_CHN_NUM))
-    return -RK_ERR_VDEC_INVALID_DEVID;
+    return -RK_ERR_VDEC_INVALID_CHNID;
 
   if (!pstAttr)
     return -RK_ERR_VDEC_ILLEGAL_PARAM;
@@ -5026,7 +5056,7 @@ RK_S32 RK_MPI_VDEC_CreateChn(VDEC_CHN VdChn, const VDEC_CHN_ATTR_S *pstAttr) {
 
 RK_S32 RK_MPI_VDEC_DestroyChn(VDEC_CHN VdChn) {
   if ((VdChn < 0) || (VdChn >= VO_MAX_CHN_NUM))
-    return -RK_ERR_VDEC_INVALID_DEVID;
+    return -RK_ERR_VDEC_INVALID_CHNID;
 
   g_vdec_mtx.lock();
   if (g_vdec_chns[VdChn].status == CHN_STATUS_BIND) {

@@ -189,7 +189,7 @@ enum {
    * AI::Audio input error types
    **********************************/
   /* invlalid device ID */
-  RK_ERR_AI_INVALID_DEVID = 40,
+  RK_ERR_AI_INVALID_CHNID = 40,
   /* system is busy*/
   RK_ERR_AI_BUSY,
   RK_ERR_AI_EXIST,
@@ -201,7 +201,7 @@ enum {
    * AO::Audio output error types
    **********************************/
   /* invlalid device ID */
-  RK_ERR_AO_INVALID_DEVID = 50,
+  RK_ERR_AO_INVALID_CHNID = 50,
   /* system is busy*/
   RK_ERR_AO_BUSY,
   /* system is not ready,had not initialed or loaded*/
@@ -214,11 +214,12 @@ enum {
    * AENC::Audio encoder error types
    **********************************/
   /* invlalid device ID */
-  RK_ERR_AENC_INVALID_DEVID = 60,
+  RK_ERR_AENC_INVALID_CHNID = 60,
   /* system is busy*/
   RK_ERR_AENC_BUSY,
   /* codec not support*/
   RK_ERR_AENC_CODEC_NOT_SUPPORT,
+  RK_ERR_AENC_NOTREADY,
 
   /***********************************
    * Algorithm::MoveDetection error types
@@ -263,7 +264,7 @@ enum {
    * ADEC::Audio decoder error types
    **********************************/
   /* invlalid device ID */
-  RK_ERR_ADEC_INVALID_DEVID = 100,
+  RK_ERR_ADEC_INVALID_CHNID = 100,
   /* system is busy*/
   RK_ERR_ADEC_BUSY,
   /* codec not support*/
@@ -272,7 +273,7 @@ enum {
   /***********************************
    * VO::Video Output error types
    **********************************/
-  RK_ERR_VO_INVALID_DEVID = 110,
+  RK_ERR_VO_INVALID_CHNID = 110,
   RK_ERR_VO_BUSY,
   RK_ERR_VO_EXIST,
   RK_ERR_VO_NOT_CONFIG,
@@ -284,7 +285,7 @@ enum {
   /***********************************
    * VDEC::Video Output error types
    **********************************/
-  RK_ERR_VDEC_INVALID_DEVID = 120,
+  RK_ERR_VDEC_INVALID_CHNID = 120,
   RK_ERR_VDEC_BUSY,
   RK_ERR_VDEC_EXIST,
   RK_ERR_VDEC_NOT_CONFIG,
