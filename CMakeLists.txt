@@ -176,3 +176,5 @@ if(COMPILES_EXAMPLES)
   enable_testing()
   add_subdirectory(examples)
 endif()
+
+option(COMPILES_UVC_EXAMPLE "Enable compiles uvc example" OFF)
